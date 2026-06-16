@@ -7,7 +7,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
-canvas{display:block;width:100%;height:100%}
+canvas#game{display:block;width:100%;height:100%}
 #ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center}
 #ui>div{pointer-events:auto}
 .screen{display:none;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:20px}
@@ -40,7 +40,7 @@ canvas{display:block;width:100%;height:100%}
 .hud-row{display:flex;justify-content:space-between;align-items:flex-start}
 .hud-box{background:rgba(0,0,0,.7);color:#fff;padding:6px 12px;border-radius:8px;font-size:clamp(12px,2vw,16px);font-weight:700;backdrop-filter:blur(4px)}
 .hud-box.pos{font-size:clamp(18px,3vw,28px);color:#ff0}
-#minimap{position:absolute;bottom:10px;right:10px;border:2px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(0,0,0,.6);pointer-events:none;display:none}
+#minimap{position:absolute;bottom:10px;right:10px;width:150px;height:150px;border:2px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(0,0,0,.6);pointer-events:none;display:none;z-index:10}
 #countdown{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(60px,15vw,120px);font-weight:900;color:#fff;text-shadow:0 0 30px #f0f,0 0 60px #0ff;display:none;pointer-events:none}
 #touch-controls{position:absolute;bottom:0;left:0;width:100%;height:45%;pointer-events:none;display:none}
 .touch-btn{position:absolute;pointer-events:auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:rgba(255,255,255,.8);opacity:.4;-webkit-tap-highlight-color:transparent}
@@ -97,7 +97,7 @@ canvas{display:block;width:100%;height:100%}
 <div class="hud-box" id="hud-time">0:00.0</div>
 </div>
 </div>
-<canvas id="minimap" width="160" height="160"></canvas>
+<canvas id="minimap" width="150" height="150"></canvas>
 <div id="countdown"></div>
 <div id="touch-controls">
 <div class="touch-btn" id="touch-left">◀</div>
@@ -242,9 +242,9 @@ finishLine:{x1:-900,y1:-500,x2:-500,y2:-200}};
 const TRACKS=[makeOvalTrack(),makeSTrack(),makeSquareTrack()];
 const DIFFICULTIES=['Easy','Medium','Hard'];
 const DIFF_SETTINGS={
-Easy:{speedMult:.7,errorRate:.04,lookAhead:2},
-Medium:{speedMult:.88,errorRate:.015,lookAhead:4},
-Hard:{speedMult:1.0,errorRate:.005,lookAhead:6}
+Easy:{speedMult:.65,errorRate:.06,lookAhead:2},
+Medium:{speedMult:.85,errorRate:.02,lookAhead:3},
+Hard:{speedMult:1.0,errorRate:.003,lookAhead:5}
 };
 
 // Game state
@@ -551,42 +551,87 @@ racer.waypointIdx=nextIdx;
 }
 }
 
-// Bot AI
+// Bot AI — rewritten for reliable waypoint following
 function updateBot(racer,track,dt){
 if(racer.finished){racer.speed*=.95;return}
 const diff=DIFF_SETTINGS[G.difficulty];
 const wp=track.waypoints;
+const numWp=wp.length;
+
+// Advance waypoint if close enough — check multiple ahead to avoid getting stuck
+for(let check=0;check<3;check++){
+const nextIdx=(racer.waypointIdx+1)%numWp;
+const nwp=wp[nextIdx];
+const ddx=nwp.x-racer.x,ddy=nwp.y-racer.y;
+const dist=Math.sqrt(ddx*ddx+ddy*ddy);
+if(dist<150){
+if(nextIdx===0&&racer.waypointIdx>numWp/2){
+racer.lap++;
+if(racer.lap>=racer.totalLaps&&!racer.finished){
+racer.finished=true;
+racer.finishTime=G.raceTime;
+G.finishOrder.push({name:racer.char.name,time:racer.finishTime,emoji:racer.char.emoji,color:racer.char.color,isPlayer:racer.isPlayer});
+}
+}
+racer.waypointIdx=nextIdx;
+}else break;
+}
+
+// Steer toward a lookahead waypoint for smooth pathing
 const lookAhead=diff.lookAhead;
-const targetIdx=(racer.waypointIdx+lookAhead)%wp.length;
+const targetIdx=(racer.waypointIdx+lookAhead)%numWp;
 const target=wp[targetIdx];
 
+// Update steering error periodically
 racer.errorTimer-=dt;
 if(racer.errorTimer<=0){
-racer.steerError=(Math.random()-.5)*diff.errorRate*20;
-racer.errorTimer=500+Math.random()*1000;
+racer.steerError=(Math.random()-.5)*diff.errorRate*15;
+racer.errorTimer=800+Math.random()*1200;
 }
 
 const dx=target.x-racer.x,dy=target.y-racer.y;
-let targetAngle=Math.atan2(dy,dx);
-let angleDiff=targetAngle-racer.angle+racer.steerError;
+const targetAngle=Math.atan2(dy,dx)+racer.steerError;
+let angleDiff=targetAngle-racer.angle;
 while(angleDiff>Math.PI)angleDiff-=Math.PI*2;
 while(angleDiff<-Math.PI)angleDiff+=Math.PI*2;
 
-const turnSpeed=racer.turnRate*(1+diff.speedMult*.3);
-if(angleDiff>0.05)racer.angle+=Math.min(turnSpeed,angleDiff);
-else if(angleDiff<-0.05)racer.angle-=Math.min(turnSpeed,-angleDiff);
-
-const targetSpeed=racer.maxSpeed*diff.speedMult;
-const shouldBrake=Math.abs(angleDiff)>1.2;
-if(shouldBrake){
-racer.speed*=.96;
-}else{
-racer.speed+=(targetSpeed-racer.speed)*racer.accelRate*.6;
+// Smooth turning — always turn toward target
+const turnSpeed=racer.turnRate*1.2;
+if(Math.abs(angleDiff)>0.02){
+racer.angle+=Math.sign(angleDiff)*Math.min(turnSpeed,Math.abs(angleDiff)*.15);
 }
-racer.speed=Math.max(0,Math.min(racer.speed,targetSpeed));
 
+// Speed control — slow for sharp turns, accelerate on straights
+const targetSpeed=racer.maxSpeed*diff.speedMult;
+const turnPenalty=Math.max(.4,1-Math.abs(angleDiff)*0.6);
+const desiredSpeed=targetSpeed*turnPenalty;
+
+if(racer.speed<desiredSpeed){
+racer.speed+=racer.accelRate*diff.speedMult*.8;
+}else{
+racer.speed+=(desiredSpeed-racer.speed)*.08;
+}
+racer.speed=Math.max(.5,Math.min(racer.speed,targetSpeed));
+
+// Move forward
 racer.x+=Math.cos(racer.angle)*racer.speed;
 racer.y+=Math.sin(racer.angle)*racer.speed;
+
+// Stuck detection — if bot hasn't moved much, nudge toward waypoint
+if(!racer._lastX)racer._lastX=racer.x;
+if(!racer._lastY)racer._lastY=racer.y;
+racer._stuckTimer=(racer._stuckTimer||0)+dt;
+if(racer._stuckTimer>500){
+const moved=Math.sqrt((racer.x-racer._lastX)**2+(racer.y-racer._lastY)**2);
+if(moved<5){
+const nwp=wp[(racer.waypointIdx+1)%numWp];
+racer.angle=Math.atan2(nwp.y-racer.y,nwp.x-racer.x);
+racer.speed=desiredSpeed*.5;
+racer.x+=Math.cos(racer.angle)*3;
+racer.y+=Math.sin(racer.angle)*3;
+}
+racer._lastX=racer.x;racer._lastY=racer.y;racer._stuckTimer=0;
+}
 }
 
 // Position calculation
@@ -676,8 +721,9 @@ G.racers.forEach(r=>{
 if(!r.isPlayer){
 updateBot(r,track,dt);
 collideWalls(r,track);
-}
+}else{
 updateWaypoints(r,track);
+}
 });
 
 collideRacers(G.racers);
@@ -689,10 +735,14 @@ G.engineTimer=0;
 playEngine(player.speed);
 }
 
-// Check if all finished
-if(G.finishOrder.length>=G.racers.length&&!G.raceFinished){
+// Check if all finished or player finished
+if(!G.raceFinished){
+const playerDone=G.racers[0].finished;
+const allDone=G.finishOrder.length>=G.racers.length;
+if(playerDone||allDone){
 G.raceFinished=true;
-setTimeout(()=>G.showResults(),1500);
+setTimeout(()=>G.showResults(),2000);
+}
 }
 }
 
@@ -766,42 +816,77 @@ const fl=track.finishLine;
 ctx.strokeStyle='#fff';ctx.lineWidth=6;
 ctx.beginPath();ctx.moveTo(fl.x1,fl.y1);ctx.lineTo(fl.x2,fl.y2);ctx.stroke();
 
-// Draw racers
+// Draw racers as cars
 G.racers.forEach(r=>{
 ctx.save();
 ctx.translate(r.x,r.y);
 ctx.rotate(r.angle);
 
-// Kart body
+const s=r.isPlayer?1.15:1;
+
+// Wheels (dark gray rectangles at 4 corners)
+ctx.fillStyle='#222';
+ctx.fillRect(-10*s,-12*s,6*s,4*s);
+ctx.fillRect(-10*s,8*s,6*s,4*s);
+ctx.fillRect(6*s,-12*s,6*s,4*s);
+ctx.fillRect(6*s,8*s,6*s,4*s);
+
+// Car body (rounded rectangle)
 ctx.fillStyle=r.char.color;
 ctx.beginPath();
-ctx.moveTo(16,0);ctx.lineTo(-10,-10);ctx.lineTo(-10,10);ctx.closePath();
+ctx.moveTo(-10*s,-8*s);
+ctx.lineTo(14*s,-8*s);
+ctx.quadraticCurveTo(18*s,-8*s,18*s,-4*s);
+ctx.lineTo(18*s,4*s);
+ctx.quadraticCurveTo(18*s,8*s,14*s,8*s);
+ctx.lineTo(-10*s,8*s);
+ctx.quadraticCurveTo(-14*s,8*s,-14*s,4*s);
+ctx.lineTo(-14*s,-4*s);
+ctx.quadraticCurveTo(-14*s,-8*s,-10*s,-8*s);
+ctx.closePath();
+ctx.fill();
+ctx.strokeStyle='#000';ctx.lineWidth=1.5;ctx.stroke();
+
+// Windshield (accent color)
+ctx.fillStyle=r.char.accent;
+ctx.beginPath();
+ctx.moveTo(4*s,-6*s);ctx.lineTo(12*s,-5*s);ctx.lineTo(12*s,5*s);ctx.lineTo(4*s,6*s);ctx.closePath();
 ctx.fill();
 
-// Outline
-ctx.strokeStyle='#000';ctx.lineWidth=2;
-ctx.stroke();
+// Cockpit stripe
+ctx.fillStyle='rgba(0,0,0,.25)';
+ctx.fillRect(-8*s,-5*s,10*s,10*s);
 
-// Accent
+// Player indicator — white glow ring
+if(r.isPlayer){
+ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=2;
+ctx.beginPath();ctx.arc(0,0,20*s,0,Math.PI*2);ctx.stroke();
+}
+
+// Exhaust flair on back
 ctx.fillStyle=r.char.accent;
-ctx.fillRect(-8,-6,8,12);
+ctx.fillRect(-14*s,-3*s,3*s,6*s);
 
 ctx.restore();
 
-// Name tag
-ctx.fillStyle='rgba(0,0,0,.6)';
-ctx.fillRect(r.x-25,r.y-28,50,14);
-ctx.fillStyle='#fff';
+// Name tag above car
+ctx.fillStyle='rgba(0,0,0,.65)';
+const tagW=54,tagH=15;
+ctx.beginPath();
+if(ctx.roundRect){ctx.roundRect(r.x-tagW/2,r.y-30,tagW,tagH,4)}
+else{ctx.rect(r.x-tagW/2,r.y-30,tagW,tagH)}
+ctx.fill();
+ctx.fillStyle=r.isPlayer?'#0ff':'#fff';
 ctx.font='bold 10px sans-serif';
 ctx.textAlign='center';
-ctx.fillText(r.char.emoji+' '+posStr(r.position||1),r.x,r.y-18);
+ctx.fillText(r.char.emoji+' '+posStr(r.position||1),r.x,r.y-19);
 });
 
 ctx.restore();
 }
 
 function renderMinimap(track){
-const mmW=160,mmH=160;
+const mmW=150,mmH=150;
 mmCtx.clearRect(0,0,mmW,mmH);
 mmCtx.fillStyle='rgba(0,0,0,.5)';
 mmCtx.fillRect(0,0,mmW,mmH);
