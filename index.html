@@ -651,13 +651,25 @@ return b.progress-a.progress;
 sorted.forEach((r,i)=>r.position=i+1);
 }
 
-// Resize
+// Resize — self-correcting. Uses the canvas's own client box (falls back to
+// window dims) so it works even when the page loads in a container that has
+// no size yet (hidden iframe / preview pane / mobile webview before layout).
 function resize(){
-canvas.width=window.innerWidth*devicePixelRatio;
-canvas.height=window.innerHeight*devicePixelRatio;
-ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+const dpr=window.devicePixelRatio||1;
+let cw=canvas.clientWidth||window.innerWidth||document.documentElement.clientWidth;
+let ch=canvas.clientHeight||window.innerHeight||document.documentElement.clientHeight;
+if(!cw||cw<1)cw=window.innerWidth||300;
+if(!ch||ch<1)ch=window.innerHeight||150;
+const bw=Math.max(1,Math.round(cw*dpr)),bh=Math.max(1,Math.round(ch*dpr));
+if(canvas.width!==bw||canvas.height!==bh){
+canvas.width=bw;canvas.height=bh;
+}
+// setTransform must be reapplied every call (changing canvas.width resets it)
+ctx.setTransform(dpr,0,0,dpr,0,0);
+canvas._cssW=cw;canvas._cssH=ch;
 }
 window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',resize);
 resize();
 
 // Main loop
@@ -668,6 +680,7 @@ lastTime=time;
 
 if(G.screen==='racing'){
 const track=TRACKS[G.selectedTrack];
+resize(); // self-correct canvas size each frame (handles late-visible containers)
 
 // Countdown
 if(G.countdownVal>0){
@@ -768,7 +781,7 @@ requestAnimationFrame(gameLoop);
 }
 
 function render(track){
-const w=window.innerWidth,h=window.innerHeight;
+const w=canvas._cssW||window.innerWidth,h=canvas._cssH||window.innerHeight;
 const cx=G.camera.x,cy=G.camera.y;
 
 // Background
