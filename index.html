@@ -47,8 +47,8 @@ canvas#game{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-i
 .touch-btn:active,.touch-btn.pressed{opacity:.7}
 #touch-left{width:70px;height:70px;left:10px;bottom:80px;background:rgba(255,255,255,.15)}
 #touch-right{width:70px;height:70px;left:90px;bottom:80px;background:rgba(255,255,255,.15)}
-#touch-gas{width:80px;height:80px;right:10px;bottom:80px;background:rgba(0,255,0,.2)}
-#touch-brake{width:70px;height:70px;right:100px;bottom:80px;background:rgba(255,0,0,.2)}
+#touch-gas{width:80px;height:80px;right:10px;bottom:175px;background:rgba(0,255,0,.2)}
+#touch-brake{width:70px;height:70px;right:100px;bottom:185px;background:rgba(255,0,0,.2)}
 .results-table{width:100%;max-width:500px;margin:15px 0}
 .results-row{display:flex;justify-content:space-between;padding:8px 16px;margin:4px 0;border-radius:8px;color:#fff;font-weight:700;font-size:clamp(13px,2.5vw,18px)}
 .results-row.player{background:rgba(0,255,255,.2);border:1px solid #0ff}
@@ -651,21 +651,22 @@ return b.progress-a.progress;
 sorted.forEach((r,i)=>r.position=i+1);
 }
 
-// Resize — self-correcting. Uses the canvas's own client box (falls back to
-// window dims) so it works even when the page loads in a container that has
-// no size yet (hidden iframe / preview pane / mobile webview before layout).
+// Resize — self-correcting and 1:1 (no devicePixelRatio scaling).
+// A 1:1 buffer keeps the canvas small and avoids large GPU surfaces that
+// can fail to composite (render black) on low-end/integrated GPUs such as
+// school computers. The minimap is unaffected because it is tiny & fixed.
+// Measuring the canvas client box (with fallbacks) also fixes the case
+// where the page loads in a container that has no size yet.
 function resize(){
-const dpr=window.devicePixelRatio||1;
 let cw=canvas.clientWidth||window.innerWidth||document.documentElement.clientWidth;
 let ch=canvas.clientHeight||window.innerHeight||document.documentElement.clientHeight;
 if(!cw||cw<1)cw=window.innerWidth||300;
 if(!ch||ch<1)ch=window.innerHeight||150;
-const bw=Math.max(1,Math.round(cw*dpr)),bh=Math.max(1,Math.round(ch*dpr));
-if(canvas.width!==bw||canvas.height!==bh){
-canvas.width=bw;canvas.height=bh;
+cw=Math.round(cw);ch=Math.round(ch);
+if(canvas.width!==cw||canvas.height!==ch){
+canvas.width=cw;canvas.height=ch;
 }
-// setTransform must be reapplied every call (changing canvas.width resets it)
-ctx.setTransform(dpr,0,0,dpr,0,0);
+ctx.setTransform(1,0,0,1,0,0);
 canvas._cssW=cw;canvas._cssH=ch;
 }
 window.addEventListener('resize',resize);
