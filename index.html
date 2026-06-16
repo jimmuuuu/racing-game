@@ -119,15 +119,32 @@ var CHARS=[
 {name:'Brr Brr Patapim',abbr:'BB',color:'#cc33ff',dark:'#8811bb',speed:8,accel:6,handling:8}
 ];
 
+// ===== PSEUDO-3D CONSTANTS (OutRun-style projected segments) =====
+var SEG_LEN=200;          // length of a single road segment (world units)
+var ROAD_W=2200;          // half-width of the road (world units)
+var CAM_H=1500;           // camera height above the road
+var FOV=100;              // field of view (degrees)
+var CAM_DEPTH=1/Math.tan((FOV/2)*Math.PI/180); // projection plane distance
+var DRAW_DIST=220;        // how many segments ahead we render
+var RUMBLE_SEGS=4;        // segments per color stripe / rumble block
+var CENTRIFUGAL=0.32;     // how hard curves push the car outward
+var HILL_AMP=900;         // visual height of hills
+
 // ===== TRACKS =====
-// Each track: array of {curve, hill} segments. Total ~300 segments per track.
-// curve: -5 to +5 (left/right bend), hill: -3 to +3 (up/down slope)
+// Spec entries: {len, curve, hill}. curve bends road L/R, hill makes it rise/fall.
+// Curves ease in and out; hills follow a sine bump so the loop returns to y=0.
 function buildTrack(spec){
-var segs=[];
+var segs=[];var idx=0;
+function easeInOut(a,b,p){return a+(b-a)*((-Math.cos(p*Math.PI)/2)+0.5)}
 for(var i=0;i<spec.length;i++){
-var s=spec[i];
-for(var j=0;j<(s.len||1);j++){
-segs.push({curve:s.curve||0,hill:s.hill||0});
+var s=spec[i];var len=s.len||1;var curve=s.curve||0;var hill=s.hill||0;
+for(var j=0;j<len;j++){
+var p=j/len,pn=(j+1)/len;
+// ease curve in over first 25% and out over last 25% for smooth, visible turns
+function ce(t){if(t<.25)return easeInOut(0,1,t/.25);if(t>.75)return easeInOut(1,0,(t-.75)/.25);return 1}
+var y1=hill*HILL_AMP*Math.sin(Math.PI*p);
+var y2=hill*HILL_AMP*Math.sin(Math.PI*pn);
+segs.push({index:idx++,curve:curve*ce(p),p1y:y1,p2y:y2});
 }
 }
 return segs;
@@ -135,31 +152,44 @@ return segs;
 
 var TRACKS=[
 {name:'Skibidi Speedway',desc:'Fast oval with gentle bends',
-skyTop:'#1a6fcc',skyBot:'#87ceeb',grass1:'#2d8c2d',grass2:'#1f6b1f',road:'#666',rumble1:'#fff',rumble2:'#c00',lane:'#fff',
+skyTop:'#1a6fcc',skyBot:'#87ceeb',grassL:'#2d8c2d',grassD:'#246b24',roadL:'#6b6b6b',roadD:'#5e5e5e',rumbleL:'#ffffff',rumbleD:'#cc0000',lane:'#ffffff',treeCol:'#1e5a1e',treeTop:'#2f8c2f',
 segs:buildTrack([
-{len:12,curve:0},{len:18,curve:2.5},{len:8,curve:0},{len:8,curve:-1,hill:1},
-{len:18,curve:2.5},{len:12,curve:0},{len:8,curve:-1,hill:-1},{len:12,curve:0},
-{len:18,curve:2.5},{len:8,curve:0,hill:1},{len:18,curve:2.5},{len:12,curve:0,hill:-1}
+{len:25,curve:0},{len:30,curve:2.2},{len:12,curve:0},{len:14,curve:-1.4,hill:1.5},
+{len:30,curve:2.2},{len:18,curve:0},{len:12,curve:-1.2,hill:-1.5},{len:16,curve:0},
+{len:30,curve:2.2},{len:12,curve:0,hill:2},{len:30,curve:2.2},{len:20,curve:0,hill:-1.5}
 ])},
 {name:'Rizz Circuit',desc:'Tight S-curves test your skill',
-skyTop:'#0a0a2e',skyBot:'#2a1a4a',grass1:'#1a3a1a',grass2:'#0f2a0f',road:'#444',rumble1:'#ff0',rumble2:'#000',lane:'#0ff',
+skyTop:'#0a0a2e',skyBot:'#3a2a5a',grassL:'#1f4a1f',grassD:'#14331a',roadL:'#4a4a4a',roadD:'#3e3e3e',rumbleL:'#ffff00',rumbleD:'#111111',lane:'#00ffff',treeCol:'#13361b',treeTop:'#1f5a2a',
 segs:buildTrack([
-{len:8,curve:0},{len:12,curve:4},{len:8,curve:-4},{len:12,curve:3,hill:2},
-{len:8,curve:-3},{len:8,curve:0,hill:-1},{len:12,curve:-4},{len:8,curve:4},
-{len:8,curve:0},{len:12,curve:-3,hill:1},{len:8,curve:3},{len:10,curve:0,hill:-2},
-{len:8,curve:-4},{len:10,curve:4},{len:8,curve:0}
+{len:14,curve:0},{len:20,curve:3.8},{len:14,curve:-3.8},{len:20,curve:3,hill:2},
+{len:14,curve:-3},{len:12,curve:0,hill:-1.5},{len:20,curve:-3.8},{len:14,curve:3.8},
+{len:14,curve:0},{len:20,curve:-3,hill:1.5},{len:16,curve:3},{len:16,curve:0,hill:-2},
+{len:14,curve:-3.8},{len:18,curve:3.8},{len:14,curve:0}
 ])},
 {name:'Ohio Arena',desc:'Wild hills and sharp hairpins',
-skyTop:'#cc3300',skyBot:'#ff9966',grass1:'#8b4513',grass2:'#654321',road:'#555',rumble1:'#f80',rumble2:'#840',lane:'#ff0',
+skyTop:'#cc3300',skyBot:'#ff9966',grassL:'#9b5523',grassD:'#7a4019',roadL:'#5a5a5a',roadD:'#4e4e4e',rumbleL:'#ff8800',rumbleD:'#884400',lane:'#ffdd00',treeCol:'#5a3010',treeTop:'#7a4a18',
 segs:buildTrack([
-{len:8,curve:0},{len:10,curve:5,hill:3},{len:6,curve:0,hill:-2},{len:12,curve:-5},
-{len:8,curve:0,hill:3},{len:10,curve:3},{len:10,curve:-3,hill:-3},{len:6,curve:0},
-{len:12,curve:5},{len:8,curve:0,hill:2},{len:10,curve:-5,hill:-2},{len:8,curve:0},
-{len:8,curve:3,hill:1},{len:12,curve:-3,hill:-1}
+{len:14,curve:0,hill:1},{len:16,curve:4.5,hill:3},{len:10,curve:0,hill:-2},{len:18,curve:-4.5},
+{len:12,curve:0,hill:3},{len:16,curve:3},{len:16,curve:-3,hill:-3},{len:10,curve:0},
+{len:18,curve:4.5},{len:12,curve:0,hill:2.5},{len:16,curve:-4.5,hill:-2},{len:12,curve:0},
+{len:14,curve:3,hill:1.5},{len:18,curve:-3,hill:-1.5}
 ])}
 ];
 
-var SEG_LEN=100;
+// Generate roadside scenery (trees) for a track
+function genScenery(track){
+var sc=[];var n=track.segs.length;
+for(var i=8;i<n;i+=3){
+var side=(i%2===0)?-1:1;
+var off=side*(1.6+Math.random()*1.4); // outside the road
+sc.push({idx:i%n,offset:off,h:1.5+Math.random()*1.2});
+}
+track.scenery=sc;
+}
+TRACKS.forEach(genScenery);
+
+function findSeg(track,z){var n=track.segs.length;var i=Math.floor(z/SEG_LEN)%n;if(i<0)i+=n;return track.segs[i]}
+function trackLen(track){return track.segs.length*SEG_LEN}
 
 // ===== DIFFICULTY =====
 var DIFFS={
@@ -185,14 +215,22 @@ function posStr(p){return p===1?'1st':p===2?'2nd':p===3?'3rd':p+'th'}
 function fmtTime(t){var m=Math.floor(t/60000),s=Math.floor(t%60000/1000),ms=Math.floor(t%1000/100);return m+':'+String(s).padStart(2,'0')+'.'+ms}
 
 // ===== RACER =====
+// z = distance along the track. offset = lateral position (-1..1 = road edges).
 function makeRacer(ch,isPlayer,slot){
+var startOffsets=[0,-0.55,0.55,-0.25];
+var laneBias=[0,-0.55,0.55,-0.25];
 return{
 ch:ch,isPlayer:isPlayer,
-pos:slot*SEG_LEN*5,x:0,speed:0,
-maxSpd:250+ch.speed*20,accel:1+ch.accel*.2,handling:.8+ch.handling*.12,
-lap:0,totalLaps:3,wpSeg:0,finished:false,finishTime:0,
+z:slot*SEG_LEN*5,          // bots start spread out ahead of the player
+offset:startOffsets[slot]||0,
+laneBias:laneBias[slot]||0,
+speed:0,
+maxSpd:9000+ch.speed*900,
+accel:2600+ch.accel*420,
+handling:1.0+ch.handling*0.12,
+lap:0,totalLaps:3,finished:false,finishTime:0,
 position:slot+1,progress:0,
-steerErr:0,errTimer:0
+steerErr:0,errTimer:0,targetOff:0
 };
 }
 
@@ -283,294 +321,242 @@ tb.appendChild(row);
 }
 };
 
-// ===== PSEUDO-3D RENDERER =====
-// Mode-7 inspired scanline projection
-// The track is a loop of segments, each SEG_LEN long in Z.
-// Player.pos = distance along the track. Camera sits behind player.
-// For each scanline from horizon down, we project the world Z distance,
-// sample the track curvature up to that point to find X offset,
-// then draw road/grass/rumble.
-
-function renderRoad(track,playerPos,playerX,camY){
-var segs=track.segs;
-var numSegs=segs.length;
-var trackLen=numSegs*SEG_LEN;
-var horizonY=Math.round(H*0.4);
-
-// Sky gradient
-var skyGrd=X.createLinearGradient(0,0,0,horizonY);
-skyGrd.addColorStop(0,track.skyTop);
-skyGrd.addColorStop(1,track.skyBot);
-X.fillStyle=skyGrd;
-X.fillRect(0,0,W,horizonY);
-
-// Project each scanline
-var camZ=playerPos-SEG_LEN*3;
-var cx=playerX;
-var maxD=300;
-var ddx=0;
-var ddy=0;
-
-// Precompute cumulative curve from camera position
-var baseSeg=Math.floor(camZ/SEG_LEN);
-
-for(var y=horizonY;y<H;y++){
-var perspective=(y-horizonY);
-if(perspective<1)continue;
-var scale=horizonY/(perspective);
-var z=scale*SEG_LEN*10;
-
-// Which segment is this Z distance on?
-var worldZ=camZ+z;
-var segIdx=Math.floor(worldZ/SEG_LEN)%numSegs;
-if(segIdx<0)segIdx+=numSegs;
-var seg=segs[segIdx];
-
-// Accumulate curvature for road bending
-ddx+=seg.curve*scale*.003;
-ddy+=seg.hill*scale*.001;
-
-var roadW=W*0.42*scale;
-var rumbleW=roadW*1.15;
-var roadCx=W/2-cx*scale*6+ddx*W;
-
-// Stripe pattern for visual movement
-var segFrac=(worldZ%SEG_LEN)/SEG_LEN;
-var stripe=Math.floor(worldZ/SEG_LEN)%2===0;
-
-// Grass
-X.fillStyle=stripe?track.grass1:track.grass2;
-X.fillRect(0,y,W,1);
-
-// Rumble strips
-X.fillStyle=stripe?track.rumble1:track.rumble2;
-X.fillRect(roadCx-rumbleW/2,y,rumbleW,1);
-
-// Road surface
-X.fillStyle=track.road;
-X.fillRect(roadCx-roadW/2,y,roadW,1);
-
-// Lane markings
-if(stripe){
-X.fillStyle=track.lane;
-var laneW=Math.max(1,roadW*0.01);
-X.fillRect(roadCx-laneW/2,y,laneW,1);
-X.fillRect(roadCx-roadW/4-laneW/2,y,laneW,1);
-X.fillRect(roadCx+roadW/4-laneW/2,y,laneW,1);
-}
+// ===== PSEUDO-3D RENDERER (OutRun-style projected segments) =====
+// Project a world point (centerline x=0, height wy, distance wz) into screen
+// space relative to the camera. Returns scale, screen x/y and projected
+// road half-width.
+function project(wy,wz,camX,camZ){
+var dz=wz-camZ;if(dz<1)dz=1;
+var scale=CAM_DEPTH/dz;
+return{
+scale:scale,
+x:Math.round(W/2 + scale*(0-camX)*(W/2)),
+y:Math.round(H/2 - scale*(wy-CAM_H)*(H/2)),
+w:Math.round(scale*ROAD_W*(W/2)),
+dz:dz
+};
 }
 
-// Start/finish line
-var finishWorldZ=0;
-var finishRelZ=finishWorldZ-camZ;
-if(finishRelZ<0)finishRelZ+=trackLen;
-if(finishRelZ>0&&finishRelZ<SEG_LEN*maxD){
-var finishScreen=horizonY+horizonY*SEG_LEN*10/finishRelZ;
-if(finishScreen>horizonY&&finishScreen<H){
-var fscale=horizonY/(finishScreen-horizonY);
-var frw=W*0.42*fscale;
-// recalc road center at this Y... approximate
-X.fillStyle='#fff';
-X.globalAlpha=0.6;
-X.fillRect(W/2-frw/2-playerX*fscale*6,finishScreen-3,frw,6);
-X.globalAlpha=1;
+var segProj=[]; // cached projection per drawn segment for sprite placement
+
+function renderRoad(track,position,playerX){
+var segs=track.segs;var N=segs.length;var TL=N*SEG_LEN;
+var base=Math.floor(position/SEG_LEN)%N;if(base<0)base+=N;
+var basePercent=(position%SEG_LEN)/SEG_LEN;
+
+// --- sky + ground fallback so the screen is NEVER black ---
+var horizon=Math.round(H*0.5);
+var sky=X.createLinearGradient(0,0,0,horizon);
+sky.addColorStop(0,track.skyTop);sky.addColorStop(1,track.skyBot);
+X.fillStyle=sky;X.fillRect(0,0,W,horizon);
+X.fillStyle=track.grassD;X.fillRect(0,horizon,W,H-horizon);
+
+var x=0;
+var dx=-(segs[base].curve*basePercent);
+var maxy=H;
+
+for(var n=0;n<DRAW_DIST;n++){
+var i=(base+n)%N;var seg=segs[i];
+var looped=(base+n)>=N;
+var camZ=position-(looped?TL:0);
+var camX1=playerX*ROAD_W - x;
+var camX2=playerX*ROAD_W - x - dx;
+var p1=project(seg.p1y,seg.index*SEG_LEN,camX1,camZ);
+var p2=project(seg.p2y,(seg.index+1)*SEG_LEN,camX2,camZ);
+segProj[n]={x:p1.x,y:p1.y,scale:p1.scale};
+x+=dx;dx+=seg.curve;
+
+// skip if behind camera or occluded by a closer hill
+if(p1.dz<=CAM_DEPTH||p2.y>=maxy||p2.y>=p1.y){continue}
+maxy=p2.y;
+
+var light=Math.floor(seg.index/RUMBLE_SEGS)%2===0;
+var grass=light?track.grassL:track.grassD;
+var road=light?track.roadL:track.roadD;
+var rumble=light?track.rumbleL:track.rumbleD;
+
+// grass band
+X.fillStyle=grass;X.fillRect(0,p2.y,W,p1.y-p2.y);
+// rumble (road + edge strips)
+var r1=p1.w*1.18,r2=p2.w*1.18;
+poly(p1.x-r1,p1.y,p1.x+r1,p1.y,p2.x+r2,p2.y,p2.x-r2,p2.y,rumble);
+// road surface
+poly(p1.x-p1.w,p1.y,p1.x+p1.w,p1.y,p2.x+p2.w,p2.y,p2.x-p2.w,p2.y,road);
+// lane markings (only on light segments)
+if(light){
+var lw1=p1.w*0.04,lw2=p2.w*0.04;
+// center dashes
+poly(p1.x-lw1,p1.y,p1.x+lw1,p1.y,p2.x+lw2,p2.y,p2.x-lw2,p2.y,track.lane);
+// thirds
+var o1=p1.w*0.5,o2=p2.w*0.5;
+poly(p1.x-o1-lw1,p1.y,p1.x-o1+lw1,p1.y,p2.x-o2+lw2,p2.y,p2.x-o2-lw2,p2.y,'rgba(255,255,255,.35)');
+poly(p1.x+o1-lw1,p1.y,p1.x+o1+lw1,p1.y,p2.x+o2+lw2,p2.y,p2.x+o2-lw2,p2.y,'rgba(255,255,255,.35)');
+}
+// start/finish checker on segment 0
+if(seg.index===0){
+poly(p1.x-p1.w,p1.y,p1.x+p1.w,p1.y,p2.x+p2.w,p2.y,p2.x-p2.w,p2.y,'#ffffff');
 }
 }
 }
 
-function drawCar(cx,cy,scale,color,dark,abbr,isPlayer){
-var sw=30*scale,sh=40*scale;
-if(sw<2)return;
-// Shadow
-X.fillStyle='rgba(0,0,0,.3)';
-X.fillRect(cx-sw/2+2,cy-sh*0.1+2,sw,sh*0.3);
-// Body
-X.fillStyle=color;
-X.fillRect(cx-sw/2,cy-sh*0.8,sw,sh);
-// Darker bottom
-X.fillStyle=dark;
-X.fillRect(cx-sw/2,cy-sh*0.2,sw,sh*0.2);
-// Windshield
-X.fillStyle='rgba(200,220,255,.5)';
-X.fillRect(cx-sw*0.35,cy-sh*0.75,sw*0.7,sh*0.25);
-// Wheels
+function poly(x1,y1,x2,y2,x3,y3,x4,y4,col){
+X.fillStyle=col;X.beginPath();
+X.moveTo(x1,y1);X.lineTo(x2,y2);X.lineTo(x3,y3);X.lineTo(x4,y4);
+X.closePath();X.fill();
+}
+
+// ===== SPRITES =====
+function drawCarSprite(cx,cyBottom,w,col,dark,abbr){
+if(w<3)return;
+var h=w*1.25;
+var top=cyBottom-h;
+// shadow
+X.fillStyle='rgba(0,0,0,.35)';
+X.beginPath();X.ellipse(cx,cyBottom,w*0.6,w*0.16,0,0,Math.PI*2);X.fill();
+// body
+X.fillStyle=col;X.fillRect(cx-w/2,top,w,h);
+// lower darker
+X.fillStyle=dark;X.fillRect(cx-w/2,cyBottom-h*0.28,w,h*0.28);
+// rear window/spoiler
+X.fillStyle='rgba(180,210,255,.55)';X.fillRect(cx-w*0.34,top+h*0.12,w*0.68,h*0.22);
+// wheels
 X.fillStyle='#111';
-X.fillRect(cx-sw/2-3*scale,cy-sh*0.6,4*scale,sh*0.3);
-X.fillRect(cx+sw/2-1*scale,cy-sh*0.6,4*scale,sh*0.3);
-X.fillRect(cx-sw/2-3*scale,cy-sh*0.15,4*scale,sh*0.25);
-X.fillRect(cx+sw/2-1*scale,cy-sh*0.15,4*scale,sh*0.25);
-// Label
-if(scale>.3){
-X.fillStyle='#fff';X.font='bold '+Math.max(8,Math.round(12*scale))+'px sans-serif';
-X.textAlign='center';X.fillText(abbr,cx,cy-sh*0.85);
+X.fillRect(cx-w/2-w*0.1,top+h*0.5,w*0.14,h*0.4);
+X.fillRect(cx+w/2-w*0.04,top+h*0.5,w*0.14,h*0.4);
+// outline
+X.strokeStyle='rgba(0,0,0,.6)';X.lineWidth=Math.max(1,w*0.03);X.strokeRect(cx-w/2,top,w,h);
+// label
+if(w>26){X.fillStyle='#fff';X.font='bold '+Math.round(w*0.32)+'px sans-serif';X.textAlign='center';X.fillText(abbr,cx,top-3)}
 }
-// Player glow
-if(isPlayer&&scale>.5){
-X.strokeStyle='rgba(255,255,255,.4)';X.lineWidth=2;
-X.strokeRect(cx-sw/2-2,cy-sh*0.82,sw+4,sh+4);
-}
+
+function drawTree(cx,cyBottom,w,track){
+if(w<3)return;
+var h=w*2.2;
+X.fillStyle='rgba(0,0,0,.3)';X.beginPath();X.ellipse(cx,cyBottom,w*0.5,w*0.14,0,0,Math.PI*2);X.fill();
+X.fillStyle='#5a3a1a';X.fillRect(cx-w*0.12,cyBottom-h*0.4,w*0.24,h*0.4);
+X.fillStyle=track.treeCol;X.beginPath();X.arc(cx,cyBottom-h*0.55,w*0.7,0,Math.PI*2);X.fill();
+X.fillStyle=track.treeTop;X.beginPath();X.arc(cx-w*0.2,cyBottom-h*0.65,w*0.45,0,Math.PI*2);X.fill();
 }
 
 function renderSprites(track,racers,playerIdx){
+var N=track.segs.length;var TL=N*SEG_LEN;
 var player=racers[playerIdx];
-var segs=track.segs;
-var numSegs=segs.length;
-var trackLen=numSegs*SEG_LEN;
-var horizonY=Math.round(H*0.4);
-var camZ=player.pos-SEG_LEN*3;
+var base=Math.floor(player.z/SEG_LEN)%N;if(base<0)base+=N;
 
-// Sort by distance from camera (furthest first)
-var sprites=[];
-for(var i=0;i<racers.length;i++){
-if(i===playerIdx)continue;
-var r=racers[i];
-var relZ=r.pos-camZ;
-while(relZ<-trackLen/2)relZ+=trackLen;
-while(relZ>trackLen/2)relZ-=trackLen;
-if(relZ>0&&relZ<SEG_LEN*200){
-sprites.push({r:r,relZ:relZ});
+// collect all sprites (cars + scenery) with their draw-segment index n
+var list=[];
+function addSprite(absZ,offset,kind,data){
+var segIdx=Math.floor(absZ/SEG_LEN)%N;if(segIdx<0)segIdx+=N;
+var n=(segIdx-base+N)%N;
+if(n>0&&n<DRAW_DIST&&segProj[n])list.push({n:n,offset:offset,kind:kind,data:data});
+}
+for(var i=0;i<racers.length;i++){if(i===playerIdx)continue;addSprite(racers[i].z,racers[i].offset,'car',racers[i])}
+if(track.scenery)for(var i=0;i<track.scenery.length;i++){var s=track.scenery[i];addSprite(s.idx*SEG_LEN,s.offset,'tree',s)}
+
+// painter's algorithm: far (large n) first
+list.sort(function(a,b){return b.n-a.n});
+for(var i=0;i<list.length;i++){
+var sp=list[i];var pr=segProj[sp.n];
+var rw=pr.scale*ROAD_W*(W/2); // projected road half width here
+var sx=pr.x+pr.scale*(sp.offset*ROAD_W)*(W/2);
+if(sp.kind==='car'){
+var cw=Math.min(rw*0.5,W*0.16);drawCarSprite(sx,pr.y,cw,sp.data.ch.color,sp.data.ch.dark,sp.data.ch.abbr);
+}else{
+var tw=Math.min(rw*0.4*sp.data.h,W*0.13);drawTree(sx,pr.y,tw,track);
 }
 }
-sprites.sort(function(a,b){return b.relZ-a.relZ});
 
-for(var i=0;i<sprites.length;i++){
-var sp=sprites[i];
-var screenY=horizonY+horizonY*SEG_LEN*10/sp.relZ;
-if(screenY<=horizonY||screenY>=H)continue;
-var scale=horizonY/(screenY-horizonY);
-var screenX=W/2+(sp.r.x-player.x)*scale*6;
-// Clamp scale
-var carScale=Math.min(2,scale);
-drawCar(screenX,screenY,carScale,sp.r.ch.color,sp.r.ch.dark,sp.r.ch.abbr,false);
-}
-
-// Player car — always at bottom center
-var pcy=H*0.88;
-drawCar(W/2,pcy,1.2,player.ch.color,player.ch.dark,player.ch.abbr,true);
+// player car — fixed at bottom centre, leans with steering
+var pcw=W*0.10;
+var lean=(player._lean||0);
+drawCarSprite(W/2+lean*W*0.04,H*0.93,pcw,player.ch.color,player.ch.dark,player.ch.abbr);
 }
 
 // ===== MINIMAP =====
 function renderMinimap(track,racers){
-var mmS=110;
-var mx=W-mmS-10,my=H-mmS-10;
+var mmS=120,mx=W-mmS-12,my=H-mmS-12;
 X.fillStyle='rgba(0,0,0,.6)';X.fillRect(mx,my,mmS,mmS);
 X.strokeStyle='rgba(255,255,255,.4)';X.lineWidth=1;X.strokeRect(mx,my,mmS,mmS);
-var segs=track.segs;var n=segs.length;var tl=n*SEG_LEN;
-// Draw track path
-var cx2=mmS/2,cy2=mmS/2,angle=0,px2=cx2,py2=cy2;
-var pts=[];
-var scaleF=mmS*0.35/n;
-for(var i=0;i<n;i++){
-angle+=segs[i].curve*0.02;
-px2+=Math.cos(angle)*scaleF*3;
-py2+=Math.sin(angle)*scaleF*3;
-pts.push({x:px2,y:py2});
-}
-// Normalize points to fit minimap
+var segs=track.segs,n=segs.length;
+// trace track path from curves
+if(!track._mm){
+var ang=0,px=0,py=0,pts=[];
+for(var i=0;i<n;i++){ang+=segs[i].curve*0.025;px+=Math.cos(ang);py+=Math.sin(ang);pts.push({x:px,y:py})}
 var mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
-for(var i=0;i<pts.length;i++){
-if(pts[i].x<mnx)mnx=pts[i].x;if(pts[i].x>mxx)mxx=pts[i].x;
-if(pts[i].y<mny)mny=pts[i].y;if(pts[i].y>mxy)mxy=pts[i].y;
+for(var i=0;i<pts.length;i++){if(pts[i].x<mnx)mnx=pts[i].x;if(pts[i].x>mxx)mxx=pts[i].x;if(pts[i].y<mny)mny=pts[i].y;if(pts[i].y>mxy)mxy=pts[i].y}
+track._mm={pts:pts,mnx:mnx,mxx:mxx,mny:mny,mxy:mxy};
 }
-var rngx=mxx-mnx||1,rngy=mxy-mny||1;
-var sc=Math.min((mmS-20)/rngx,(mmS-20)/rngy);
-var ox=mx+(mmS-(rngx*sc))/2-mnx*sc;
-var oy=my+(mmS-(rngy*sc))/2-mny*sc;
-X.strokeStyle='#555';X.lineWidth=1;X.beginPath();
-for(var i=0;i<pts.length;i++){
-var px3=ox+pts[i].x*sc,py3=oy+pts[i].y*sc;
-i===0?X.moveTo(px3,py3):X.lineTo(px3,py3);
-}
+var mm=track._mm;var rx=mm.mxx-mm.mnx||1,ry=mm.mxy-mm.mny||1;
+var sc=Math.min((mmS-18)/rx,(mmS-18)/ry);
+var ox=mx+(mmS-rx*sc)/2-mm.mnx*sc,oy=my+(mmS-ry*sc)/2-mm.mny*sc;
+X.strokeStyle='#888';X.lineWidth=2;X.beginPath();
+for(var i=0;i<mm.pts.length;i++){var X2=ox+mm.pts[i].x*sc,Y2=oy+mm.pts[i].y*sc;i===0?X.moveTo(X2,Y2):X.lineTo(X2,Y2)}
 X.closePath();X.stroke();
-// Racer dots
 for(var i=0;i<racers.length;i++){
-var r=racers[i];
-var segFrac=r.pos/SEG_LEN;
-var idx=Math.floor(segFrac)%n;
-if(idx<0)idx+=n;
-var frac=segFrac-Math.floor(segFrac);
-var idx2=(idx+1)%n;
-var rpx=ox+(pts[idx].x+(pts[idx2].x-pts[idx].x)*frac)*sc;
-var rpy=oy+(pts[idx].y+(pts[idx2].y-pts[idx].y)*frac)*sc;
-X.fillStyle=r.ch.color;X.beginPath();
-X.arc(rpx,rpy,r.isPlayer?4:3,0,Math.PI*2);X.fill();
+var r=racers[i];var fz=r.z/SEG_LEN;var idx=Math.floor(fz)%n;if(idx<0)idx+=n;var fr=fz-Math.floor(fz);var idx2=(idx+1)%n;
+var dxp=ox+(mm.pts[idx].x+(mm.pts[idx2].x-mm.pts[idx].x)*fr)*sc;
+var dyp=oy+(mm.pts[idx].y+(mm.pts[idx2].y-mm.pts[idx].y)*fr)*sc;
+X.fillStyle=r.ch.color;X.beginPath();X.arc(dxp,dyp,r.isPlayer?4:3,0,Math.PI*2);X.fill();
 if(r.isPlayer){X.strokeStyle='#fff';X.lineWidth=1.5;X.stroke()}
 }
 }
 
 // ===== UPDATE LOGIC =====
 function updatePlayer(r,track,dt){
-if(r.finished){r.speed*=.97;return}
+var dtS=dt/1000;var N=track.segs.length;var TL=N*SEG_LEN;
+if(r.finished){r.speed*=0.96;r.z+=r.speed*dtS;if(r.z>=TL)r.z-=TL;return}
 var gas=keys['arrowup']||keys['w']||touch.g;
 var brake=keys['arrowdown']||keys['s']||touch.b;
 var left=keys['arrowleft']||keys['a']||touch.l;
 var right=keys['arrowright']||keys['d']||touch.r;
 
-var dtS=dt/1000;
-if(gas)r.speed=Math.min(r.speed+r.accel*dtS*400,r.maxSpd);
-else if(brake)r.speed=Math.max(r.speed-r.accel*dtS*600,-30);
-else r.speed*=.985;
+if(gas)r.speed+=r.accel*dtS;
+else if(brake)r.speed-=r.accel*1.6*dtS;
+else r.speed-=r.speed*0.7*dtS;
+if(r.speed>r.maxSpd)r.speed=r.maxSpd;if(r.speed<0)r.speed=0;
 
-// Steering
-var turnAmt=r.handling*dtS*1.5;
-var speedFactor=Math.min(1,r.speed/r.maxSpd);
-if(left)r.x-=turnAmt*(0.5+speedFactor*0.5);
-if(right)r.x+=turnAmt*(0.5+speedFactor*0.5);
+var spdPct=r.speed/r.maxSpd;
+var steer=dtS*2.6*r.handling*(0.35+spdPct*0.65);
+var lean=0;
+if(left){r.offset-=steer;lean=-1}
+if(right){r.offset+=steer;lean=1}
+r._lean=(r._lean||0)+((lean)-(r._lean||0))*0.2;
 
-// Road curvature pushes the car
-var segs=track.segs;var n=segs.length;
-var segIdx=Math.floor(r.pos/SEG_LEN)%n;if(segIdx<0)segIdx+=n;
-r.x+=segs[segIdx].curve*speedFactor*dtS*0.3;
+// centrifugal force on curves
+var seg=findSeg(track,r.z);
+r.offset-=dtS*spdPct*spdPct*seg.curve*CENTRIFUGAL;
 
-// Clamp x to road
-r.x=Math.max(-2.5,Math.min(2.5,r.x));
+// off-road: slow down and rumble
+if(Math.abs(r.offset)>1){r.speed-=r.speed*1.2*dtS;if(r.speed<r.maxSpd*0.35)r.speed=r.maxSpd*0.35}
+if(r.offset>2)r.offset=2;if(r.offset<-2)r.offset=-2;
 
-// Off road slowdown
-if(Math.abs(r.x)>1.8)r.speed*=.97;
-
-// Move forward
-r.pos+=r.speed*dtS;
-
-// Wrap around track
-var trackLen=n*SEG_LEN;
-if(r.pos>=trackLen){r.pos-=trackLen;r.lap++;
+r.z+=r.speed*dtS;
+if(r.z>=TL){r.z-=TL;r.lap++;
 if(r.lap>=r.totalLaps&&!r.finished){
 r.finished=true;r.finishTime=G.raceTime;
 G.finishOrder.push({name:r.ch.name,abbr:r.ch.abbr,time:r.finishTime,isPlayer:true});
-G.finished=true;setTimeout(function(){G.showResults()},2000);
 }}
 }
 
 function updateBot(r,track,dt){
-if(r.finished){r.speed*=.97;return}
-var diff=DIFFS[G.diff];var dtS=dt/1000;
-var targetSpd=r.maxSpd*diff.speedMul;
-var segs=track.segs;var n=segs.length;
-var segIdx=Math.floor(r.pos/SEG_LEN)%n;if(segIdx<0)segIdx+=n;
-var seg=segs[segIdx];
-
-// Steer to center with some error
+var dtS=dt/1000;var N=track.segs.length;var TL=N*SEG_LEN;
+if(r.finished){r.speed*=0.96;r.z+=r.speed*dtS;if(r.z>=TL)r.z-=TL;return}
+var diff=DIFFS[G.diff];
+var seg=findSeg(track,r.z);
+// pick a racing line offset with occasional error (Easy wanders more)
 r.errTimer-=dt;
-if(r.errTimer<=0){r.steerErr=(Math.random()-.5)*diff.errRate*10;r.errTimer=600+Math.random()*1000}
-var targetX=r.steerErr;
-var steerForce=(targetX-r.x)*r.handling*dtS*0.8;
-r.x+=steerForce;
-
-// Slow for curves
-var curvePenalty=Math.max(.6,1-Math.abs(seg.curve)*0.08);
-var desiredSpd=targetSpd*curvePenalty;
-
-if(r.speed<desiredSpd)r.speed+=r.accel*dtS*500;
-else r.speed+=(desiredSpd-r.speed)*dtS*5;
-r.speed=Math.max(50,Math.min(r.speed,targetSpd));
-
-// Curve push
-r.x+=seg.curve*Math.min(1,r.speed/r.maxSpd)*dtS*0.3;
-r.x=Math.max(-2.0,Math.min(2.0,r.x));
-
-r.pos+=r.speed*dtS;
-var trackLen=n*SEG_LEN;
-if(r.pos>=trackLen){r.pos-=trackLen;r.lap++;
+if(r.errTimer<=0){r.targetOff=r.laneBias+(Math.random()-0.5)*diff.errRate*40;r.errTimer=700+Math.random()*1100}
+r.offset+=(r.targetOff-r.offset)*dtS*1.8;
+// centrifugal
+var spdPct=r.speed/r.maxSpd;
+r.offset-=dtS*spdPct*spdPct*seg.curve*CENTRIFUGAL*0.8;
+if(r.offset>1.6)r.offset=1.6;if(r.offset<-1.6)r.offset=-1.6;
+// speed: slow for curves, scaled by difficulty
+var target=r.maxSpd*diff.speedMul*Math.max(0.55,1-Math.abs(seg.curve)*0.06);
+if(r.speed<target)r.speed+=r.accel*dtS;else r.speed+=(target-r.speed)*dtS*4;
+if(r.speed<r.maxSpd*0.3)r.speed=r.maxSpd*0.3;
+r.z+=r.speed*dtS;
+if(r.z>=TL){r.z-=TL;r.lap++;
 if(r.lap>=r.totalLaps&&!r.finished){
 r.finished=true;r.finishTime=G.raceTime;
 G.finishOrder.push({name:r.ch.name,abbr:r.ch.abbr,time:r.finishTime,isPlayer:false});
@@ -578,8 +564,8 @@ G.finishOrder.push({name:r.ch.name,abbr:r.ch.abbr,time:r.finishTime,isPlayer:fal
 }
 
 function calcPositions(racers,track){
-var n=track.segs.length;
-racers.forEach(function(r){r.progress=r.lap*n*SEG_LEN+r.pos});
+var TL=track.segs.length*SEG_LEN;
+racers.forEach(function(r){r.progress=r.lap*TL+r.z});
 var sorted=racers.slice().sort(function(a,b){
 if(a.finished&&b.finished)return a.finishTime-b.finishTime;
 if(a.finished)return-1;if(b.finished)return 1;
@@ -625,7 +611,7 @@ G.finished=true;setTimeout(function(){G.showResults()},2000);
 // Render
 X.setTransform(1,0,0,1,0,0);
 var player=G.racers[0];
-renderRoad(track,player.pos,player.x,0);
+renderRoad(track,player.z,player.offset);
 renderSprites(track,G.racers,0);
 renderMinimap(track,G.racers);
 
