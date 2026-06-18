@@ -50,7 +50,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </style>
 </head>
 <body>
-<canvas id="game" style="position:absolute;top:0;left:0"></canvas>
+<canvas id="game" width="800" height="600" style="position:fixed;top:0;left:0;z-index:1;display:block"></canvas>
+<div id="renderError" style="position:fixed;top:40px;left:50%;transform:translateX(-50%);background:red;color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:14px;z-index:99;display:none"></div>
 <div id="ui">
 <div id="menu-screen" class="screen active">
 <div class="title">BRAINROT RACING</div>
@@ -94,12 +95,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 // ===== CANVAS SETUP =====
 var C=document.getElementById('game'),X=C.getContext('2d');
 var W=800,H=600;
+var renderErr='';
 function resize(){
 W=window.innerWidth||800;H=window.innerHeight||600;
 if(C.width!==W)C.width=W;if(C.height!==H)C.height=H;
 }
 window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',resize);
+C.addEventListener('contextlost',function(e){e.preventDefault();renderErr='Canvas context lost - click to restore';showRenderErr()});
+C.addEventListener('contextrestored',function(){renderErr='';document.getElementById('renderError').style.display='none'});
+function showRenderErr(){var el=document.getElementById('renderError');el.textContent=renderErr;el.style.display='block'}
 resize();
 
 // ===== AUDIO =====
@@ -576,14 +581,22 @@ G.finished=true;setTimeout(function(){G.showResults()},2000);
 }
 }
 
+try{
 X.setTransform(1,0,0,1,0,0);
 var player=G.racers[0];
 renderRoad(track,player.z,player.offset);
 renderSprites(track,G.racers,0);
 renderMinimap(track,G.racers);
+}catch(err){
+if(!renderErr){renderErr='Render error: '+err.message;showRenderErr()}
+X.fillStyle='#226';X.fillRect(0,0,W,H);
+X.fillStyle='#fff';X.font='20px sans-serif';X.textAlign='center';
+X.fillText('Render error: '+err.message,W/2,H/2);
+X.fillText('W='+W+' H='+H+' z='+(G.racers[0]?Math.round(G.racers[0].z):'?'),W/2,H/2+30);
+}
 
-document.getElementById('hpos').textContent=posStr(player.position||1);
-document.getElementById('hlap').textContent='Lap '+Math.min(player.lap+1,player.totalLaps)+'/'+player.totalLaps;
+document.getElementById('hpos').textContent=posStr((G.racers[0]&&G.racers[0].position)||1);
+document.getElementById('hlap').textContent='Lap '+Math.min((G.racers[0]?G.racers[0].lap:0)+1,3)+'/3';
 document.getElementById('htime').textContent=fmtTime(G.raceTime);
 }
 
