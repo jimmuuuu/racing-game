@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>BRAINROT RACING</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -50,8 +53,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </style>
 </head>
 <body>
-<canvas id="game" width="800" height="600" style="position:fixed;top:0;left:0;z-index:1;display:block"></canvas>
+<canvas id="game" style="position:absolute;top:0;left:0"></canvas>
 <div id="renderError" style="position:fixed;top:40px;left:50%;transform:translateX(-50%);background:red;color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:14px;z-index:99;display:none"></div>
+<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v7</div>
 <div id="ui">
 <div id="menu-screen" class="screen active">
 <div class="title">BRAINROT RACING</div>
@@ -245,12 +249,13 @@ cam:{x:0,y:0,z:0},engTimer:0,
 show:function(id){
 document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
 var el=document.getElementById(id);if(el)el.classList.add('active');
+if(!id)document.getElementById('ui').style.display='none';
 document.getElementById('hud').style.display='none';
 document.getElementById('touch-controls').style.display='none';
 document.getElementById('countdown').style.display='none';
 },
 
-goMenu:function(){this.scr='menu';this.show('menu-screen')},
+goMenu:function(){this.scr='menu';document.getElementById('ui').style.display='flex';this.show('menu-screen')},
 
 goCharSel:function(){
 initA();this.scr='charSel';this.show('char-screen');
@@ -303,7 +308,7 @@ sndCount(false);
 },
 
 showResults:function(){
-this.scr='results';this.show('results-screen');
+this.scr='results';document.getElementById('ui').style.display='flex';this.show('results-screen');
 document.getElementById('hud').style.display='none';
 document.getElementById('touch-controls').style.display='none';
 sndFinish();
