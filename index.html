@@ -14,7 +14,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 #ui>div{pointer-events:auto}
 .screen{display:none;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:20px;overflow-y:auto}
 .screen.active{display:flex}
-.title{font-size:clamp(24px,5vw,56px);font-weight:900;color:#fff;text-shadow:0 0 20px #f0f,0 0 40px #0ff,3px 3px 0 #000;margin-bottom:8px;text-align:center;letter-spacing:2px}
+.title{font-family:'Arial Black','Impact',sans-serif;font-size:clamp(24px,5vw,56px);font-weight:900;color:#fff;text-shadow:0 0 20px #f0f,0 0 40px #0ff,3px 3px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;margin-bottom:8px;text-align:center;letter-spacing:2px}
 .subtitle{font-size:clamp(12px,2.5vw,20px);color:#ff0;margin-bottom:20px;text-align:center}
 .btn{background:linear-gradient(135deg,#ff006e,#8338ec);color:#fff;border:none;padding:12px 32px;font-size:clamp(14px,2.5vw,20px);border-radius:12px;cursor:pointer;margin:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px;box-shadow:0 4px 15px rgba(0,0,0,.4);transition:transform .1s}
 .btn:hover{transform:scale(1.05)}.btn:active{transform:scale(.95)}
@@ -36,26 +36,43 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 .dbtn.sel{border-color:#0f0;color:#0f0;box-shadow:0 0 10px rgba(0,255,0,.3)}
 #hud{position:fixed;top:0;left:0;width:100%;pointer-events:none;padding:8px;display:none;z-index:12}
 .hud-row{display:flex;justify-content:space-between;align-items:flex-start}
-.hbox{background:rgba(0,0,0,.7);color:#fff;padding:5px 10px;border-radius:8px;font-size:clamp(11px,1.8vw,15px);font-weight:700}
-.hbox.pos{font-size:clamp(16px,2.8vw,26px);color:#ff0}
-#countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(50px,12vw,100px);font-weight:900;color:#fff;text-shadow:0 0 30px #f0f,0 0 60px #0ff;display:none;pointer-events:none;z-index:15}
-#touch-controls{position:fixed;bottom:0;left:0;width:100%;height:40%;pointer-events:none;display:none;z-index:11}
-.tbtn{position:absolute;pointer-events:auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:rgba(255,255,255,.8);opacity:.35;-webkit-tap-highlight-color:transparent}
-.tbtn:active,.tbtn.pressed{opacity:.6}
-#tl{width:65px;height:65px;left:10px;bottom:70px;background:rgba(255,255,255,.15)}
-#tr{width:65px;height:65px;left:85px;bottom:70px;background:rgba(255,255,255,.15)}
-#tg{width:75px;height:75px;right:10px;bottom:70px;background:rgba(0,200,0,.2)}
-#tb{width:65px;height:65px;right:95px;bottom:70px;background:rgba(200,0,0,.2)}
+.hbox{background:rgba(0,0,0,.7);color:#fff;padding:5px 12px;border-radius:8px;font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000;transition:transform .12s ease-out}
+.hbox.pos{font-size:clamp(18px,3vw,28px);color:#ff0;text-shadow:2px 2px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000}
+#hlap.lappop{animation:lapPop .42s ease-out;color:#0ff}
+@keyframes lapPop{0%{transform:scale(1)}30%{transform:scale(1.5);color:#0ff}60%{transform:scale(.92)}100%{transform:scale(1)}}
+#hpos.posup{animation:posUp .45s ease-out}
+#hpos.posdown{animation:posDown .45s ease-out}
+@keyframes posUp{0%{transform:scale(1) translateX(0);color:#ff0}15%{transform:scale(1.45) translateX(-4px);color:#0f0}30%{transform:scale(1.4) translateX(4px);color:#0f0}45%{transform:scale(1.3) translateX(-3px)}60%{transform:scale(1.15) translateX(3px);color:#0f0}100%{transform:scale(1) translateX(0);color:#ff0}}
+@keyframes posDown{0%{transform:scale(1) translateX(0);color:#ff0}15%{transform:scale(1.25) translateX(-5px);color:#f33}30%{transform:scale(1.2) translateX(5px);color:#f33}45%{transform:scale(1.1) translateX(-4px)}60%{transform:scale(1.05) translateX(4px);color:#f33}100%{transform:scale(1) translateX(0);color:#ff0}}
+#countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(50px,12vw,100px);font-weight:900;color:#fff;text-shadow:0 0 30px #f0f,0 0 60px #0ff,4px 4px 0 #000,-3px -3px 0 #000,3px -3px 0 #000,-3px 3px 0 #000,3px 3px 0 #000;display:none;pointer-events:none;z-index:15}
+#countdown.cdpop{animation:cdPop .55s ease-out}
+@keyframes cdPop{0%{transform:translate(-50%,-50%) scale(.2);opacity:0}25%{transform:translate(-50%,-50%) scale(1.4);opacity:1}45%{transform:translate(-50%,-50%) scale(.95)}60%{transform:translate(-50%,-50%) scale(1.08)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+#touch-controls{position:fixed;bottom:0;left:0;width:100%;height:46%;pointer-events:none;display:none;z-index:11}
+.tbtn{position:absolute;pointer-events:auto;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;font-family:'Arial Black','Impact',sans-serif;font-size:28px;font-weight:900;color:rgba(255,255,255,.85);opacity:.4;-webkit-tap-highlight-color:transparent;text-shadow:1px 1px 0 #000}
+.tbtn .tlbl{font-size:11px;margin-top:2px;letter-spacing:.5px}
+.tbtn:active,.tbtn.pressed{opacity:.7;transform:scale(.93)}
+#tl{width:74px;height:74px;left:12px;bottom:84px;background:rgba(255,255,255,.18)}
+#tr{width:74px;height:74px;left:96px;bottom:84px;background:rgba(255,255,255,.18)}
+#tg{width:84px;height:84px;right:12px;bottom:84px;background:rgba(0,200,0,.25)}
+#tb{width:74px;height:74px;right:104px;bottom:84px;background:rgba(200,0,0,.25)}
+#td{width:74px;height:74px;left:54px;bottom:168px;background:rgba(120,80,255,.28)}
+#tboost{width:78px;height:78px;right:54px;bottom:170px;background:rgba(255,170,0,.3)}
 .rtable{width:100%;max-width:480px;margin:12px 0}
 .rrow{display:flex;justify-content:space-between;padding:7px 14px;margin:3px 0;border-radius:8px;color:#fff;font-weight:700;font-size:clamp(12px,2.2vw,16px)}
 .rrow.me{background:rgba(0,255,255,.2);border:1px solid #0ff}
 .rrow.bot{background:rgba(255,255,255,.1)}
+.rrow.me.win{background:rgba(255,215,0,.28);border:2px solid #ffd700;animation:meGlow 1s ease-in-out infinite alternate}
+.rrow.me:not(.win){animation:meGlow2 1.2s ease-in-out infinite alternate}
+@keyframes meGlow{from{box-shadow:0 0 6px rgba(255,215,0,.5)}to{box-shadow:0 0 22px rgba(255,215,0,.95)}}
+@keyframes meGlow2{from{box-shadow:0 0 4px rgba(0,255,255,.4)}to{box-shadow:0 0 16px rgba(0,255,255,.8)}}
+#winhdr{font-family:'Arial Black','Impact',sans-serif;font-weight:900;text-align:center;margin-bottom:6px;letter-spacing:1px;font-size:clamp(22px,4.5vw,44px);color:#ffd700;text-shadow:0 0 20px #ff0,0 0 40px #f80,3px 3px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;animation:hdrPop .6s ease-out}
+@keyframes hdrPop{0%{transform:scale(.3);opacity:0}55%{transform:scale(1.25);opacity:1}100%{transform:scale(1)}}
 </style>
 </head>
 <body>
 <canvas id="game" style="position:absolute;top:0;left:0"></canvas>
 <div id="renderError" style="position:fixed;top:40px;left:50%;transform:translateX(-50%);background:red;color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:14px;z-index:99;display:none"></div>
-<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v10</div>
+<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v11</div>
 <div id="ui">
 <div id="menu-screen" class="screen active">
 <div class="title">BRAINROT RACING</div>
@@ -75,6 +92,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 <button class="btn" onclick="G.startRace()">RACE!</button>
 </div>
 <div id="results-screen" class="screen">
+<div id="winhdr"></div>
 <div class="title" style="font-size:clamp(20px,3.5vw,36px)">RACE RESULTS</div>
 <div class="rtable" id="rtable"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
@@ -92,8 +110,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 <div id="touch-controls">
 <div class="tbtn" id="tl">&#9664;</div>
 <div class="tbtn" id="tr">&#9654;</div>
-<div class="tbtn" id="tg">&#9650;</div>
-<div class="tbtn" id="tb">&#9660;</div>
+<div class="tbtn" id="tg">&#9650;<span class="tlbl">GAS</span></div>
+<div class="tbtn" id="tb">&#9660;<span class="tlbl">BRAKE</span></div>
+<div class="tbtn" id="td">&#10227;<span class="tlbl">DRIFT</span></div>
+<div class="tbtn" id="tboost">&#128293;<span class="tlbl">BOOST</span></div>
 </div>
 <script>
 // ===== CANVAS SETUP =====
@@ -312,14 +332,38 @@ Hard:{speedMul:1.0,errRate:.003}
 var keys={};
 document.addEventListener('keydown',function(e){keys[e.key.toLowerCase()]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(e.key.toLowerCase())>=0)e.preventDefault()});
 document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false});
-var touch={l:false,r:false,g:false,b:false,boost:false};
+var touch={l:false,r:false,g:false,b:false,boost:false,drift:false};
 var useKeyPrev=false;
-function setupT(id,k){var el=document.getElementById(id);
+function setupT(id,k){var el=document.getElementById(id);if(!el)return;
 el.addEventListener('touchstart',function(e){e.preventDefault();touch[k]=true;el.classList.add('pressed');initA()},{passive:false});
 el.addEventListener('touchend',function(e){e.preventDefault();touch[k]=false;el.classList.remove('pressed')},{passive:false});
 el.addEventListener('touchcancel',function(){touch[k]=false;el.classList.remove('pressed')})}
-setupT('tl','l');setupT('tr','r');setupT('tg','g');setupT('tb','b');
+setupT('tl','l');setupT('tr','r');setupT('tg','g');setupT('tb','b');setupT('td','drift');setupT('tboost','boost');
 function isMobile(){return 'ontouchstart' in window||navigator.maxTouchPoints>0}
+
+// ===== GAMEPAD (Gamepad API) - polled each frame, merged into input flags =====
+var pad={l:false,r:false,g:false,b:false,boost:false,drift:false};
+function pollGamepad(){
+pad.l=pad.r=pad.g=pad.b=pad.boost=pad.drift=false;
+if(!navigator.getGamepads)return;
+var gps=navigator.getGamepads();if(!gps)return;
+var gp=null;
+for(var i=0;i<gps.length;i++){if(gps[i]){gp=gps[i];break}}
+if(!gp)return;
+var btn=gp.buttons||[];
+function pressed(idx){var b=btn[idx];return b?(typeof b==='object'?b.pressed||b.value>0.4:b>0.4):false}
+// steering: left stick X (axis 0) or dpad (buttons 14/15)
+var ax=gp.axes&&gp.axes.length>0?gp.axes[0]:0;
+if(ax<-0.3||pressed(14))pad.l=true;
+if(ax>0.3||pressed(15))pad.r=true;
+// gas: A (0) or right trigger (7); brake: B (1) or left trigger (6)
+if(pressed(0)||pressed(7))pad.g=true;
+if(pressed(1)||pressed(6))pad.b=true;
+// boost: X (2) or right shoulder (5)
+if(pressed(2)||pressed(5))pad.boost=true;
+// drift: left shoulder (4) or Y (3)
+if(pressed(4)||pressed(3))pad.drift=true;
+}
 
 // ===== HELPERS =====
 function posStr(p){return p===1?'1st':p===2?'2nd':p===3?'3rd':p+'th'}
@@ -342,7 +386,8 @@ lap:0,totalLaps:3,finished:false,finishTime:0,
 position:slot+1,progress:0,
 steerErr:0,errTimer:0,targetOff:0,
 boost:0,boostTimer:0,boostCooldown:0,
-item:null,spinOut:0
+item:null,spinOut:0,
+driftTime:0,driftDir:0
 };
 }
 
@@ -353,6 +398,7 @@ racers:[],raceTime:0,started:false,finished:false,
 cdVal:0,cdTimer:0,finishOrder:[],
 cam:{x:0,y:0,z:0},engTimer:0,
 shake:0,bobTime:0,smokeTimer:0,boostFxTimer:0,
+prevPos:1,prevLap:0,
 
 show:function(id){
 document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
@@ -415,9 +461,11 @@ this.racers.push(makeRacer(pc,true,0));
 var bots=CHARS.filter(function(_,i){return i!==G.selChar});
 for(var i=0;i<3;i++)this.racers.push(makeRacer(bots[i],false,i+1));
 this.cam={x:0,y:0,z:0};
+this.prevPos=1;this.prevLap=0;
 this.cdVal=4;this.cdTimer=0;
-document.getElementById('countdown').style.display='block';
-document.getElementById('countdown').textContent='3';
+var cd0=document.getElementById('countdown');
+cd0.style.display='block';cd0.textContent='3';
+cd0.classList.remove('cdpop');void cd0.offsetWidth;cd0.classList.add('cdpop');
 sndCount(false);
 },
 
@@ -432,10 +480,25 @@ this.racers.forEach(function(r){
 if(!sorted.find(function(f){return f.name===r.ch.name}))
 sorted.push({name:r.ch.name,abbr:r.ch.abbr,time:null,isPlayer:r.isPlayer});
 });
+// figure out the player's finishing place for the celebratory header
+var playerPlace=0;
+sorted.forEach(function(r,i){if(r.isPlayer)playerPlace=i+1});
+var hdr=document.getElementById('winhdr');
+if(hdr){
+var txt,col;
+if(playerPlace===1){txt='🏆 YOU WIN!';col='#ffd700'}
+else if(playerPlace===2){txt='FINISHED 2nd!';col='#dfe6ee'}
+else if(playerPlace===3){txt='FINISHED 3rd!';col='#e8a062'}
+else{txt='FINISHED '+posStr(playerPlace);col='#ff6b6b'}
+hdr.textContent=txt;hdr.style.color=col;
+hdr.classList.remove('hdrPop');void hdr.offsetWidth;
+}
 sorted.forEach(function(r,i){
-var row=document.createElement('div');row.className='rrow '+(r.isPlayer?'me':'bot');
+var row=document.createElement('div');
+row.className='rrow '+(r.isPlayer?'me':'bot')+(r.isPlayer&&i===0?' win':'');
 var ts=r.time?fmtTime(r.time):'DNF';
-row.innerHTML='<span>'+posStr(i+1)+'</span><span>'+r.abbr+' '+r.name+'</span><span>'+ts+'</span>';
+var medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
+row.innerHTML='<span>'+medal+posStr(i+1)+'</span><span>'+r.abbr+' '+r.name+'</span><span>'+ts+'</span>';
 tb.appendChild(row);
 });
 }
@@ -798,6 +861,7 @@ drawCarSprite(W/2+lean*W*0.04,H*0.93,pcw,player.ch.color,player.ch.dark,player.c
 // ===== MINIMAP =====
 function renderMinimap(track,racers){
 var mmS=120,mx=W-mmS-12,my=H-mmS-12;
+// panel
 X.fillStyle='rgba(0,0,0,.6)';X.fillRect(mx,my,mmS,mmS);
 X.strokeStyle='rgba(255,255,255,.4)';X.lineWidth=1;X.strokeRect(mx,my,mmS,mmS);
 var segs=track.segs,n=segs.length;
@@ -809,18 +873,75 @@ for(var i=0;i<pts.length;i++){if(pts[i].x<mnx)mnx=pts[i].x;if(pts[i].x>mxx)mxx=p
 track._mm={pts:pts,mnx:mnx,mxx:mxx,mny:mny,mxy:mxy};
 }
 var mm=track._mm;var rx=mm.mxx-mm.mnx||1,ry=mm.mxy-mm.mny||1;
-var sc=Math.min((mmS-18)/rx,(mmS-18)/ry);
+var sc=Math.min((mmS-22)/rx,(mmS-22)/ry);
 var ox=mx+(mmS-rx*sc)/2-mm.mnx*sc,oy=my+(mmS-ry*sc)/2-mm.mny*sc;
-X.strokeStyle='#888';X.lineWidth=2;X.beginPath();
-for(var i=0;i<mm.pts.length;i++){var X2=ox+mm.pts[i].x*sc,Y2=oy+mm.pts[i].y*sc;i===0?X.moveTo(X2,Y2):X.lineTo(X2,Y2)}
-X.closePath();X.stroke();
+// build the closed path once per frame, reuse for casing + road strokes
+function tracePath(){X.beginPath();for(var i=0;i<mm.pts.length;i++){var X2=ox+mm.pts[i].x*sc,Y2=oy+mm.pts[i].y*sc;i===0?X.moveTo(X2,Y2):X.lineTo(X2,Y2)}X.closePath()}
+X.lineJoin='round';X.lineCap='round';
+// dark casing (road border)
+X.strokeStyle='rgba(20,20,25,.9)';X.lineWidth=7;tracePath();X.stroke();
+// lighter road surface on top
+X.strokeStyle='#9a9aa2';X.lineWidth=4;tracePath();X.stroke();
+// center dashes for a road feel (cheap: short segment skips)
+X.strokeStyle='rgba(255,255,255,.5)';X.lineWidth=1;X.setLineDash([2,5]);tracePath();X.stroke();X.setLineDash([]);
+// start/finish tick at seg 0
+var s0x=ox+mm.pts[0].x*sc,s0y=oy+mm.pts[0].y*sc;
+X.fillStyle='#fff';X.fillRect(s0x-2,s0y-2,4,4);
+// bots as dots, player as a directional arrow
+function mapPos(r){var fz=r.z/SEG_LEN;var idx=Math.floor(fz)%n;if(idx<0)idx+=n;var fr=fz-Math.floor(fz);var idx2=(idx+1)%n;
+return{x:ox+(mm.pts[idx].x+(mm.pts[idx2].x-mm.pts[idx].x)*fr)*sc,y:oy+(mm.pts[idx].y+(mm.pts[idx2].y-mm.pts[idx].y)*fr)*sc,idx:idx,idx2:idx2}}
 for(var i=0;i<racers.length;i++){
-var r=racers[i];var fz=r.z/SEG_LEN;var idx=Math.floor(fz)%n;if(idx<0)idx+=n;var fr=fz-Math.floor(fz);var idx2=(idx+1)%n;
-var dxp=ox+(mm.pts[idx].x+(mm.pts[idx2].x-mm.pts[idx].x)*fr)*sc;
-var dyp=oy+(mm.pts[idx].y+(mm.pts[idx2].y-mm.pts[idx].y)*fr)*sc;
-X.fillStyle=r.ch.color;X.beginPath();X.arc(dxp,dyp,r.isPlayer?4:3,0,Math.PI*2);X.fill();
-if(r.isPlayer){X.strokeStyle='#fff';X.lineWidth=1.5;X.stroke()}
+var r=racers[i];if(r.isPlayer)continue;
+var mp=mapPos(r);
+X.fillStyle=r.ch.color;X.beginPath();X.arc(mp.x,mp.y,3,0,Math.PI*2);X.fill();
+X.strokeStyle='rgba(0,0,0,.6)';X.lineWidth=1;X.stroke();
 }
+// player arrow last (on top)
+var pl=racers[0];
+if(pl){
+var pp=mapPos(pl);
+// heading = tangent of the track path at the player's position
+var hx=mm.pts[pp.idx2].x-mm.pts[pp.idx].x,hy=mm.pts[pp.idx2].y-mm.pts[pp.idx].y;
+var hAng=Math.atan2(hy,hx);
+X.save();
+X.translate(pp.x,pp.y);X.rotate(hAng);
+X.fillStyle=pl.ch.color;X.strokeStyle='#fff';X.lineWidth=1.5;
+X.beginPath();X.moveTo(7,0);X.lineTo(-4,-4.5);X.lineTo(-1.5,0);X.lineTo(-4,4.5);X.closePath();
+X.fill();X.stroke();
+X.restore();
+}
+}
+
+// ===== SPEEDOMETER (canvas, bottom-left, drawn in screen space) =====
+function renderSpeedometer(player){
+if(!player)return;
+var spdPct=player.speed/player.maxSpd;if(spdPct<0)spdPct=0;if(spdPct>1)spdPct=1;
+var kmh=Math.round(spdPct*220);
+var boosting=player.boostTimer>0;
+// dimensions: compact, bottom-left, sits clear above the version tag (~bottom 4px,height ~14px)
+var bw=Math.max(120,Math.min(190,W*0.26));
+var bh=14;
+var bx=14,by=H-bh-34;
+X.save();
+// label + readout
+X.font='bold '+Math.round(bh*1.5)+'px "Arial Black",Impact,sans-serif';
+X.textAlign='left';X.textBaseline='alphabetic';
+X.fillStyle='rgba(0,0,0,.55)';X.fillText('  '+kmh+' km/h',bx+2,by-5);
+X.fillStyle=boosting?'#ffdd33':'#fff';X.fillText(kmh+' km/h',bx,by-6);
+// track casing
+X.fillStyle='rgba(0,0,0,.6)';X.fillRect(bx-2,by-2,bw+4,bh+4);
+// fill: green -> yellow -> red as speed climbs (or boost gold)
+var fillCol=boosting?'#ffcc22':(spdPct<0.5?'#33dd55':(spdPct<0.8?'#ffd11a':'#ff4422'));
+X.fillStyle='#222';X.fillRect(bx,by,bw,bh);
+X.fillStyle=fillCol;X.fillRect(bx,by,bw*spdPct,bh);
+// needle (vertical bar at current fill position)
+var nx=bx+bw*spdPct;
+X.fillStyle='#fff';X.fillRect(nx-1.5,by-3,3,bh+6);
+// border + redline tick at 80%
+X.strokeStyle='rgba(255,255,255,.55)';X.lineWidth=1;X.strokeRect(bx,by,bw,bh);
+X.strokeStyle='rgba(255,60,40,.9)';X.lineWidth=1.5;
+X.beginPath();X.moveTo(bx+bw*0.8,by);X.lineTo(bx+bw*0.8,by+bh);X.stroke();
+X.restore();
 }
 
 // ===== UPDATE LOGIC =====
@@ -841,11 +962,12 @@ if(r.boostCooldown>0)r.boostCooldown-=dt;
 if(r.spinOut>0)r.spinOut-=dt;
 
 if(r.finished){r.speed*=0.96;r.z+=r.speed*dtS;if(r.z>=TL)r.z-=TL;return}
-var gas=keys['arrowup']||keys['w']||touch.g;
-var brake=keys['arrowdown']||keys['s']||touch.b;
-var left=keys['arrowleft']||keys['a']||touch.l;
-var right=keys['arrowright']||keys['d']||touch.r;
-var useKey=keys[' ']||keys['shift']||touch.boost;
+var gas=keys['arrowup']||keys['w']||touch.g||pad.g;
+var brake=keys['arrowdown']||keys['s']||touch.b||pad.b;
+var left=keys['arrowleft']||keys['a']||touch.l||pad.l;
+var right=keys['arrowright']||keys['d']||touch.r||pad.r;
+var useKey=keys[' ']||keys['shift']||touch.boost||pad.boost;
+var drift=keys['z']||keys['control']||touch.drift||pad.drift;
 
 // edge-trigger the use/boost key (press, not hold)
 if(useKey&&!useKeyPrev){
@@ -878,20 +1000,30 @@ else r.speed-=r.speed*0.7*dtS;
 if(r.speed>effMax)r.speed=effMax;if(r.speed<0)r.speed=0;
 
 var spdPct=r.speed/r.maxSpd;
-var steer=dtS*2.6*r.handling*(0.35+spdPct*0.65);
+// drift: while held + turning at speed, steer sharper + build drift charge for a mini-boost on release
+var drifting=drift&&(left||right)&&spdPct>0.35;
+var driftMul=drifting?1.7:1;
+var steer=dtS*2.6*r.handling*(0.35+spdPct*0.65)*driftMul;
 var lean=0;
 if(left){r.offset-=steer;lean=-1}
 if(right){r.offset+=steer;lean=1}
+if(drifting){r.driftTime+=dt;r.driftDir=lean;lean*=1.6}
+else{
+// released after a sustained drift -> small speed boost + spark puff
+if(r.driftTime>350){r.speed=Math.min(effMax*1.15,r.speed+r.maxSpd*0.18);sndBoost();
+for(var dp=0;dp<4;dp++)spawnParticle(W/2+(Math.random()-0.5)*W*0.09,H*0.93,(Math.random()-0.5)*40,30+Math.random()*40,300+Math.random()*150,6+Math.random()*4,Math.random()<0.5?'#33ddff':'#ffffff',1);}
+r.driftTime=0;r.driftDir=0;
+}
 r._lean=(r._lean||0)+((lean)-(r._lean||0))*0.2;
 
-// drift smoke: hard turn + high speed, throttled
+// drift smoke: hard turn + high speed (denser while actively drifting), throttled
 if(lean!==0&&spdPct>0.5){
 G.smokeTimer-=dt;
 if(G.smokeTimer<=0){
-G.smokeTimer=40;
+G.smokeTimer=drifting?22:40;
 // behind the rear wheels at W/2 +/- W*0.05
 var sx=W/2+(Math.random()<0.5?-1:1)*W*0.05;
-spawnParticle(sx,H*0.92,(Math.random()-0.5)*30,-20-Math.random()*25,500+Math.random()*200,7+Math.random()*5,'#bbbbbb',0);
+spawnParticle(sx,H*0.92,(Math.random()-0.5)*(drifting?50:30),-20-Math.random()*25,500+Math.random()*200,(drifting?9:7)+Math.random()*5,drifting?'#dddddd':'#bbbbbb',0);
 }
 }
 
@@ -1022,6 +1154,7 @@ var dt=Math.min(time-lastTime,50);lastTime=time;
 
 if(G.scr==='race'){
 resize();
+pollGamepad();
 var track=TRACKS[G.selTrack];
 
 if(G.cdVal>0){
@@ -1031,6 +1164,7 @@ G.cdTimer=0;G.cdVal--;
 var cd=document.getElementById('countdown');
 if(G.cdVal>0){cd.textContent=G.cdVal;sndCount(false)}
 else{cd.textContent='GO!';sndCount(true);G.started=true;setTimeout(function(){cd.style.display='none'},500)}
+cd.classList.remove('cdpop');void cd.offsetWidth;cd.classList.add('cdpop');
 }
 }
 
@@ -1075,6 +1209,7 @@ X.setTransform(1,0,0,1,0,0);
 renderSpeedLines(spd);
 renderParticles();
 renderMinimap(track,G.racers);
+renderSpeedometer(player);
 renderHudItem(player);
 }catch(err){
 X.setTransform(1,0,0,1,0,0);
@@ -1085,9 +1220,27 @@ X.fillText('Render error: '+err.message,W/2,H/2);
 X.fillText('W='+W+' H='+H+' z='+(G.racers[0]?Math.round(G.racers[0].z):'?'),W/2,H/2+30);
 }
 
-document.getElementById('hpos').textContent=posStr((G.racers[0]&&G.racers[0].position)||1);
-document.getElementById('hlap').textContent='Lap '+Math.min((G.racers[0]?G.racers[0].lap:0)+1,3)+'/3';
+var pl0=G.racers[0];
+var curPos=(pl0&&pl0.position)||1;
+var curLap=pl0?pl0.lap:0;
+var hposEl=document.getElementById('hpos'),hlapEl=document.getElementById('hlap');
+hposEl.textContent=posStr(curPos);
+hlapEl.textContent='Lap '+Math.min(curLap+1,3)+'/3';
 document.getElementById('htime').textContent=fmtTime(G.raceTime);
+// lap pop when the player starts a new lap
+if(G.started&&curLap!==G.prevLap){
+hlapEl.classList.remove('lappop');void hlapEl.offsetWidth;hlapEl.classList.add('lappop');
+setTimeout(function(){hlapEl.classList.remove('lappop')},430);
+G.prevLap=curLap;
+}
+// position flash/shake: green if improved (lower number), red if dropped
+if(G.started&&curPos!==G.prevPos){
+var improved=curPos<G.prevPos;
+hposEl.classList.remove('posup','posdown');void hposEl.offsetWidth;
+hposEl.classList.add(improved?'posup':'posdown');
+setTimeout(function(){hposEl.classList.remove('posup','posdown')},470);
+G.prevPos=curPos;
+}
 }
 
 requestAnimationFrame(loop);
