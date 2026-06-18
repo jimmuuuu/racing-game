@@ -319,13 +319,13 @@ tb.appendChild(row);
 
 // ===== PSEUDO-3D RENDERER =====
 function project(wy,wz,camX,camZ){
-var dz=wz-camZ;if(dz<SEG_LEN*0.5)dz=SEG_LEN*0.5;
-var scale=CAM_DEPTH/(dz/SEG_LEN);
+var dz=wz-camZ;if(dz<1)dz=1;
+var scale=CAM_DEPTH/dz;
 return{
 scale:scale,
-x:Math.round(W/2 + scale*(0-camX/ROAD_W)*(W/2)),
-y:Math.round(H/2 - scale*(wy/ROAD_W-CAM_H/ROAD_W)*(H/2)),
-w:Math.round(scale*(W/2)),
+x:Math.round(W/2 + scale*(0-camX)*(W/2)),
+y:Math.round(H/2 - scale*(wy-CAM_H)*(H/2)),
+w:Math.round(scale*ROAD_W*(W/2)),
 dz:dz
 };
 }
@@ -358,7 +358,7 @@ var p2=project(seg.p2y,(seg.index+1)*SEG_LEN,camX2,camZ);
 segProj[n]={x:p1.x,y:p1.y,scale:p1.scale,w:p1.w};
 x+=dx;dx+=seg.curve*CURVE_MUL;
 
-if(p2.y>=maxy||p2.y>=p1.y){continue}
+if(p1.dz<=CAM_DEPTH||p2.y>=maxy||p2.y>=p1.y){continue}
 maxy=p2.y;
 
 var light=Math.floor(seg.index/RUMBLE_SEGS)%2===0;
@@ -432,14 +432,13 @@ if(track.scenery)for(var i=0;i<track.scenery.length;i++){var s=track.scenery[i];
 list.sort(function(a,b){return b.n-a.n});
 for(var i=0;i<list.length;i++){
 var sp=list[i];var pr=segProj[sp.n];
-var sx=pr.x+pr.scale*(sp.offset)*(W/2);
+var rw=pr.w;
+var sx=pr.x+pr.scale*(sp.offset*ROAD_W)*(W/2);
 if(sp.kind==='car'){
-var distFactor=pr.scale/CAM_DEPTH;
-var cw=Math.max(6,Math.min(W*0.12, W*0.12*distFactor));
+var cw=Math.max(6,Math.min(W*0.12, W*0.12*(10/(sp.n+5))));
 drawCarSprite(sx,pr.y,cw,sp.data.ch.color,sp.data.ch.dark,sp.data.ch.abbr);
 }else{
-var distFactor=pr.scale/CAM_DEPTH;
-var tw=Math.max(4,Math.min(W*0.10, W*0.10*distFactor*sp.data.h));
+var tw=Math.max(4,Math.min(W*0.10, W*0.10*(10/(sp.n+5))*sp.data.h));
 drawTree(sx,pr.y,tw,track);
 }
 }
