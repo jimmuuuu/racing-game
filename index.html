@@ -55,7 +55,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 <body>
 <canvas id="game" style="position:absolute;top:0;left:0"></canvas>
 <div id="renderError" style="position:fixed;top:40px;left:50%;transform:translateX(-50%);background:red;color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:14px;z-index:99;display:none"></div>
-<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v7</div>
+<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v8</div>
 <div id="ui">
 <div id="menu-screen" class="screen active">
 <div class="title">BRAINROT RACING</div>
@@ -365,11 +365,12 @@ var camX1=playerX*ROAD_W - x;
 var camX2=playerX*ROAD_W - x - dx;
 var p1=project(seg.p1y,seg.index*SEG_LEN,camX1,camZ);
 var p2=project(seg.p2y,(seg.index+1)*SEG_LEN,camX2,camZ);
-segProj[n]={x:p1.x,y:p1.y,scale:p1.scale,w:p1.w};
+segProj[n]={x:p1.x,y:p1.y,scale:p1.scale,w:p1.w,drawn:false};
 x+=dx;dx+=seg.curve*CURVE_MUL;
 
 if(p1.dz<=CAM_DEPTH||p2.y>=maxy||p2.y>=p1.y){continue}
 maxy=p2.y;
+segProj[n].drawn=true;
 
 var light=Math.floor(seg.index/RUMBLE_SEGS)%2===0;
 var grass=light?track.grassL:track.grassD;
@@ -442,13 +443,16 @@ if(track.scenery)for(var i=0;i<track.scenery.length;i++){var s=track.scenery[i];
 list.sort(function(a,b){return b.n-a.n});
 for(var i=0;i<list.length;i++){
 var sp=list[i];var pr=segProj[sp.n];
-var rw=pr.w;
+// skip sprites on segments hidden behind hills (prevents floating trees)
+if(!pr.drawn)continue;
 var sx=pr.x+pr.scale*(sp.offset*ROAD_W)*(W/2);
+// size scales with perspective; clamp so nothing becomes giant or vanishes
+var base=pr.scale*ROAD_W*(W/2);
 if(sp.kind==='car'){
-var cw=Math.max(6,Math.min(W*0.12, W*0.12*(10/(sp.n+5))));
+var cw=Math.max(8,Math.min(W*0.13, base*0.55));
 drawCarSprite(sx,pr.y,cw,sp.data.ch.color,sp.data.ch.dark,sp.data.ch.abbr);
 }else{
-var tw=Math.max(4,Math.min(W*0.10, W*0.10*(10/(sp.n+5))*sp.data.h));
+var tw=Math.max(5,Math.min(W*0.09, base*0.42*sp.data.h));
 drawTree(sx,pr.y,tw,track);
 }
 }
@@ -512,6 +516,17 @@ r.offset-=dtS*spdPct*spdPct*seg.curve*CENTRIFUGAL;
 
 if(Math.abs(r.offset)>1){r.speed-=r.speed*1.2*dtS;if(r.speed<r.maxSpd*0.35)r.speed=r.maxSpd*0.35}
 if(r.offset>2)r.offset=2;if(r.offset<-2)r.offset=-2;
+
+// collision with bots: bump apart and lose speed instead of passing through
+for(var ci=0;ci<G.racers.length;ci++){
+var o=G.racers[ci];if(o===r)continue;
+var dzc=o.z-r.z;
+if(dzc>TL/2)dzc-=TL;if(dzc<-TL/2)dzc+=TL;
+if(Math.abs(dzc)<SEG_LEN*1.3&&Math.abs(o.offset-r.offset)<0.45){
+r.offset+=(r.offset<o.offset?-1:1)*1.5*dtS;
+if(r.speed>o.speed){r.speed=o.speed*0.85}
+}
+}
 
 r.z+=r.speed*dtS;
 if(r.z>=TL){r.z-=TL;r.lap++;
