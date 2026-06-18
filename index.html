@@ -55,7 +55,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 <body>
 <canvas id="game" style="position:absolute;top:0;left:0"></canvas>
 <div id="renderError" style="position:fixed;top:40px;left:50%;transform:translateX(-50%);background:red;color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:14px;z-index:99;display:none"></div>
-<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v8</div>
+<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v9</div>
 <div id="ui">
 <div id="menu-screen" class="screen active">
 <div class="title">BRAINROT RACING</div>
@@ -188,7 +188,7 @@ var sc=[];var n=track.segs.length;
 for(var i=8;i<n;i+=3){
 var side=(i%2===0)?-1:1;
 var off=side*(1.6+Math.random()*1.4);
-sc.push({idx:i%n,offset:off,h:1.5+Math.random()*1.2});
+sc.push({idx:i%n,offset:off,h:1.5+Math.random()*1.2,type:i%3});
 }
 track.scenery=sc;
 }
@@ -351,7 +351,39 @@ var horizon=Math.round(H*0.45);
 var sky=X.createLinearGradient(0,0,0,horizon);
 sky.addColorStop(0,track.skyTop);sky.addColorStop(1,track.skyBot);
 X.fillStyle=sky;X.fillRect(0,0,W,horizon);
+
+// sun/moon per track
+var _ti=TRACKS.indexOf(track);
+if(_ti===0){
+// yellow sun top-right
+X.fillStyle='rgba(255,240,80,.9)';X.beginPath();X.arc(W*0.82,H*0.1,H*0.045,0,Math.PI*2);X.fill();
+X.fillStyle='rgba(255,255,180,.25)';X.beginPath();X.arc(W*0.82,H*0.1,H*0.08,0,Math.PI*2);X.fill();
+}else if(_ti===1){
+// white moon top-left
+X.fillStyle='rgba(230,230,245,.85)';X.beginPath();X.arc(W*0.18,H*0.09,H*0.035,0,Math.PI*2);X.fill();
+X.fillStyle='rgba(200,200,230,.15)';X.beginPath();X.arc(W*0.18,H*0.09,H*0.065,0,Math.PI*2);X.fill();
+}else{
+// large orange sun center-low for sunset
+X.fillStyle='rgba(255,140,30,.7)';X.beginPath();X.arc(W*0.5,horizon*0.85,H*0.08,0,Math.PI*2);X.fill();
+X.fillStyle='rgba(255,180,60,.2)';X.beginPath();X.arc(W*0.5,horizon*0.85,H*0.14,0,Math.PI*2);X.fill();
+}
+// clouds
+X.fillStyle='rgba(255,255,255,.18)';
+X.beginPath();X.ellipse(W*0.15,H*0.12,W*0.06,H*0.018,0,0,Math.PI*2);X.fill();
+X.beginPath();X.ellipse(W*0.15+W*0.035,H*0.11,W*0.04,H*0.015,0,0,Math.PI*2);X.fill();
+X.fillStyle='rgba(255,255,255,.14)';
+X.beginPath();X.ellipse(W*0.42,H*0.08,W*0.055,H*0.016,0,0,Math.PI*2);X.fill();
+X.beginPath();X.ellipse(W*0.42+W*0.03,H*0.072,W*0.035,H*0.013,0,0,Math.PI*2);X.fill();
+X.fillStyle='rgba(255,255,255,.16)';
+X.beginPath();X.ellipse(W*0.7,H*0.14,W*0.05,H*0.015,0,0,Math.PI*2);X.fill();
+X.beginPath();X.ellipse(W*0.7+W*0.03,H*0.13,W*0.038,H*0.013,0,0,Math.PI*2);X.fill();
+X.fillStyle='rgba(255,255,255,.12)';
+X.beginPath();X.ellipse(W*0.88,H*0.1,W*0.04,H*0.012,0,0,Math.PI*2);X.fill();
+
 X.fillStyle=track.grassD;X.fillRect(0,horizon,W,H-horizon);
+
+// parallax mountains
+renderParallax(track, playerX * 200 + segs[base].curve * 80);
 
 var x=0;
 var dx=-(segs[base].curve*basePercent)*CURVE_MUL;
@@ -401,29 +433,166 @@ X.closePath();X.fill();
 }
 
 // ===== SPRITES =====
-function drawCarSprite(cx,cyBottom,w,col,dark,abbr){
+function drawCarSprite(cx,cyBottom,w,col,dark,abbr,lean,dist){
 if(w<3)return;
+lean=lean||0;dist=dist||0;
 var h=w*1.25;
 var top=cyBottom-h;
-X.fillStyle='rgba(0,0,0,.35)';
-X.beginPath();X.ellipse(cx,cyBottom,w*0.6,w*0.16,0,0,Math.PI*2);X.fill();
-X.fillStyle=col;X.fillRect(cx-w/2,top,w,h);
-X.fillStyle=dark;X.fillRect(cx-w/2,cyBottom-h*0.28,w,h*0.28);
-X.fillStyle='rgba(180,210,255,.55)';X.fillRect(cx-w*0.34,top+h*0.12,w*0.68,h*0.22);
+X.save();
+// lean/banking rotation
+if(lean!==0){
+X.translate(cx,cyBottom);
+X.rotate(lean*0.15);
+X.translate(-cx,-cyBottom);
+}
+// shadow (scales and fades with distance)
+var shAlpha=0.35*(1-dist*0.6);
+var shScaleX=0.6+(1-dist)*0.15;
+var shScaleY=0.16*(1-dist*0.4);
+if(shAlpha>0.02){
+X.fillStyle='rgba(0,0,0,'+shAlpha.toFixed(2)+')';
+X.beginPath();X.ellipse(cx,cyBottom,w*shScaleX,w*shScaleY,0,0,Math.PI*2);X.fill();
+}
+// rounded car body with gradient
+var bx=cx-w/2,by=top,bw=w,bh=h,r=w*0.18;
+var bodyGrad=X.createLinearGradient(cx,top,cx,cyBottom);
+bodyGrad.addColorStop(0,'rgba(255,255,255,.25)');
+bodyGrad.addColorStop(0.15,col);
+bodyGrad.addColorStop(0.75,dark);
+bodyGrad.addColorStop(1,dark);
+X.fillStyle=bodyGrad;
+X.beginPath();
+X.moveTo(bx+r,by);
+X.arcTo(bx+bw,by,bx+bw,by+bh,r);
+X.arcTo(bx+bw,by+bh,bx,by+bh,r*0.5);
+X.arcTo(bx,by+bh,bx,by,r*0.5);
+X.arcTo(bx,by,bx+bw,by,r);
+X.closePath();X.fill();
+// windshield
+X.fillStyle='rgba(180,210,255,.55)';
+X.beginPath();
+var wx=cx-w*0.32,wy=top+h*0.12,ww=w*0.64,wh=h*0.22,wr=w*0.08;
+X.moveTo(wx+wr,wy);
+X.arcTo(wx+ww,wy,wx+ww,wy+wh,wr);
+X.arcTo(wx+ww,wy+wh,wx,wy+wh,wr);
+X.arcTo(wx,wy+wh,wx,wy,wr);
+X.arcTo(wx,wy,wx+ww,wy,wr);
+X.closePath();X.fill();
+// wheels (ellipses with hub center)
+var wheelY=top+h*0.6;
+var wheelW=w*0.13,wheelH=h*0.22;
+var hubR=wheelW*0.35;
+// left wheel
 X.fillStyle='#111';
-X.fillRect(cx-w/2-w*0.1,top+h*0.5,w*0.14,h*0.4);
-X.fillRect(cx+w/2-w*0.04,top+h*0.5,w*0.14,h*0.4);
-X.strokeStyle='rgba(0,0,0,.6)';X.lineWidth=Math.max(1,w*0.03);X.strokeRect(cx-w/2,top,w,h);
+X.beginPath();X.ellipse(cx-w/2-w*0.02,wheelY,wheelW,wheelH,0,0,Math.PI*2);X.fill();
+X.fillStyle='#888';
+X.beginPath();X.ellipse(cx-w/2-w*0.02,wheelY,hubR,hubR,0,0,Math.PI*2);X.fill();
+// right wheel
+X.fillStyle='#111';
+X.beginPath();X.ellipse(cx+w/2+w*0.02,wheelY,wheelW,wheelH,0,0,Math.PI*2);X.fill();
+X.fillStyle='#888';
+X.beginPath();X.ellipse(cx+w/2+w*0.02,wheelY,hubR,hubR,0,0,Math.PI*2);X.fill();
+// outline
+X.strokeStyle='rgba(0,0,0,.5)';X.lineWidth=Math.max(1,w*0.025);
+X.beginPath();
+X.moveTo(bx+r,by);
+X.arcTo(bx+bw,by,bx+bw,by+bh,r);
+X.arcTo(bx+bw,by+bh,bx,by+bh,r*0.5);
+X.arcTo(bx,by+bh,bx,by,r*0.5);
+X.arcTo(bx,by,bx+bw,by,r);
+X.closePath();X.stroke();
+// abbreviation label
 if(w>26){X.fillStyle='#fff';X.font='bold '+Math.round(w*0.32)+'px sans-serif';X.textAlign='center';X.fillText(abbr,cx,top-3)}
+X.restore();
 }
 
-function drawTree(cx,cyBottom,w,track){
+function drawTree(cx,cyBottom,w,track,treeType){
 if(w<3)return;
+treeType=treeType||0;
 var h=w*2.2;
+// shadow
 X.fillStyle='rgba(0,0,0,.3)';X.beginPath();X.ellipse(cx,cyBottom,w*0.5,w*0.14,0,0,Math.PI*2);X.fill();
+if(treeType===1){
+// Pine/conifer: triangular layers with trunk
+X.fillStyle='#5a3a1a';X.fillRect(cx-w*0.1,cyBottom-h*0.3,w*0.2,h*0.3);
+// three triangle layers
+for(var ti=0;ti<3;ti++){
+var ty=cyBottom-h*0.3-ti*h*0.2;
+var tw=w*(0.7-ti*0.15);
+var th=h*0.3;
+var tGrad=X.createLinearGradient(cx,ty-th,cx,ty);
+tGrad.addColorStop(0,track.treeTop);tGrad.addColorStop(1,track.treeCol);
+X.fillStyle=tGrad;
+X.beginPath();X.moveTo(cx,ty-th);X.lineTo(cx-tw,ty);X.lineTo(cx+tw,ty);X.closePath();X.fill();
+}
+}else if(treeType===2){
+// Bush: low, wide, no visible trunk
+var bh=h*0.4;
+var bGrad=X.createLinearGradient(cx,cyBottom-bh,cx,cyBottom);
+bGrad.addColorStop(0,track.treeTop);bGrad.addColorStop(1,track.treeCol);
+X.fillStyle=bGrad;
+X.beginPath();X.ellipse(cx,cyBottom-bh*0.35,w*0.9,bh*0.5,0,0,Math.PI*2);X.fill();
+X.fillStyle=track.treeTop;
+X.beginPath();X.ellipse(cx-w*0.3,cyBottom-bh*0.5,w*0.5,bh*0.35,0,0,Math.PI*2);X.fill();
+X.beginPath();X.ellipse(cx+w*0.25,cyBottom-bh*0.45,w*0.45,bh*0.32,0,0,Math.PI*2);X.fill();
+}else{
+// Type 0: Round deciduous tree with gradient foliage
 X.fillStyle='#5a3a1a';X.fillRect(cx-w*0.12,cyBottom-h*0.4,w*0.24,h*0.4);
-X.fillStyle=track.treeCol;X.beginPath();X.arc(cx,cyBottom-h*0.55,w*0.7,0,Math.PI*2);X.fill();
+var fGrad=X.createRadialGradient(cx-w*0.15,cyBottom-h*0.65,w*0.1,cx,cyBottom-h*0.55,w*0.7);
+fGrad.addColorStop(0,track.treeTop);fGrad.addColorStop(1,track.treeCol);
+X.fillStyle=fGrad;X.beginPath();X.arc(cx,cyBottom-h*0.55,w*0.7,0,Math.PI*2);X.fill();
 X.fillStyle=track.treeTop;X.beginPath();X.arc(cx-w*0.2,cyBottom-h*0.65,w*0.45,0,Math.PI*2);X.fill();
+}
+}
+
+function renderParallax(track,curveOffset){
+var horizon=Math.round(H*0.45);
+// derive mountain color from sky bottom (slightly darker)
+var sb=track.skyBot;
+// parse hex color and darken
+var r0=parseInt(sb.slice(1,3),16),g0=parseInt(sb.slice(3,5),16),b0=parseInt(sb.slice(5,7),16);
+var mr=Math.max(0,Math.round(r0*0.55)),mg=Math.max(0,Math.round(g0*0.55)),mb=Math.max(0,Math.round(b0*0.6));
+var mtCol='rgb('+mr+','+mg+','+mb+')';
+var mr2=Math.max(0,Math.round(r0*0.45)),mg2=Math.max(0,Math.round(g0*0.45)),mb2=Math.max(0,Math.round(b0*0.5));
+var mtCol2='rgb('+mr2+','+mg2+','+mb2+')';
+// background layer (farther, lighter mountains)
+var peaks=[
+{x:0.08,h:0.28,w:0.22},{x:0.25,h:0.35,w:0.2},{x:0.45,h:0.42,w:0.25},
+{x:0.62,h:0.32,w:0.18},{x:0.78,h:0.38,w:0.22},{x:0.92,h:0.25,w:0.2}
+];
+var shift=-(curveOffset*0.15)%W;
+X.fillStyle=mtCol;
+X.beginPath();
+X.moveTo(0,horizon);
+for(var i=0;i<peaks.length;i++){
+var p=peaks[i];
+var px=(p.x*W*1.4+shift)%(W+200)-100;
+var py=horizon-p.h*H*0.25;
+var pw=p.w*W*0.8;
+X.quadraticCurveTo(px-pw*0.3,py-H*0.02,px,py);
+X.quadraticCurveTo(px+pw*0.3,py-H*0.01,px+pw*0.5,horizon);
+}
+X.lineTo(W,horizon);
+X.closePath();X.fill();
+// foreground layer (closer, darker mountains)
+var peaks2=[
+{x:0.12,h:0.18,w:0.18},{x:0.35,h:0.24,w:0.2},{x:0.55,h:0.2,w:0.22},
+{x:0.72,h:0.28,w:0.19},{x:0.88,h:0.16,w:0.17}
+];
+var shift2=-(curveOffset*0.25)%W;
+X.fillStyle=mtCol2;
+X.beginPath();
+X.moveTo(0,horizon);
+for(var i=0;i<peaks2.length;i++){
+var p=peaks2[i];
+var px=(p.x*W*1.4+shift2)%(W+200)-100;
+var py=horizon-p.h*H*0.18;
+var pw=p.w*W*0.8;
+X.quadraticCurveTo(px-pw*0.3,py,px,py);
+X.quadraticCurveTo(px+pw*0.3,py+H*0.01,px+pw*0.5,horizon);
+}
+X.lineTo(W,horizon);
+X.closePath();X.fill();
 }
 
 function renderSprites(track,racers,playerIdx){
@@ -450,16 +619,16 @@ var sx=pr.x+pr.scale*(sp.offset*ROAD_W)*(W/2);
 var base=pr.scale*ROAD_W*(W/2);
 if(sp.kind==='car'){
 var cw=Math.max(8,Math.min(W*0.13, base*0.55));
-drawCarSprite(sx,pr.y,cw,sp.data.ch.color,sp.data.ch.dark,sp.data.ch.abbr);
+drawCarSprite(sx,pr.y,cw,sp.data.ch.color,sp.data.ch.dark,sp.data.ch.abbr,sp.data._lean||0,sp.n/DRAW_DIST);
 }else{
 var tw=Math.max(5,Math.min(W*0.09, base*0.42*sp.data.h));
-drawTree(sx,pr.y,tw,track);
+drawTree(sx,pr.y,tw,track,sp.data.type!=null?sp.data.type:(sp.data.idx%3));
 }
 }
 
 var pcw=W*0.10;
 var lean=(player._lean||0);
-drawCarSprite(W/2+lean*W*0.04,H*0.93,pcw,player.ch.color,player.ch.dark,player.ch.abbr);
+drawCarSprite(W/2+lean*W*0.04,H*0.93,pcw,player.ch.color,player.ch.dark,player.ch.abbr,lean,0);
 }
 
 // ===== MINIMAP =====
