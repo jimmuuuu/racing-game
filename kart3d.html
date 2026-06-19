@@ -48,6 +48,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 #fallback .big{font-family:'Arial Black',sans-serif;font-size:clamp(18px,4vw,30px);color:#ff3366;margin-bottom:14px}
 #fallback .small{font-size:12px;color:#999;max-width:600px;word-break:break-word}
 #buildver{position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.55);font-size:11px;z-index:98;pointer-events:none;font-family:monospace}
+#tdrift{width:68px;height:68px;right:54px;bottom:110px;background:rgba(160,0,220,.32)}
+#titem{width:68px;height:68px;right:134px;bottom:110px;background:rgba(220,180,0,.32)}
+#hitem{display:inline-block;background:linear-gradient(180deg,rgba(20,20,30,.85),rgba(0,0,0,.75));color:#fff;padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;margin-left:6px;min-width:44px;text-align:center}
+#hcoins{display:inline-block;background:linear-gradient(180deg,rgba(20,20,30,.85),rgba(0,0,0,.75));color:#ffd700;padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;margin-left:6px}
 </style>
 </head>
 <body>
@@ -85,6 +89,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
  <div class="hbox pos" id="hpos">1st</div>
  <div class="hbox" id="hlap">Lap 1/3</div>
  <div class="hbox" id="htime">0:00.0</div>
+ <div id="hitem"></div>
+ <div id="hcoins">&#9733;0</div>
 </div></div>
 <div id="countdown"></div>
 <div id="touch-controls">
@@ -92,8 +98,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
  <div class="tbtn" id="tr">&#9654;</div>
  <div class="tbtn" id="tg">&#9650;</div>
  <div class="tbtn" id="tb">&#9660;</div>
+ <div class="tbtn" id="tdrift">DR</div>
+ <div class="tbtn" id="titem">IT</div>
 </div>
-<div id="buildver">3D v1</div>
+<div id="buildver">3D v2</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -208,7 +216,17 @@ var SKY_VS=
 var SKY_FS=
 "precision mediump float; varying vec3 vCol; void main(){ gl_FragColor=vec4(vCol,1.0); }\n";
 
-var prog=null,skyProg=null,L={};
+/* particle shader */
+var PART_VS=
+"attribute vec3 aPos; attribute vec4 aCol;\n"+
+"uniform mat4 uProj; uniform mat4 uView;\n"+
+"varying vec4 vCol;\n"+
+"void main(){ vCol=aCol; gl_PointSize=clamp(200.0/length((uView*vec4(aPos,1.0)).xyz),2.0,18.0); gl_Position=uProj*uView*vec4(aPos,1.0); }\n";
+var PART_FS=
+"precision mediump float; varying vec4 vCol;\n"+
+"void main(){ float d=length(gl_PointCoord-vec2(0.5)); if(d>0.5)discard; gl_FragColor=vCol*(1.0-d*2.0); }\n";
+
+var prog=null,skyProg=null,partProg=null,PL={},L={};
 function compile(type,src){
  var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
@@ -226,6 +244,8 @@ function link(vs,fs){
 function initGL(){
  prog=link(VS,FS);
  skyProg=link(SKY_VS,SKY_FS);
+ partProg=link(PART_VS,PART_FS);
+ PL={aPos:gl.getAttribLocation(partProg,'aPos'),aCol:gl.getAttribLocation(partProg,'aCol'),uProj:gl.getUniformLocation(partProg,'uProj'),uView:gl.getUniformLocation(partProg,'uView')};
  L={
   aPos:gl.getAttribLocation(prog,'aPos'),
   aNorm:gl.getAttribLocation(prog,'aNorm'),
@@ -432,25 +452,85 @@ function makeRacer(ch,isPlayer,startSlot){
  var off=(startSlot-1.5)*3;
  return {ch:ch,isPlayer:isPlayer,
   x:c.x+c.px*off,y:c.y+0.0,z:c.z+c.pz*off*0,heading:Math.atan2(c.dx,c.dz),
-  speed:0,idx:0,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6};
+  speed:0,idx:0,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
+  driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
+  stallTimer:0,slipTimer:0,spinTimer:0,invTimer:0,coinCount:0,item:null,
+  prevY:0,prevPrevY:0,rocketGas:false,spinAngle:0};
 }
 
 /* ===================== INPUT ===================== */
 var keys={};
 document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();});
 document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
-var touch={l:false,r:false,g:false,b:false};
+var touch={l:false,r:false,g:false,b:false,drift:false,item:false};
 function setupT(id,k){var el=document.getElementById(id);if(!el)return;
  el.addEventListener('touchstart',function(e){e.preventDefault();touch[k]=true;el.classList.add('pressed');},{passive:false});
  el.addEventListener('touchend',function(e){e.preventDefault();touch[k]=false;el.classList.remove('pressed');},{passive:false});
  el.addEventListener('touchcancel',function(){touch[k]=false;el.classList.remove('pressed');});
 }
-setupT('tl','l');setupT('tr','r');setupT('tg','g');setupT('tb','b');
+setupT('tl','l');setupT('tr','r');setupT('tg','g');setupT('tb','b');setupT('tdrift','drift');setupT('titem','item');
 function isMobile(){return 'ontouchstart' in window||navigator.maxTouchPoints>0}
 
 /* ===================== AUDIO (optional beeps) ===================== */
 var actx=null;
 function beep(f,d){ try{ if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)(); var o=actx.createOscillator(),g=actx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(actx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+d);o.stop(actx.currentTime+d);}catch(e){} }
+
+/* ===================== PARTICLES ===================== */
+var MAXPART=60,particles=[];
+function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
+ for(var i=0;i<particles.length;i++){if(particles[i].life<=0){var p=particles[i];p.x=x;p.y=y;p.z=z;p.vx=vx;p.vy=vy;p.vz=vz;p.r=r;p.g=g;p.b=b;p.a=1;p.life=life;p.maxLife=life;return;}}
+ if(particles.length<MAXPART)particles.push({x:x,y:y,z:z,vx:vx,vy:vy,vz:vz,r:r,g:g,b:b,a:1,life:life,maxLife:life});
+}
+function updateParticles(dt){var s=dt/1000;for(var i=0;i<particles.length;i++){var p=particles[i];if(p.life<=0)continue;p.life-=dt;p.x+=p.vx*s;p.y+=p.vy*s;p.z+=p.vz*s;p.vy-=6*s;p.a=Math.max(0,p.life/p.maxLife);}}
+var partPosBuf=null,partColBuf=null;
+function renderParticles(proj,view){
+ var posArr=[],colArr=[],cnt=0;
+ for(var i=0;i<particles.length;i++){var p=particles[i];if(p.life<=0)continue;posArr.push(p.x,p.y,p.z);colArr.push(p.r,p.g,p.b,p.a);cnt++;}
+ if(cnt===0)return;
+ gl.useProgram(partProg);
+ if(!partPosBuf)partPosBuf=gl.createBuffer();
+ if(!partColBuf)partColBuf=gl.createBuffer();
+ gl.bindBuffer(gl.ARRAY_BUFFER,partPosBuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(posArr),gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(PL.aPos);gl.vertexAttribPointer(PL.aPos,3,gl.FLOAT,false,0,0);
+ gl.bindBuffer(gl.ARRAY_BUFFER,partColBuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(colArr),gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(PL.aCol);gl.vertexAttribPointer(PL.aCol,4,gl.FLOAT,false,0,0);
+ gl.uniformMatrix4fv(PL.uProj,false,proj);gl.uniformMatrix4fv(PL.uView,false,view);
+ gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);gl.depthMask(false);
+ gl.drawArrays(gl.POINTS,0,cnt);
+ gl.disable(gl.BLEND);gl.depthMask(true);
+}
+
+/* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
+var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack'];
+var itemBoxes=[],coins=[],hazards=[],projectiles=[];
+var itemBoxMesh=null,coinMesh=null;
+
+function buildItemsAndCoins(){
+ itemBoxes=[];coins=[];hazards=[];projectiles=[];
+ var n=CL.length;
+ // item boxes every ~20 segments, offset left/right
+ for(var i=0;i<n;i+=20){
+  var c=CL[i%n],side=((i/20)%2===0)?-1:1;
+  itemBoxes.push({x:c.x+c.px*side*4,y:c.y+1.2,z:c.z+c.pz*side*4,active:true,timer:0});
+ }
+ // coins every ~8 segments
+ for(var j=3;j<n;j+=8){
+  var c2=CL[j%n],off2=Math.sin(j*0.7)*3;
+  coins.push({x:c2.x+c2.px*off2,y:c2.y+0.8,z:c2.z+c2.pz*off2,active:true});
+ }
+ // build meshes
+ itemBoxMesh=new Mesh();itemBoxMesh.box(0,0,0,0.7,0.7,0.7);itemBoxMesh.upload();
+ coinMesh=new Mesh();coinMesh.box(0,0,0,0.4,0.4,0.1);coinMesh.upload();
+}
+
+function spinoutRacer(r){
+ if(r.invTimer>0||r.spinTimer>0)return;
+ r.spinTimer=1200;r.speed*=0.15;
+ // drop coins
+ var drop=Math.min(r.coinCount,3);r.coinCount-=drop;
+ for(var d=0;d<drop;d++){
+  var ang=Math.random()*Math.PI*2;
+  coins.push({x:r.x+Math.cos(ang)*3,y:r.y+0.8,z:r.z+Math.sin(ang)*3,active:true});
+ }
+}
 
 /* ===================== SCREENS / FLOW ===================== */
 function show(id){
