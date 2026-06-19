@@ -217,12 +217,13 @@ var V={
 
 /* ===================== THEME (matches 2D BRAINROT RACING) ===================== */
 var CHARS=[
- {name:'Tung Tung Sahur',col:[1,0.25,0.45],dark:[0.75,0.1,0.3]},
- {name:'Tralalero Tralala',col:[0.25,0.85,1],dark:[0.1,0.6,0.8]},
- {name:'Bombardiro Crocodilo',col:[0.25,1,0.45],dark:[0.1,0.75,0.25]},
- {name:'Cappuccino Assassino',col:[1,0.65,0.25],dark:[0.8,0.45,0.1]},
- {name:'Brr Brr Patapim',col:[0.85,0.25,1],dark:[0.6,0.1,0.8]}
+ {name:'Tung Tung Sahur',skins:[{col:[1,0.25,0.45],dark:[0.75,0.1,0.3]},{col:[0.9,0.7,0.3],dark:[0.8,0.5,0.1]}]},
+ {name:'Tralalero Tralala',skins:[{col:[0.25,0.85,1],dark:[0.1,0.6,0.8]},{col:[0.15,0.5,0.9],dark:[0.08,0.3,0.7]}]},
+ {name:'Bombardiro Crocodilo',skins:[{col:[0.25,1,0.45],dark:[0.1,0.75,0.25]},{col:[0.1,0.8,0.9],dark:[0.05,0.5,0.7]}]},
+ {name:'Cappuccino Assassino',skins:[{col:[1,0.65,0.25],dark:[0.8,0.45,0.1]},{col:[0.5,0.2,0.8],dark:[0.35,0.1,0.6]}]},
+ {name:'Brr Brr Patapim',skins:[{col:[0.85,0.25,1],dark:[0.6,0.1,0.8]},{col:[1,1,0.2],dark:[0.9,0.8,0.05]}]}
 ];
+var getCharColor=function(charIdx){var ch=CHARS[charIdx];var skinIdx=Math.floor((charIdx*13+GS.raceCount)%ch.skins.length);return ch.skins[skinIdx];};
 var DIFFS={Easy:0.80,Medium:0.92,Hard:1.0};
 
 /* Track centerline generators (X,Z in world units; Y elevation). Closed loops. */
@@ -521,13 +522,13 @@ function drawMesh(mesh,model,color,ambient){
 }
 
 function drawKart(racer){
- var ch=racer.ch;
+ var skin=getCharColor(racer.chIdx);
  var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
- drawMesh(kartLower,base,ch.dark,0.4);
- drawMesh(kartBody,base,ch.col,0.45);
- drawMesh(kartRoof,base,ch.dark,0.45);
+ drawMesh(kartLower,base,skin.dark,0.4);
+ drawMesh(kartBody,base,skin.col,0.45);
+ drawMesh(kartRoof,base,skin.dark,0.45);
  // spoiler
- drawMesh(kartSpoiler,base,[ch.dark[0]*1.2,ch.dark[1]*1.2,ch.dark[2]*1.2],0.6);
+ drawMesh(kartSpoiler,base,[skin.dark[0]*1.2,skin.dark[1]*1.2,skin.dark[2]*1.2],0.6);
  // wheels with shine
  var wcol=[0.12,0.12,0.12],wshine=[0.3,0.3,0.35];
  var wp=[[-0.7,0.0,0.7],[0.7,0.0,0.7],[-0.7,0.0,-0.7],[0.7,0.0,-0.7]];
@@ -539,7 +540,7 @@ function drawKart(racer){
  }
  // if boosting, add glow
  if(racer.isPlayer&&racer.boostTimer>0){
-  drawMesh(kartBody,base,[ch.col[0]*1.5,ch.col[1]*1.5,Math.min(1,ch.col[2]*1.5)],0.2);
+  drawMesh(kartBody,base,[skin.col[0]*1.5,skin.col[1]*1.5,Math.min(1,skin.col[2]*1.5)],0.2);
  }
 }
 
@@ -739,11 +740,11 @@ function groundYAt(x,z,hint){
 }
 function progressOf(r){ return r.lap*trackLength + (CL[r.idx]?CL[r.idx].dist:0); }
 
-function makeRacer(ch,isPlayer,startSlot){
+function makeRacer(chIdx,isPlayer,startSlot){
  var c=CL[0];
  // place near start line, offset to side by slot
  var off=(startSlot-1.5)*3;
- return {ch:ch,isPlayer:isPlayer,
+ return {chIdx:chIdx,isPlayer:isPlayer,
   x:c.x+c.px*off,y:c.y+0.0,z:c.z+c.pz*off,heading:Math.atan2(c.dx,c.dz),
   speed:0,idx:0,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
@@ -866,7 +867,8 @@ function buildCharGrid(){
  var g=document.getElementById('cgrid');g.innerHTML='';
  CHARS.forEach(function(c,i){
   var d=document.createElement('div');d.className='char-card'+(i===GS.selChar?' sel':'');
-  var col='rgb('+Math.round(c.col[0]*255)+','+Math.round(c.col[1]*255)+','+Math.round(c.col[2]*255)+')';
+  var skin=getCharColor(i);
+  var col='rgb('+Math.round(skin.col[0]*255)+','+Math.round(skin.col[1]*255)+','+Math.round(skin.col[2]*255)+')';
   d.innerHTML='<div class="swatch" style="background:'+col+'"></div><div class="char-name">'+c.name+'</div>';
   d.onclick=function(){GS.selChar=i;buildCharGrid();beep(440+i*80,0.1);};
   g.appendChild(d);
@@ -899,10 +901,11 @@ function startRace(){
  particles=[];
  // racers: player + 3 bots (other chars)
  GS.racers=[];
- GS.racers.push(makeRacer(CHARS[GS.selChar],true,0));
+ GS.racers.push(makeRacer(GS.selChar,true,0));
  if(!GS.timeTrial){
-  var bots=CHARS.filter(function(_,i){return i!==GS.selChar;});
-  for(var i=0;i<3;i++)GS.racers.push(makeRacer(bots[i],false,i+1));
+  var botIndices=[];
+  for(var j=0;j<CHARS.length;j++)if(j!==GS.selChar)botIndices.push(j);
+  for(var i=0;i<3;i++)GS.racers.push(makeRacer(botIndices[i],false,i+1));
  }
  // camera init behind player
  var p=GS.racers[0];
@@ -1575,8 +1578,10 @@ function render(){
    var ndcX=clipX/clipW,ndcY=clipY/clipW;
    var scX=(ndcX*0.5+0.5)*fw,scY=(1-(ndcY*0.5+0.5))*fh;
    if(scX<-50||scX>fw+50||scY<-50||scY>fh+50)continue;
-   var label=rr2.ch.name.substring(0,2).toUpperCase();
-   var lcol='rgb('+Math.round(rr2.ch.col[0]*255)+','+Math.round(rr2.ch.col[1]*255)+','+Math.round(rr2.ch.col[2]*255)+')';
+   var charName=CHARS[rr2.chIdx].name;
+   var skin=getCharColor(rr2.chIdx);
+   var label=charName.substring(0,2).toUpperCase();
+   var lcol='rgb('+Math.round(skin.col[0]*255)+','+Math.round(skin.col[1]*255)+','+Math.round(skin.col[2]*255)+')';
    fxCtx.save();
    // glow background
    fxCtx.fillStyle='rgba(0,0,0,0.4)';fxCtx.fillRect(scX-22,scY-14,44,28);
