@@ -12,32 +12,33 @@
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;z-index:10}
 #ui>div{pointer-events:auto}
-.screen{display:none;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:20px;overflow-y:auto}
-.screen.active{display:flex}
+.screen{display:none;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:20px;overflow-y:auto;background:radial-gradient(ellipse at 30% 20%,rgba(80,0,120,.4),transparent 60%),radial-gradient(ellipse at 70% 80%,rgba(0,60,120,.4),transparent 60%),linear-gradient(135deg,#0a0014 0%,#0d0d2b 40%,#1a0a2e 70%,#0a0014 100%)}
+.screen.active{display:flex;animation:screenFadeIn .35s ease-out}
+@keyframes screenFadeIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 .title{font-family:'Arial Black','Impact',sans-serif;font-size:clamp(24px,5vw,56px);font-weight:900;color:#fff;text-shadow:0 0 20px #f0f,0 0 40px #0ff,3px 3px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;margin-bottom:8px;text-align:center;letter-spacing:2px}
 .subtitle{font-size:clamp(12px,2.5vw,20px);color:#ff0;margin-bottom:20px;text-align:center}
-.btn{background:linear-gradient(135deg,#ff006e,#8338ec);color:#fff;border:none;padding:12px 32px;font-size:clamp(14px,2.5vw,20px);border-radius:12px;cursor:pointer;margin:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px;box-shadow:0 4px 15px rgba(0,0,0,.4);transition:transform .1s}
-.btn:hover{transform:scale(1.05)}.btn:active{transform:scale(.95)}
+.btn{background:linear-gradient(135deg,#ff006e,#8338ec);color:#fff;border:none;padding:12px 32px;font-size:clamp(14px,2.5vw,20px);border-radius:12px;cursor:pointer;margin:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px;box-shadow:0 4px 15px rgba(0,0,0,.4),0 0 20px rgba(255,0,110,.3);transition:transform .15s,box-shadow .25s}
+.btn:hover{transform:scale(1.05);box-shadow:0 4px 20px rgba(0,0,0,.5),0 0 35px rgba(131,56,236,.6),0 0 60px rgba(255,0,110,.3)}.btn:active{transform:scale(.95)}
 .char-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;max-width:650px;width:100%;margin:12px 0}
-.char-card{background:rgba(255,255,255,.1);border:3px solid transparent;border-radius:12px;padding:10px;text-align:center;cursor:pointer;transition:all .2s}
-.char-card:hover{background:rgba(255,255,255,.2)}
-.char-card.sel{border-color:#0ff;background:rgba(0,255,255,.15)}
+.char-card{background:rgba(255,255,255,.08);border:3px solid rgba(255,255,255,.15);border-radius:12px;padding:10px;text-align:center;cursor:pointer;transition:all .25s;backdrop-filter:blur(2px)}
+.char-card:hover{background:rgba(255,255,255,.18);box-shadow:0 0 20px rgba(255,255,255,.15);transform:translateY(-2px)}
+.char-card.sel{border-color:#0ff;background:rgba(0,255,255,.15);box-shadow:0 0 25px rgba(0,255,255,.3)}
 .char-name{color:#fff;font-weight:700;font-size:clamp(10px,1.8vw,13px)}
 .char-stats{color:#aaa;font-size:clamp(9px,1.4vw,11px);margin-top:4px}
 .sbar{height:5px;background:#333;border-radius:3px;margin:2px 0;overflow:hidden}
 .sfill{height:100%;border-radius:3px}
 .track-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;max-width:550px;width:100%;margin:12px 0}
-.track-card{background:rgba(255,255,255,.1);border:3px solid transparent;border-radius:12px;padding:12px;text-align:center;cursor:pointer;transition:all .2s}
-.track-card:hover{background:rgba(255,255,255,.2)}
-.track-card.sel{border-color:#ff0;box-shadow:0 0 15px rgba(255,255,0,.3)}
+.track-card{background:rgba(255,255,255,.08);border:3px solid rgba(255,255,255,.15);border-radius:12px;padding:12px;text-align:center;cursor:pointer;transition:all .25s}
+.track-card:hover{background:rgba(255,255,255,.18);box-shadow:0 0 20px rgba(255,255,255,.15);transform:translateY(-2px)}
+.track-card.sel{border-color:#ff0;box-shadow:0 0 25px rgba(255,255,0,.35)}
 .tname{color:#fff;font-weight:700;font-size:15px}.tdesc{color:#aaa;font-size:11px;margin-top:3px}
 .diff-row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;justify-content:center}
 .dbtn{padding:8px 18px;border-radius:8px;border:2px solid #555;background:transparent;color:#fff;cursor:pointer;font-weight:700;font-size:13px}
 .dbtn.sel{border-color:#0f0;color:#0f0;box-shadow:0 0 10px rgba(0,255,0,.3)}
 #hud{position:fixed;top:0;left:0;width:100%;pointer-events:none;padding:8px;display:none;z-index:12}
 .hud-row{display:flex;justify-content:space-between;align-items:flex-start}
-.hbox{background:rgba(0,0,0,.7);color:#fff;padding:5px 12px;border-radius:8px;font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000;transition:transform .12s ease-out}
-.hbox.pos{font-size:clamp(18px,3vw,28px);color:#ff0;text-shadow:2px 2px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000}
+.hbox{background:linear-gradient(180deg,rgba(20,20,30,.85),rgba(0,0,0,.75));color:#fff;padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000;transition:transform .12s ease-out}
+.hbox.pos{font-size:clamp(24px,4.5vw,42px);color:#ff0;text-shadow:2px 2px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 15px rgba(255,255,0,.5);padding:6px 16px}
 #hlap.lappop{animation:lapPop .42s ease-out;color:#0ff}
 @keyframes lapPop{0%{transform:scale(1)}30%{transform:scale(1.5);color:#0ff}60%{transform:scale(.92)}100%{transform:scale(1)}}
 #hpos.posup{animation:posUp .45s ease-out}
@@ -48,7 +49,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 #muteBtn:active{transform:scale(.92)}
 #tauntBtn{position:fixed;top:94px;right:8px;width:42px;height:42px;border-radius:10px;border:2px solid rgba(255,225,77,.5);background:rgba(0,0,0,.6);color:#fff;font-size:20px;cursor:pointer;display:none;z-index:13;line-height:1;padding:0;-webkit-tap-highlight-color:transparent}
 #tauntBtn:active{transform:scale(.92)}
-#countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(50px,12vw,100px);font-weight:900;color:#fff;text-shadow:0 0 30px #f0f,0 0 60px #0ff,4px 4px 0 #000,-3px -3px 0 #000,3px -3px 0 #000,-3px 3px 0 #000,3px 3px 0 #000;display:none;pointer-events:none;z-index:15}
+#countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(60px,14vw,120px);font-weight:900;color:#fff;text-shadow:0 0 30px #f0f,0 0 60px #0ff,0 0 100px rgba(255,0,255,.4),4px 4px 0 #000,-3px -3px 0 #000,3px -3px 0 #000,-3px 3px 0 #000,3px 3px 0 #000;display:none;pointer-events:none;z-index:15;background:radial-gradient(circle,rgba(0,0,0,.5) 0%,transparent 70%);padding:30px 50px;border-radius:50%}
 #countdown.cdpop{animation:cdPop .55s ease-out}
 @keyframes cdPop{0%{transform:translate(-50%,-50%) scale(.2);opacity:0}25%{transform:translate(-50%,-50%) scale(1.4);opacity:1}45%{transform:translate(-50%,-50%) scale(.95)}60%{transform:translate(-50%,-50%) scale(1.08)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 #touch-controls{position:fixed;bottom:0;left:0;width:100%;height:46%;pointer-events:none;display:none;z-index:11}
@@ -67,6 +68,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 .rrow.bot{background:rgba(255,255,255,.1)}
 .rrow.me.win{background:rgba(255,215,0,.28);border:2px solid #ffd700;animation:meGlow 1s ease-in-out infinite alternate}
 .rrow.me:not(.win){animation:meGlow2 1.2s ease-in-out infinite alternate}
+.lbhdr{color:#ffd700;font-family:'Arial Black','Impact',sans-serif;font-weight:900;text-align:center;letter-spacing:1px;font-size:clamp(13px,2.6vw,18px);margin:6px 0 6px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000}
+.lbrow{display:flex;justify-content:space-between;padding:6px 14px;margin:3px 0;border-radius:8px;color:#fff;font-weight:700;font-size:clamp(12px,2.1vw,15px);background:rgba(255,255,255,.08)}
+.lbrow.new{background:rgba(255,215,0,.22);border:1px solid #ffd700}
+.lbrow.empty{justify-content:center;color:#999;background:transparent}
+.lbnew{color:#0f0;font-weight:900;margin-left:8px;font-size:.85em}
 @keyframes meGlow{from{box-shadow:0 0 6px rgba(255,215,0,.5)}to{box-shadow:0 0 22px rgba(255,215,0,.95)}}
 @keyframes meGlow2{from{box-shadow:0 0 4px rgba(0,255,255,.4)}to{box-shadow:0 0 16px rgba(0,255,255,.8)}}
 #winhdr{font-family:'Arial Black','Impact',sans-serif;font-weight:900;text-align:center;margin-bottom:6px;letter-spacing:1px;font-size:clamp(22px,4.5vw,44px);color:#ffd700;text-shadow:0 0 20px #ff0,0 0 40px #f80,3px 3px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;animation:hdrPop .6s ease-out}
@@ -76,7 +82,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 <body>
 <canvas id="game" style="position:absolute;top:0;left:0"></canvas>
 <div id="renderError" style="position:fixed;top:40px;left:50%;transform:translateX(-50%);background:red;color:#fff;padding:8px 16px;border-radius:8px;font-weight:700;font-size:14px;z-index:99;display:none"></div>
-<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v12</div>
+<div id="buildver" style="position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.5);font-size:10px;z-index:99;pointer-events:none">v14</div>
 <div id="ui">
 <div id="menu-screen" class="screen active">
 <div class="title">BRAINROT RACING</div>
@@ -99,6 +105,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 <div id="winhdr"></div>
 <div class="title" style="font-size:clamp(20px,3.5vw,36px)">RACE RESULTS</div>
 <div class="rtable" id="rtable"></div>
+<div class="rtable" id="lbsection"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
 <button class="btn" onclick="G.goTrackSel()">RACE AGAIN</button>
 <button class="btn" onclick="G.goMenu()">MENU</button>
@@ -250,7 +257,8 @@ var ROAD_W=2200;
 var CAM_H=1500;
 var FOV=100;
 var CAM_DEPTH=1/Math.tan((FOV/2)*Math.PI/180);
-var DRAW_DIST=220;
+var DRAW_DIST=220;// MAX draw distance; pools are sized to this. G.drawDist holds the live (possibly reduced) value.
+var DRAW_DIST_MIN=140;// reduced distance used by the FPS-adaptive safeguard
 var RUMBLE_SEGS=4;
 var CENTRIFUGAL=0.32;
 var HILL_AMP=900;
@@ -507,6 +515,38 @@ if(pressed(4)||pressed(3))pad.drift=true;
 function posStr(p){return p===1?'1st':p===2?'2nd':p===3?'3rd':p+'th'}
 function fmtTime(t){var m=Math.floor(t/60000),s=Math.floor(t%60000/1000),ms=Math.floor(t%1000/100);return m+':'+String(s).padStart(2,'0')+'.'+ms}
 
+// ===== LOCAL LEADERBOARD (best times per track, localStorage, top 5) =====
+// Stored under 'brrLeaderboard' as { "<trackName>": [ {name, time}, ... sorted asc, max 5 ] }.
+// All access wrapped in try/catch — some school/locked-down setups disable localStorage.
+var LB_KEY='brrLeaderboard',LB_MAX=5;
+function lbLoad(){
+try{var raw=localStorage.getItem(LB_KEY);if(!raw)return{};var o=JSON.parse(raw);return(o&&typeof o==='object')?o:{}}catch(e){return{}}
+}
+function lbSave(data){
+try{localStorage.setItem(LB_KEY,JSON.stringify(data))}catch(e){}
+}
+// list of {name,time} for a track, sorted ascending (empty array if none)
+function lbGet(trackName){
+var data=lbLoad();var arr=data[trackName];return(arr&&arr.length)?arr.slice():[];
+}
+// best (lowest) time for a track, or null if no data
+function lbBest(trackName){
+var arr=lbGet(trackName);return arr.length?arr[0].time:null;
+}
+// record a finish; returns the 0-based index it landed at in the top list, or -1 if it didn't make the cut
+function lbRecord(trackName,name,time){
+if(typeof time!=='number'||!isFinite(time))return-1;
+var data=lbLoad();var arr=(data[trackName]&&data[trackName].length)?data[trackName].slice():[];
+var entry={name:name,time:time};
+arr.push(entry);
+arr.sort(function(a,b){return a.time-b.time});
+if(arr.length>LB_MAX)arr=arr.slice(0,LB_MAX);
+data[trackName]=arr;
+lbSave(data);
+var idx=arr.indexOf(entry);
+return idx;// -1 if it got trimmed off the bottom
+}
+
 // ===== RACER =====
 function makeRacer(ch,isPlayer,slot){
 var startOffsets=[0,-0.55,0.55,-0.25];
@@ -537,6 +577,8 @@ cdVal:0,cdTimer:0,finishOrder:[],
 cam:{x:0,y:0,z:0},engTimer:0,
 shake:0,bobTime:0,smokeTimer:0,boostFxTimer:0,driftSqTimer:0,crashSndTimer:0,
 prevPos:1,prevLap:0,muted:false,
+// FPS-adaptive quality: live draw distance (starts at MAX). fpsAvg is a smoothed estimate.
+drawDist:DRAW_DIST,fpsAvg:60,fpsLowT:0,fpsHighT:0,lowQuality:false,
 
 show:function(id){
 document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
@@ -556,7 +598,7 @@ initA();this.scr='charSel';this.show('char-screen');
 var g=document.getElementById('cgrid');g.innerHTML='';var self=this;
 CHARS.forEach(function(c,i){
 var d=document.createElement('div');d.className='char-card'+(i===self.selChar?' sel':'');
-d.innerHTML='<div style="width:50px;height:50px;border-radius:50%;background:'+c.color+';margin:0 auto 6px;border:3px solid #fff;line-height:44px;text-align:center;font-weight:900;color:#fff;font-size:16px">'+c.abbr+'</div>'+
+d.innerHTML='<canvas width="80" height="50" class="char-car-preview" data-color="'+c.color+'" data-dark="'+c.dark+'" data-abbr="'+c.abbr+'" style="margin:0 auto 6px;display:block"></canvas>'+
 '<div class="char-name">'+c.name+'</div>'+
 '<div class="char-stats">'+
 'SPD '+c.speed+'/10<div class="sbar"><div class="sfill" style="width:'+c.speed*10+'%;background:#0f0"></div></div>'+
@@ -565,6 +607,19 @@ d.innerHTML='<div style="width:50px;height:50px;border-radius:50%;background:'+c
 d.onclick=function(){self.selChar=i;g.querySelectorAll('.char-card').forEach(function(c2){c2.classList.remove('sel')});d.classList.add('sel');tone(440+i*80,.1,'sine',.08)};
 g.appendChild(d);
 });
+// draw mini car previews on each char card canvas
+setTimeout(function(){g.querySelectorAll('.char-car-preview').forEach(function(cv){
+var ctx=cv.getContext('2d');var col=cv.dataset.color;var dk=cv.dataset.dark;
+var cw=80,ch=50,cx=cw/2,cy=ch-6,bw=36,bh=30,r=6;
+ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(cx,cy,20,5,0,0,Math.PI*2);ctx.fill();
+var bg=ctx.createLinearGradient(cx,cy-bh,cx,cy);bg.addColorStop(0,'rgba(255,255,255,.3)');bg.addColorStop(.15,col);bg.addColorStop(.75,dk);bg.addColorStop(1,dk);
+ctx.fillStyle=bg;ctx.beginPath();ctx.moveTo(cx-bw/2+r,cy-bh);ctx.arcTo(cx+bw/2,cy-bh,cx+bw/2,cy,r);ctx.arcTo(cx+bw/2,cy,cx-bw/2,cy,3);ctx.arcTo(cx-bw/2,cy,cx-bw/2,cy-bh,3);ctx.arcTo(cx-bw/2,cy-bh,cx+bw/2,cy-bh,r);ctx.closePath();ctx.fill();
+ctx.fillStyle='rgba(180,210,255,.5)';ctx.fillRect(cx-10,cy-bh+5,20,8);
+ctx.fillStyle='#111';ctx.beginPath();ctx.ellipse(cx-bw/2-2,cy-10,5,7,0,0,Math.PI*2);ctx.fill();
+ctx.beginPath();ctx.ellipse(cx+bw/2+2,cy-10,5,7,0,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#ffffaa';ctx.beginPath();ctx.arc(cx-8,cy-bh+3,2.5,0,Math.PI*2);ctx.fill();
+ctx.beginPath();ctx.arc(cx+8,cy-bh+3,2.5,0,Math.PI*2);ctx.fill();
+})},10);
 },
 
 goTrackSel:function(){
@@ -572,7 +627,9 @@ this.scr='trackSel';stopMusic();stopEngine();this.show('track-screen');
 var tg=document.getElementById('tgrid');tg.innerHTML='';var self=this;
 TRACKS.forEach(function(t,i){
 var d=document.createElement('div');d.className='track-card'+(i===self.selTrack?' sel':'');
-d.innerHTML='<div class="tname">'+t.name+'</div><div class="tdesc">'+t.desc+'</div>';
+var bt=lbBest(t.name);
+var bestStr='Best: '+(bt!=null?fmtTime(bt):'—');
+d.innerHTML='<div style="width:100%;height:8px;border-radius:4px;background:linear-gradient(90deg,'+t.skyTop+','+t.skyBot+');margin-bottom:8px"></div><div class="tname">'+t.name+'</div><div class="tdesc">'+t.desc+'</div><div class="tdesc" style="color:#ffd700;margin-top:5px">'+bestStr+'</div>';
 d.onclick=function(){self.selTrack=i;tg.querySelectorAll('.track-card').forEach(function(c){c.classList.remove('sel')});d.classList.add('sel');tone(330,.1,'sine',.08)};
 tg.appendChild(d);
 });
@@ -594,10 +651,13 @@ var pc=CHARS[this.selChar];
 this.raceTime=0;this.started=false;this.finished=false;
 this.finishOrder=[];this.racers=[];
 this.shake=0;this.bobTime=0;this.smokeTimer=0;this.boostFxTimer=0;this.driftSqTimer=0;this.crashSndTimer=0;
+// reset FPS-adaptive quality to full each race
+this.drawDist=DRAW_DIST;this.fpsAvg=60;this.fpsLowT=0;this.fpsHighT=0;this.lowQuality=false;
 // reset pools so a previous race doesn't leak particles/hazards/text
 for(var pi=0;pi<PARTICLE_MAX;pi++)particles[pi].active=false;
 for(var hi=0;hi<HAZARD_MAX;hi++)hazardPool[hi].active=false;
 for(var fi=0;fi<FTEXT_MAX;fi++)ftexts[fi].active=false;
+_spriteCount=0;
 var trk=TRACKS[this.selTrack];
 if(trk.items)for(var ii=0;ii<trk.items.length;ii++){trk.items[ii].taken=false;trk.items[ii].respawnTimer=0}
 this.racers.push(makeRacer(pc,true,0));
@@ -644,6 +704,35 @@ var medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
 row.innerHTML='<span>'+medal+posStr(i+1)+'</span><span>'+r.abbr+' '+r.name+'</span><span>'+ts+'</span>';
 tb.appendChild(row);
 });
+// ---- best-times leaderboard for this track ----
+var trackName=TRACKS[this.selTrack].name;
+var pc=CHARS[this.selChar];
+// find the player's finish entry (DNF players are not recorded)
+var pFinish=this.finishOrder.find(function(f){return f.isPlayer&&typeof f.time==='number'});
+var newIdx=-1;
+if(pFinish)newIdx=lbRecord(trackName,pc.abbr+' '+pc.name,pFinish.time);
+this.renderLeaderboard(trackName,newIdx);
+},
+
+// render the BEST TIMES panel into #lbsection; highlight row `newIdx` with a NEW! badge
+renderLeaderboard:function(trackName,newIdx){
+var box=document.getElementById('lbsection');if(!box)return;
+box.innerHTML='';
+var hdr=document.createElement('div');hdr.className='lbhdr';hdr.textContent='BEST TIMES — '+trackName;
+box.appendChild(hdr);
+var arr=lbGet(trackName);
+if(!arr.length){
+var empty=document.createElement('div');empty.className='lbrow empty';empty.textContent='No times yet';
+box.appendChild(empty);return;
+}
+for(var i=0;i<arr.length;i++){
+var e=arr[i];
+var row=document.createElement('div');
+row.className='lbrow'+(i===newIdx?' new':'');
+var badge=(i===newIdx)?'<span class="lbnew">NEW!</span>':'';
+row.innerHTML='<span>'+(i+1)+'. '+e.name+badge+'</span><span>'+fmtTime(e.time)+'</span>';
+box.appendChild(row);
+}
 }
 };
 
@@ -660,7 +749,13 @@ dz:dz
 };
 }
 
+// segProj: pre-allocated pool of plain objects (one per MAX draw-distance slot).
+// Fields are MUTATED in place each frame instead of reallocating, to avoid GC churn.
 var segProj=[];
+(function(){for(var i=0;i<DRAW_DIST;i++)segProj.push({x:0,y:0,scale:0,w:0,drawn:false})})();
+
+// cached sky gradient (rebuilt only when track or canvas size changes)
+var _skyGrad=null,_skyGradKey='';
 
 function renderRoad(track,position,playerX){
 var segs=track.segs;var N=segs.length;var TL=N*SEG_LEN;
@@ -668,9 +763,14 @@ var base=Math.floor(position/SEG_LEN)%N;if(base<0)base+=N;
 var basePercent=(position%SEG_LEN)/SEG_LEN;
 
 var horizon=Math.round(H*0.45);
-var sky=X.createLinearGradient(0,0,0,horizon);
-sky.addColorStop(0,track.skyTop);sky.addColorStop(1,track.skyBot);
-X.fillStyle=sky;X.fillRect(0,0,W,horizon);
+// cache the sky gradient; only rebuild when track or canvas size (which sets horizon) changes
+var skyKey=track.name+'|'+W+'|'+horizon;
+if(skyKey!==_skyGradKey){
+_skyGrad=X.createLinearGradient(0,0,0,horizon);
+_skyGrad.addColorStop(0,track.skyTop);_skyGrad.addColorStop(1,track.skyBot);
+_skyGradKey=skyKey;
+}
+X.fillStyle=_skyGrad;X.fillRect(0,0,W,horizon);
 
 // sun/moon per track
 var _ti=TRACKS.indexOf(track);
@@ -709,7 +809,8 @@ var x=0;
 var dx=-(segs[base].curve*basePercent)*CURVE_MUL;
 var maxy=H;
 
-for(var n=0;n<DRAW_DIST;n++){
+var drawDist=G.drawDist;
+for(var n=0;n<drawDist;n++){
 var i=(base+n)%N;var seg=segs[i];
 var looped=(base+n)>=N;
 var camZ=position-(looped?TL:0);
@@ -717,12 +818,13 @@ var camX1=playerX*ROAD_W - x;
 var camX2=playerX*ROAD_W - x - dx;
 var p1=project(seg.p1y,seg.index*SEG_LEN,camX1,camZ);
 var p2=project(seg.p2y,(seg.index+1)*SEG_LEN,camX2,camZ);
-segProj[n]={x:p1.x,y:p1.y,scale:p1.scale,w:p1.w,drawn:false};
+// mutate pooled slot in place (no per-frame allocation)
+var sp0=segProj[n];sp0.x=p1.x;sp0.y=p1.y;sp0.scale=p1.scale;sp0.w=p1.w;sp0.drawn=false;
 x+=dx;dx+=seg.curve*CURVE_MUL;
 
 if(p1.dz<=CAM_DEPTH||p2.y>=maxy||p2.y>=p1.y){continue}
 maxy=p2.y;
-segProj[n].drawn=true;
+sp0.drawn=true;
 
 var light=Math.floor(seg.index/RUMBLE_SEGS)%2===0;
 var grass=light?track.grassL:track.grassD;
@@ -1025,24 +1127,49 @@ X.lineTo(W,horizon);
 X.closePath();X.fill();
 }
 
+// in-place insertion sort over the active slice [0,len) of arr (no allocation, stable enough,
+// fast for the small, near-sorted sprite counts we deal with each frame)
+function sortActive(arr,len,cmp){
+for(var i=1;i<len;i++){
+var item=arr[i],j=i-1;
+while(j>=0&&cmp(arr[j],item)>0){arr[j+1]=arr[j];j--}
+arr[j+1]=item;
+}
+}
+
+// ===== SPRITE RENDER POOL (allocated ONCE, mutated in place every frame) =====
+// Sized well above the max possible candidate sprites across all tracks (~308) so it never grows.
+var SPRITE_MAX=512;
+var spriteList=[];
+(function(){for(var i=0;i<SPRITE_MAX;i++)spriteList.push({n:0,offset:0,kind:0,data:null})})();
+var _spriteCount=0;// active entries in spriteList this frame
+var _sprBase=0;// player's base segment index, set each frame by renderSprites
+var _sprN=0;// track segment count, set each frame
+// hoisted (no per-call closure); reads module-scope _sprBase/_sprN and G.drawDist
+function addSprite(absZ,offset,kind,data){
+var segIdx=(absZ/SEG_LEN|0)%_sprN;if(segIdx<0)segIdx+=_sprN;
+var n=(segIdx-_sprBase+_sprN)%_sprN;
+if(n>0&&n<G.drawDist&&_spriteCount<SPRITE_MAX){
+var e=spriteList[_spriteCount++];e.n=n;e.offset=offset;e.kind=kind;e.data=data;
+}
+}
+// reusable sort comparator (hoisted, no per-frame closure)
+function _spriteCmp(a,b){return b.n-a.n}
 function renderSprites(track,racers,playerIdx){
 var N=track.segs.length;var TL=N*SEG_LEN;
 var player=racers[playerIdx];
 var base=Math.floor(player.z/SEG_LEN)%N;if(base<0)base+=N;
 
-var list=[];
-function addSprite(absZ,offset,kind,data){
-var segIdx=Math.floor(absZ/SEG_LEN)%N;if(segIdx<0)segIdx+=N;
-var n=(segIdx-base+N)%N;
-if(n>0&&n<DRAW_DIST&&segProj[n])list.push({n:n,offset:offset,kind:kind,data:data});
-}
+_sprBase=base;_sprN=N;_spriteCount=0;
 for(var i=0;i<racers.length;i++){if(i===playerIdx)continue;addSprite(racers[i].z,racers[i].offset,'car',racers[i])}
 if(track.scenery)for(var i=0;i<track.scenery.length;i++){var s=track.scenery[i];addSprite(s.idx*SEG_LEN,s.offset,'tree',s)}
 if(track.items)for(var i=0;i<track.items.length;i++){var it=track.items[i];if(!it.taken)addSprite(it.idx*SEG_LEN,it.offset,'item',it)}
 for(var i=0;i<HAZARD_MAX;i++){var hz=hazardPool[i];if(hz.active)addSprite(hz.z,hz.offset,'hazard',hz)}
 
-list.sort(function(a,b){return b.n-a.n});
-for(var i=0;i<list.length;i++){
+// sort only the active slice in place, then iterate it
+var list=spriteList;var listLen=_spriteCount;
+sortActive(list,listLen,_spriteCmp);
+for(var i=0;i<listLen;i++){
 var sp=list[i];var pr=segProj[sp.n];
 // skip sprites on segments hidden behind hills (prevents floating trees)
 if(!pr.drawn)continue;
@@ -1237,7 +1364,7 @@ r._lean=(r._lean||0)+((lean)-(r._lean||0))*0.2;
 if(lean!==0&&spdPct>0.5){
 G.smokeTimer-=dt;
 if(G.smokeTimer<=0){
-G.smokeTimer=drifting?22:40;
+G.smokeTimer=(drifting?22:40)*(G.lowQuality?1.8:1);// thin out smoke in low-quality mode
 // behind the rear wheels at W/2 +/- W*0.05
 var sx=W/2+(Math.random()<0.5?-1:1)*W*0.05;
 spawnParticle(sx,H*0.92,(Math.random()-0.5)*(drifting?50:30),-20-Math.random()*25,500+Math.random()*200,(drifting?9:7)+Math.random()*5,drifting?'#dddddd':'#bbbbbb',0);
@@ -1253,7 +1380,7 @@ if(G.driftSqTimer<=0){G.driftSqTimer=260;sndDrift()}
 if(boosting){
 G.boostFxTimer-=dt;
 if(G.boostFxTimer<=0){
-G.boostFxTimer=25;
+G.boostFxTimer=25*(G.lowQuality?1.8:1);// thin out boost trail in low-quality mode
 var fx=W/2+(Math.random()-0.5)*W*0.07;
 var fc=Math.random()<0.5?'#ff8800':'#ffdd33';
 spawnParticle(fx,H*0.93,(Math.random()-0.5)*40,30+Math.random()*40,300+Math.random()*150,6+Math.random()*5,fc,1);
@@ -1355,15 +1482,19 @@ G.finishOrder.push({name:r.ch.name,abbr:r.ch.abbr,time:r.finishTime,isPlayer:fal
 }}
 }
 
-function calcPositions(racers,track){
-var TL=track.segs.length*SEG_LEN;
-racers.forEach(function(r){r.progress=r.lap*TL+r.z});
-var sorted=racers.slice().sort(function(a,b){
+// persistent scratch array + hoisted comparator (refilled & sorted in place, no per-frame alloc)
+var _posScratch=[];
+function _posCmp(a,b){
 if(a.finished&&b.finished)return a.finishTime-b.finishTime;
 if(a.finished)return-1;if(b.finished)return 1;
 return b.progress-a.progress;
-});
-sorted.forEach(function(r,i){r.position=i+1});
+}
+function calcPositions(racers,track){
+var TL=track.segs.length*SEG_LEN;
+for(var i=0;i<racers.length;i++){var r=racers[i];r.progress=r.lap*TL+r.z;_posScratch[i]=r}
+_posScratch.length=racers.length;// trim any leftovers from a prior, larger field
+_posScratch.sort(_posCmp);
+for(var i=0;i<_posScratch.length;i++)_posScratch[i].position=i+1;
 }
 
 // detect player position changes (overtakes) and pop a reaction above the player car
@@ -1389,15 +1520,38 @@ if(box.taken){box.respawnTimer-=dt;if(box.respawnTimer<=0){box.taken=false;box.r
 }
 }
 
+// ===== FPS-ADAPTIVE QUALITY SAFEGUARD =====
+// Smooths an FPS estimate and, only after a SUSTAINED drop, lowers draw distance to keep
+// weak devices smooth. Restores it after FPS stays healthy for a while. Hysteretic so it
+// won't oscillate. drawDist is clamped to [DRAW_DIST_MIN, DRAW_DIST]; pools are sized to DRAW_DIST.
+function updateAdaptiveQuality(rawDt){
+// ignore garbage frame times (first frame, tab refocus, huge stalls)
+if(rawDt<=0||rawDt>200)return;
+var fps=1000/rawDt;
+// exponential moving average (~0.1 weight) for a stable estimate
+G.fpsAvg+=(fps-G.fpsAvg)*0.1;
+if(!G.lowQuality){
+// watch for a sustained low-FPS spell before reducing quality
+if(G.fpsAvg<40){G.fpsLowT+=rawDt;if(G.fpsLowT>1500){G.lowQuality=true;G.drawDist=DRAW_DIST_MIN;G.fpsLowT=0;G.fpsHighT=0}}
+else G.fpsLowT=0;
+}else{
+// already reduced: only restore after FPS stays comfortably high for a while
+if(G.fpsAvg>52){G.fpsHighT+=rawDt;if(G.fpsHighT>3000){G.lowQuality=false;G.drawDist=DRAW_DIST;G.fpsHighT=0;G.fpsLowT=0}}
+else G.fpsHighT=0;
+}
+}
+
 // ===== MAIN LOOP =====
 var lastTime=0;
 function loop(time){
-var dt=Math.min(time-lastTime,50);lastTime=time;
+var rawDt=time-lastTime;// unclamped frame time, used for the FPS estimate
+var dt=Math.min(rawDt,50);lastTime=time;
 
 if(G.scr==='race'){
 resize();
 pollGamepad();
 var track=TRACKS[G.selTrack];
+updateAdaptiveQuality(rawDt);
 
 if(G.cdVal>0){
 G.cdTimer+=dt;
