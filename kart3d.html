@@ -104,7 +104,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v3</div>
+<div id="buildver">3D v4</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -163,13 +163,13 @@ var TRACKS=[
   pts:ringPoints(function(a){return [Math.cos(a)*120,0,Math.sin(a)*78]},48)},
  {name:'Rizz Circuit',desc:'Tight S-curves',
   sky:[0.04,0.04,0.18],skyBot:[0.23,0.16,0.35],grass:[0.12,0.29,0.12],road:[0.29,0.29,0.29],rumble:[1.0,1.0,0.0],tree:[0.10,0.30,0.16],
-  pts:ringPoints(function(a){return [Math.cos(a)*100+Math.sin(a*3)*34,0,Math.sin(a)*90]},56)},
+  pts:ringPoints(function(a){return [Math.cos(a)*100+Math.sin(a*3)*18,0,Math.sin(a)*90]},56)},
  {name:'Ohio Arena',desc:'Wild hills & hairpins',
   sky:[0.80,0.20,0.0],skyBot:[1.0,0.6,0.4],grass:[0.55,0.33,0.14],road:[0.35,0.35,0.35],rumble:[1.0,0.53,0.0],tree:[0.47,0.29,0.10],
   pts:ringPoints(function(a,t){return [Math.cos(a)*110+Math.sin(a*2)*40,Math.sin(a*3)*9+9*Math.sin(a),Math.sin(a)*86]},52)}
 ];
 
-var ROADW=11; // road half width
+var ROADW=10; // road half width
 
 /* ===================== WEBGL SETUP ===================== */
 var canvas=document.getElementById('glcanvas'),gl=null;
@@ -317,7 +317,7 @@ function buildCenterline(track){
  // smooth the loop points with simple Catmull-Rom resampling for nicer ribbon
  var pts=track.pts,n=pts.length;
  var samples=[];
- var STEP=4; // subdivisions per segment
+ var STEP=6; // subdivisions per segment (finer = smoother ribbon on tight curves)
  function cr(p0,p1,p2,p3,t){
   var t2=t*t,t3=t2*t;
   function c(a,b,cc,d){return 0.5*((2*b)+(-a+cc)*t+(2*a-5*b+4*cc-d)*t2+(-a+3*b-3*cc+d)*t3)}
@@ -330,13 +330,21 @@ function buildCenterline(track){
  CL=[];trackLength=0;
  var m=samples.length;
  for(var k=0;k<m;k++){
-  var cur=samples[k],nx=samples[(k+1)%m];
-  var dx=nx[0]-cur[0],dz=nx[2]-cur[2];
-  var dl=Math.hypot(dx,dz)||1; dx/=dl;dz/=dl;
-  // perpendicular (right side)
-  var px=dz,pz=-dx;
-  CL.push({x:cur[0],y:cur[1],z:cur[2],dx:dx,dz:dz,px:px,pz:pz,dist:trackLength});
-  trackLength+=dl;
+  var prev=samples[(k-1+m)%m],cur=samples[k],nx=samples[(k+1)%m];
+  // incoming & outgoing unit directions
+  var ix=cur[0]-prev[0],iz=cur[2]-prev[2];var il=Math.hypot(ix,iz)||1;ix/=il;iz/=il;
+  var ox=nx[0]-cur[0],oz=nx[2]-cur[2];var ol=Math.hypot(ox,oz)||1;ox/=ol;oz/=ol;
+  // angle-bisector (averaged) tangent: makes the offset ribbon turn at the joint
+  // bisector instead of snapping per-segment, which removes the chevron/fork tear
+  // on sharp S-curves. Falls back to the outgoing dir at near-180 hairpins.
+  var tx=ix+ox,tz=iz+oz;var tl=Math.hypot(tx,tz);
+  if(tl<1e-4){tx=ox;tz=oz;tl=1;}
+  tx/=tl;tz/=tl;
+  // perpendicular (right side) of the bisector tangent — unit length (no width
+  // scaling, so the inner edge never widens past the curve radius and folds)
+  var px=tz,pz=-tx;
+  CL.push({x:cur[0],y:cur[1],z:cur[2],dx:ox,dz:oz,px:px,pz:pz,dist:trackLength});
+  trackLength+=ol;
  }
 }
 
@@ -347,7 +355,7 @@ function buildRaceMeshes(){
  // road ribbon
  trackMesh=new Mesh();
  rumbleMesh=new Mesh();
- var RUMW=2.2;
+ var RUMW=1.8;
  for(var i=0;i<n;i++){
   var a=CL[i],b=CL[(i+1)%n];
   var aL=[a.x-a.px*ROADW,a.y+0.02,a.z-a.pz*ROADW];
@@ -591,6 +599,7 @@ function doTaunt(){
  spawnFloatText(t,cw,ch2,'#ff0',36);
 }
 document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='t'&&GS.scr==='race')doTaunt();});
+document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='d'&&GS.scr==='race')GS.debug=!GS.debug;});
 setupT('ttaunt','taunt');
 var _tauntTouchCheck=false;
 
@@ -599,6 +608,25 @@ function nearestIndex(x,z){
  var best=0,bd=1e9;
  for(var i=0;i<CL.length;i++){var dx=CL[i].x-x,dz=CL[i].z-z;var d=dx*dx+dz*dz;if(d<bd){bd=d;best=i}}
  return best;
+}
+// Smoothly interpolate the road elevation at a world (x,z) by projecting onto the
+// nearest centerline segment, instead of snapping to the nearest sample's y. The
+// snap is what made hilly tracks (Ohio) bounce/pop vertically while driving.
+function groundYAt(x,z){
+ var n=CL.length; if(!n)return 0;
+ var ni=nearestIndex(x,z);
+ var bestY=CL[ni].y, bestD=1e9;
+ for(var s=-1;s<=0;s++){
+  var i=(ni+s+n)%n, j=(i+1)%n;
+  var a=CL[i], b=CL[j];
+  var abx=b.x-a.x, abz=b.z-a.z;
+  var L2=abx*abx+abz*abz||1;
+  var t=((x-a.x)*abx+(z-a.z)*abz)/L2; if(t<0)t=0; else if(t>1)t=1;
+  var cx=a.x+abx*t, cz=a.z+abz*t;
+  var d=(x-cx)*(x-cx)+(z-cz)*(z-cz);
+  if(d<bestD){bestD=d; bestY=a.y+(b.y-a.y)*t;}
+ }
+ return bestY;
 }
 function progressOf(r){ return r.lap*trackLength + (CL[r.idx]?CL[r.idx].dist:0); }
 
@@ -850,7 +878,7 @@ function updatePlayer(p,dt){
  p.x+=Math.sin(p.heading)*p.speed*dtS;
  p.z+=Math.cos(p.heading)*p.speed*dtS;
  p.prevPrevY=p.prevY;p.prevY=p.y;
- p.y=c.y;
+ p.y=groundYAt(p.x,p.z);
 
  // jump boost (hill crest detection)
  if(p.prevY>p.prevPrevY+0.01&&p.y<p.prevY-0.01&&driftKey){
@@ -962,7 +990,7 @@ function updateBot(b,dt){
  if(b.speed<0)b.speed=0;
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
- var c=CL[nearestIndex(b.x,b.z)];b.y=c.y;
+ b.y=groundYAt(b.x,b.z);
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
@@ -1258,6 +1286,31 @@ function render(){
    fxCtx.save();fxCtx.font='bold 16px Arial Black,sans-serif';fxCtx.textAlign='center';
    fxCtx.strokeStyle='#000';fxCtx.lineWidth=3;fxCtx.strokeText(label,scX,scY);
    fxCtx.fillStyle=lcol;fxCtx.fillText(label,scX,scY);
+   fxCtx.restore();
+  }
+
+  // Debug overlay (toggle with 'D'): surfaces the values behind the two track bugs
+  if(GS.debug&&CL.length){
+   var dni=nearestIndex(p.x,p.z);
+   var dn=CL.length;
+   var a0=CL[(dni-1+dn)%dn],a1=CL[dni];
+   // signed turn angle between consecutive segment directions (degrees)
+   var curv=(Math.atan2(a1.dz,a1.dx)-Math.atan2(a0.dz,a0.dx))*180/Math.PI;
+   while(curv>180)curv-=360;while(curv<-180)curv+=360;
+   var gY=groundYAt(p.x,p.z);
+   var ddx=p.x-a1.x,ddz=p.z-a1.z;var lat=ddx*a1.px+ddz*a1.pz;
+   var lines=['DEBUG (press D to hide)',
+    'track: '+TRACKS[GS.selTrack].name,
+    'CL idx: '+dni+' / '+dn,
+    'curvature: '+curv.toFixed(1)+' deg/seg',
+    'lateral off: '+lat.toFixed(2)+' (road +-'+ROADW+')',
+    'player y: '+p.y.toFixed(2)+'  groundY: '+gY.toFixed(2),
+    'speed: '+p.speed.toFixed(1)];
+   fxCtx.save();
+   fxCtx.font='13px monospace';fxCtx.textAlign='left';
+   fxCtx.fillStyle='rgba(0,0,0,0.6)';fxCtx.fillRect(8,fh-8-lines.length*16-8,260,lines.length*16+12);
+   fxCtx.fillStyle='#0f0';
+   for(var dl2=0;dl2<lines.length;dl2++)fxCtx.fillText(lines[dl2],14,fh-8-(lines.length-1-dl2)*16-6);
    fxCtx.restore();
   }
  }
