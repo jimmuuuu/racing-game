@@ -29,7 +29,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 .dbtn{padding:8px 18px;border-radius:8px;border:2px solid #555;background:transparent;color:#fff;cursor:pointer;font-weight:700;font-size:13px}
 .dbtn.sel{border-color:#0f0;color:#0f0;box-shadow:0 0 10px rgba(0,255,0,.3)}
 #hud{position:fixed;top:0;left:0;width:100%;pointer-events:none;padding:8px;display:none;z-index:12}
-.hud-row{display:flex;justify-content:space-between;align-items:flex-start}
+.hud-row{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:4px}
 .hbox{background:linear-gradient(180deg,rgba(20,20,30,.85),rgba(0,0,0,.75));color:#fff;padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000}
 .hbox.pos{font-size:clamp(24px,4.5vw,42px);color:#ff0;text-shadow:2px 2px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 15px rgba(255,255,0,.5)}
 #countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(60px,14vw,120px);font-weight:900;color:#fff;text-shadow:0 0 30px #f0f,0 0 60px #0ff,4px 4px 0 #000,-3px -3px 0 #000,3px -3px 0 #000,-3px 3px 0 #000,3px 3px 0 #000;display:none;pointer-events:none;z-index:15}
@@ -133,7 +133,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v5</div>
+<div id="buildver">3D v6</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -476,7 +476,7 @@ function drawKart(racer){
 /* ===================== GAME STATE ===================== */
 var GS={scr:'menu',selChar:0,selTrack:0,diff:'Medium',racers:[],raceTime:0,started:false,finishOrder:[],cdVal:0,cdTimer:0,
  shake:{x:0,y:0,decay:0},fov:65,fovTarget:65,fovTimer:0,
- prevPositions:null,tauntCooldown:0,lastLap:-1,timeTrial:false,lapTimes:[],lapStart:0,bestLap:Infinity};
+ prevPositions:null,tauntCooldown:0,lastLap:-1,timeTrial:false,lapTimes:[],lapStart:0,bestLap:Infinity,debug:false};
 var cam={x:0,y:0,z:0,tx:0,ty:0,tz:0};
 var running=false;
 
@@ -628,11 +628,10 @@ function doTaunt(){
  spawnFloatText(t,cw,ch2,'#ff0',36);
 }
 document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='t'&&GS.scr==='race')doTaunt();});
-document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='d'&&GS.scr==='race')GS.debug=!GS.debug;});
+document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='p'&&GS.scr==='race')GS.debug=!GS.debug;});
 setupT('ttaunt','taunt');
 var _tauntTouchCheck=false;
 
-var _niCache={};
 function nearestIndex(x,z,hint){
  var n=CL.length;if(!n)return 0;
  if(hint!==undefined&&hint>=0&&hint<n){
@@ -651,9 +650,9 @@ function nearestIndex(x,z,hint){
 // Smoothly interpolate the road elevation at a world (x,z) by projecting onto the
 // nearest centerline segment, instead of snapping to the nearest sample's y. The
 // snap is what made hilly tracks (Ohio) bounce/pop vertically while driving.
-function groundYAt(x,z){
+function groundYAt(x,z,hint){
  var n=CL.length; if(!n)return 0;
- var ni=nearestIndex(x,z);
+ var ni=nearestIndex(x,z,hint);
  var bestY=CL[ni].y, bestD=1e9;
  for(var s=-1;s<=0;s++){
   var i=(ni+s+n)%n, j=(i+1)%n;
@@ -674,7 +673,7 @@ function makeRacer(ch,isPlayer,startSlot){
  // place near start line, offset to side by slot
  var off=(startSlot-1.5)*3;
  return {ch:ch,isPlayer:isPlayer,
-  x:c.x+c.px*off,y:c.y+0.0,z:c.z+c.pz*off*0,heading:Math.atan2(c.dx,c.dz),
+  x:c.x+c.px*off,y:c.y+0.0,z:c.z+c.pz*off,heading:Math.atan2(c.dx,c.dz),
   speed:0,idx:0,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
   stallTimer:0,slipTimer:0,spinTimer:0,invTimer:0,coinCount:0,item:null,
@@ -695,8 +694,7 @@ setupT('tl','l');setupT('tr','r');setupT('tg','g');setupT('tb','b');setupT('tdri
 function isMobile(){return 'ontouchstart' in window||navigator.maxTouchPoints>0}
 
 /* ===================== AUDIO (optional beeps) ===================== */
-var actx=null;
-function beep(f,d){ try{ if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)(); var o=actx.createOscillator(),g=actx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(actx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+d);o.stop(actx.currentTime+d);}catch(e){} }
+function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(sfxGain);o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d);}catch(e){} }
 
 /* ===================== PARTICLES ===================== */
 var MAXPART=200,particles=[];
@@ -706,6 +704,7 @@ function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
 }
 function updateParticles(dt){var s=dt/1000;for(var i=0;i<particles.length;i++){var p=particles[i];if(p.life<=0)continue;p.life-=dt;p.x+=p.vx*s;p.y+=p.vy*s;p.z+=p.vz*s;p.vy-=6*s;p.a=Math.max(0,p.life/p.maxLife);}}
 var partPosBuf=null,partColBuf=null,partPosArr=new Float32Array(MAXPART*3),partColArr=new Float32Array(MAXPART*4);
+var _skyViewBuf=new Float32Array(16);
 function renderParticles(proj,view){
  var cnt=0;
  for(var i=0;i<particles.length;i++){var p=particles[i];if(p.life<=0)continue;
@@ -996,7 +995,7 @@ function updatePlayer(p,dt){
  p.x+=Math.sin(p.heading)*p.speed*dtS;
  p.z+=Math.cos(p.heading)*p.speed*dtS;
  p.prevPrevY=p.prevY;p.prevY=p.y;
- p.y=groundYAt(p.x,p.z);
+ p.y=groundYAt(p.x,p.z,ni);
 
  // jump boost (hill crest detection)
  if(p.prevY>p.prevPrevY+0.01&&p.y<p.prevY-0.01&&driftKey){
@@ -1108,7 +1107,7 @@ function updateBot(b,dt){
  if(b.speed<0)b.speed=0;
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
- b.y=groundYAt(b.x,b.z);
+ b.y=groundYAt(b.x,b.z,ni);
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
@@ -1145,12 +1144,12 @@ function updateBot(b,dt){
 function advanceProgress(r,ni){
  var n=CL.length;
  if(r.prevIdx>n*0.7 && ni<n*0.3){
-  if(r.isPlayer&&r.lap>0){
+  if(r.isPlayer){
    var lt=GS.raceTime-GS.lapStart;
    GS.lapTimes.push(lt);
    if(lt<GS.bestLap)GS.bestLap=lt;
    GS.lapStart=GS.raceTime;
-  } else if(r.isPlayer&&r.lap===0){GS.lapStart=GS.raceTime;}
+  }
   r.lap++;
   if(r.lap>=3 && !r.finished){r.finished=true;r.finishTime=GS.raceTime;GS.finishOrder.push({name:r.ch.name,isPlayer:r.isPlayer,time:r.finishTime});}
  }
@@ -1167,10 +1166,10 @@ function computePositions(){
 }
 
 /* ===================== MAIN LOOP ===================== */
-var lastT=0,fpsAccum=0,fpsCount=0;
+var lastT=0,fpsAccum=0,fpsCount=0,frameDt=16;
 function loop(now){
  if(!running)return;
- var dt=now-lastT;lastT=now;if(dt>50)dt=50;if(dt<0)dt=0;
+ var dt=now-lastT;lastT=now;if(dt>50)dt=50;if(dt<0)dt=0;frameDt=dt;
  if(GS.scr==='race'){
   // countdown
   if(!GS.started){
@@ -1212,6 +1211,9 @@ function loop(now){
    }
    // respawn item boxes
    for(var ib=0;ib<itemBoxes.length;ib++){if(!itemBoxes[ib].active){itemBoxes[ib].timer-=dt;if(itemBoxes[ib].timer<=0)itemBoxes[ib].active=true;}}
+   // periodically prune dead hazards and inactive dropped coins
+   if(hazards.length>20){for(var _h=hazards.length-1;_h>=0;_h--){if(!hazards[_h].active)hazards.splice(_h,1);}}
+   if(coins.length>200){for(var _c=coins.length-1;_c>=0;_c--){if(!coins[_c].active)coins.splice(_c,1);}}
    updateParticles(dt);
    updateFloatTexts(dt);
 
@@ -1290,8 +1292,9 @@ function render(){
  // speed bob
  var speedRatio=Math.min(1,p.speed/maxSpeedRef);
  ty+=Math.sin(GS.raceTime*0.006)*speedRatio*0.15;
- // lerp (faster when boosting)
- var lf=p.boostTimer>0?0.18:0.12;
+ // lerp (dt-scaled, faster when boosting)
+ var lfBase=p.boostTimer>0?10:6;
+ var lf=1-Math.exp(-lfBase*frameDt/1000);
  cam.x+=(tx-cam.x)*lf;cam.y+=(ty-cam.y)*lf;cam.z+=(tz-cam.z)*lf;
  var lookX=p.x+Math.sin(p.heading)*ahead+GS.shake.x*(GS.shake.decay>0?GS.shake.decay/400:0);
  var lookY=p.y+1.5+GS.shake.y*(GS.shake.decay>0?GS.shake.decay/400:0);
@@ -1308,7 +1311,7 @@ function render(){
  gl.bindBuffer(gl.ARRAY_BUFFER,skyMesh.colBuf);gl.enableVertexAttribArray(L.sACol);gl.vertexAttribPointer(L.sACol,3,gl.FLOAT,false,0,0);
  gl.uniformMatrix4fv(L.sUProj,false,proj);
  // strip translation from view so sky stays centered on camera
- var skyView=new Float32Array(view);skyView[12]=0;skyView[13]=0;skyView[14]=0;
+ var skyView=_skyViewBuf;for(var _sv=0;_sv<16;_sv++)skyView[_sv]=view[_sv];skyView[12]=0;skyView[13]=0;skyView[14]=0;
  gl.uniformMatrix4fv(L.sUView,false,skyView);
  gl.drawArrays(gl.TRIANGLES,0,skyMesh.count);
  gl.depthMask(true);
@@ -1443,7 +1446,7 @@ function render(){
    while(curv>180)curv-=360;while(curv<-180)curv+=360;
    var gY=groundYAt(p.x,p.z);
    var ddx=p.x-a1.x,ddz=p.z-a1.z;var lat=ddx*a1.px+ddz*a1.pz;
-   var lines=['DEBUG (press D to hide)',
+   var lines=['DEBUG (press P to hide)',
     'track: '+TRACKS[GS.selTrack].name,
     'CL idx: '+dni+' / '+dn,
     'curvature: '+curv.toFixed(1)+' deg/seg',
