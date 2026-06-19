@@ -81,6 +81,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
   <button class="btn" onclick="GS.timeTrial=false;goCharSel()">START RACE</button>
   <button class="btn" style="background:linear-gradient(135deg,#00b4d8,#0077b6)" onclick="GS.timeTrial=true;goCharSel()">TIME TRIAL</button>
   <button class="btn" style="background:linear-gradient(135deg,#f9c74f,#f8961e);font-size:clamp(12px,2vw,16px)" onclick="goLeaderboard()">LEADERBOARD</button>
+  <button class="btn" style="background:linear-gradient(135deg,#6a4c93,#a74ba7);font-size:clamp(12px,2vw,16px)" onclick="goSettings()">SETTINGS</button>
+  <button class="btn" style="background:linear-gradient(135deg,#ff6b9d,#feca57);font-size:clamp(12px,2vw,16px)" onclick="goTutorial()">HOW TO PLAY</button>
  </div>
  <div id="char-screen" class="screen">
   <div class="title" style="font-size:clamp(20px,3.5vw,36px)">CHOOSE RACER</div>
@@ -114,16 +116,52 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
    <button class="btn" onclick="goMenu()">BACK</button>
   </div>
  </div>
+ <div id="settings-screen" class="screen">
+  <div class="title" style="font-size:clamp(20px,3.5vw,36px)">SETTINGS</div>
+  <div style="max-width:400px;text-align:center;color:#fff">
+   <div style="margin:20px 0"><strong style="color:#0ff">AUDIO</strong></div>
+   <button class="dbtn" style="padding:10px 20px" onclick="toggleMute()">Sound: <span id="sb-audio">ON</span></button>
+   <div style="margin:20px 0"><strong style="color:#0ff">GAMEPLAY</strong></div>
+   <button class="dbtn" style="padding:10px 20px" onclick="toggleControls()">Controls: <span id="sb-controls">KEYBOARD</span></button>
+   <button class="dbtn" style="padding:10px 20px" onclick="toggleCameraMode()">Camera: <span id="sb-camera">CHASE</span></button>
+   <div style="margin:20px 0"><strong style="color:#0ff">STATS</strong></div>
+   <div style="font-size:12px;color:#aaa">Total Races: <strong style="color:#0ff" id="sb-races">0</strong></div>
+   <div style="font-size:12px;color:#aaa">Wins: <strong style="color:#0ff" id="sb-wins">0</strong></div>
+   <div style="margin:30px 0">
+    <button class="btn" onclick="goMenu()">BACK</button>
+   </div>
+  </div>
+ </div>
+ <div id="tutorial-screen" class="screen">
+  <div class="title" style="font-size:clamp(20px,3.5vw,36px)">HOW TO PLAY</div>
+  <div style="max-width:550px;text-align:left;color:#fff;font-size:clamp(12px,2vw,15px);line-height:1.8">
+   <div style="margin:15px 0"><strong style="color:#0ff">🚗 ACCELERATE</strong><br>Arrow Up / W</div>
+   <div style="margin:15px 0"><strong style="color:#0ff">🛑 BRAKE</strong><br>Arrow Down / S</div>
+   <div style="margin:15px 0"><strong style="color:#0ff">⬅️ TURN</strong><br>Arrow Left/Right / A/D</div>
+   <div style="margin:15px 0"><strong style="color:#0ff">🌪️ DRIFT</strong><br>Space / Shift (hold while turning)</div>
+   <div style="margin:15px 0"><strong style="color:#ff0">⭐ DRIFT BOOST</strong><br>Release at right time for speed boost!</div>
+   <div style="margin:15px 0"><strong style="color:#0f0">🎁 USE ITEM</strong><br>E / Enter</div>
+   <div style="margin:15px 0"><strong style="color:#ff0">💬 TAUNT</strong><br>T key</div>
+   <div style="margin:30px 0">
+    <button class="btn" onclick="goMenu()">BACK</button>
+   </div>
+  </div>
+ </div>
 </div>
 <canvas id="confetti-canvas"></canvas>
-<div id="hud"><div class="hud-row">
- <div class="hbox pos" id="hpos">1st</div>
- <div class="hbox" id="hlap">Lap 1/3</div>
- <div class="hbox" id="htime">0:00.0</div>
- <div id="hitem"></div>
- <div id="hcoins">&#9733;0</div>
- <div id="hspeed">0 km/h</div>
-</div></div>
+<div id="hud">
+ <div style="position:fixed;top:8px;right:8px;width:150px;height:150px;border:2px solid rgba(100,200,255,.4);border-radius:8px;background:rgba(0,0,20,.7);z-index:12;display:none" id="hminimap">
+  <canvas id="mmcanvas" width="150" height="150" style="border-radius:6px;display:block"></canvas>
+ </div>
+ <div class="hud-row">
+  <div class="hbox pos" id="hpos">1st</div>
+  <div class="hbox" id="hlap">Lap 1/3</div>
+  <div class="hbox" id="htime">0:00.0</div>
+  <div id="hitem"></div>
+  <div id="hcoins">&#9733;0</div>
+  <div id="hspeed">0 km/h</div>
+ </div>
+</div>
 <div id="countdown"></div>
 <div id="touch-controls">
  <div class="tbtn" id="tl">&#9664;</div>
@@ -136,7 +174,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v7 PRO</div>
+<div id="buildver">3D v8 MEGA</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -198,7 +236,13 @@ var TRACKS=[
   pts:ringPoints(function(a){return [Math.cos(a)*100+Math.sin(a*3)*18,0,Math.sin(a)*90]},56)},
  {name:'Ohio Arena',desc:'Wild hills & hairpins',
   sky:[0.95,0.35,0.15],skyBot:[1.0,0.70,0.50],grass:[0.65,0.42,0.20],road:[0.42,0.42,0.42],rumble:[1.0,0.60,0.1],tree:[0.56,0.36,0.15],
-  pts:ringPoints(function(a,t){return [Math.cos(a)*110+Math.sin(a*2)*40,Math.sin(a*3)*9+9*Math.sin(a),Math.sin(a)*86]},52)}
+  pts:ringPoints(function(a,t){return [Math.cos(a)*110+Math.sin(a*2)*40,Math.sin(a*3)*9+9*Math.sin(a),Math.sin(a)*86]},52)},
+ {name:'Neon City',desc:'Urban night race',
+  sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.15,0.15,0.15],road:[0.25,0.25,0.3],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],
+  pts:ringPoints(function(a){return [Math.cos(a)*105+Math.cos(a*2.5)*25,0,Math.sin(a)*95+Math.sin(a*2.5)*20]},60)},
+ {name:'Dragon Peak',desc:'Mountain extreme',
+  sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],
+  pts:ringPoints(function(a,t){return [Math.cos(a)*95+Math.sin(a*1.5)*30,Math.sin(a*4)*15+Math.cos(a)*8,Math.sin(a)*85+Math.cos(a*1.5)*25]},64)}
 ];
 
 var ROADW=10; // road half width
@@ -502,7 +546,8 @@ function drawKart(racer){
 /* ===================== GAME STATE ===================== */
 var GS={scr:'menu',selChar:0,selTrack:0,diff:'Medium',racers:[],raceTime:0,started:false,finishOrder:[],cdVal:0,cdTimer:0,
  shake:{x:0,y:0,decay:0},fov:65,fovTarget:65,fovTimer:0,
- prevPositions:null,tauntCooldown:0,lastLap:-1,timeTrial:false,lapTimes:[],lapStart:0,bestLap:Infinity,debug:false};
+ prevPositions:null,tauntCooldown:0,lastLap:-1,timeTrial:false,lapTimes:[],lapStart:0,bestLap:Infinity,debug:false,
+ controlMode:'KEYBOARD',cameraMode:'CHASE',raceCount:0,minimap:true};
 var cam={x:0,y:0,z:0,tx:0,ty:0,tz:0};
 var running=false;
 
@@ -749,7 +794,7 @@ function renderParticles(proj,view){
 }
 
 /* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
-var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack'];
+var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack','Zoomium Shield','Reverse Rocket','Slick Slime','Speed Star','Chaos Bomb'];
 var itemBoxes=[],coins=[],hazards=[],projectiles=[];
 var itemBoxMesh=null,coinMesh=null;
 
@@ -796,13 +841,27 @@ function spinoutRacer(r){
 
 /* ===================== SCREENS / FLOW ===================== */
 function show(id){
- ['menu-screen','char-screen','track-screen','results-screen','leaderboard-screen'].forEach(function(s){
+ ['menu-screen','char-screen','track-screen','results-screen','leaderboard-screen','settings-screen','tutorial-screen'].forEach(function(s){
   document.getElementById(s).classList.toggle('active',s===id);
  });
 }
 function goMenu(){GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();}
 function goCharSel(){GS.scr='char';buildCharGrid();show('char-screen');}
 function goTrackSel(){GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';}
+function goSettings(){GS.scr='settings';updateSettingsDisplay();show('settings-screen');}
+function goTutorial(){GS.scr='tutorial';show('tutorial-screen');}
+function updateSettingsDisplay(){
+ var audioState=audioMuted?'OFF':'ON';
+ document.getElementById('sb-audio').textContent=audioState;
+ document.getElementById('sb-controls').textContent=GS.controlMode||'KEYBOARD';
+ document.getElementById('sb-camera').textContent=GS.cameraMode||'CHASE';
+ document.getElementById('sb-races').textContent=GS.raceCount||0;
+ var winCount=localStorage.getItem('brr_wins')||0;
+ document.getElementById('sb-wins').textContent=winCount;
+}
+function toggleMute(){audioMuted=!audioMuted;if(masterGain)masterGain.gain.value=audioMuted?0:1;updateSettingsDisplay();}
+function toggleControls(){GS.controlMode=GS.controlMode==='KEYBOARD'?'GAMEPAD':'KEYBOARD';updateSettingsDisplay();}
+function toggleCameraMode(){GS.cameraMode=GS.cameraMode==='CHASE'?'ORBIT':'CHASE';updateSettingsDisplay();}
 function buildCharGrid(){
  var g=document.getElementById('cgrid');g.innerHTML='';
  CHARS.forEach(function(c,i){
@@ -881,6 +940,11 @@ function showResults(){
  } else blEl.textContent='';
  beep(playerPlace===1?880:330,0.4);
  if(playerPlace<=2)startConfetti();
+ GS.raceCount++;
+ if(playerPlace===1){
+  var wins=parseInt(localStorage.getItem('brr_wins')||0)+1;
+  localStorage.setItem('brr_wins',wins);
+ }
  saveToLeaderboard();
  show('results-screen');
 }
@@ -1048,7 +1112,7 @@ function updatePlayer(p,dt){
   }
  }
 
- // item use
+ // item use (8 unique items)
  if(itemKey&&p.item){
   var it=p.item;p.item=null;
   if(it==='Skibidi Boost'){p.boostTimer=1500;p.boostPower=18;sndBoost();
@@ -1057,6 +1121,12 @@ function updatePlayer(p,dt){
     (Math.random()-0.5)*5,Math.random()*6-1,(Math.random()-0.5)*5,0.2,0.8+Math.random()*0.2,1,700);}
   else if(it==='Banana Splat'){hazards.push({x:p.x-Math.sin(p.heading)*3,y:p.y+0.15,z:p.z-Math.cos(p.heading)*3,type:'banana',active:true});sndCrash();}
   else if(it==='Sahur Smack'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:Math.sin(p.heading)*60,dz:Math.cos(p.heading)*60,life:3000,owner:0});sndBoost();}
+  else if(it==='Zoomium Shield'){p.invTimer=3000;spawnFloatText('SHIELD!',fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#0f0',40);
+   for(var sh=0;sh<12;sh++)spawnP(p.x+Math.cos(sh/12*Math.PI*2)*2,p.y+0.5,p.z+Math.sin(sh/12*Math.PI*2)*2,(Math.cos(sh/12*Math.PI*2))*4,Math.random()*2,(Math.sin(sh/12*Math.PI*2))*4,0,1,0.5,800);}
+  else if(it==='Reverse Rocket'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:-Math.sin(p.heading)*70,dz:-Math.cos(p.heading)*70,life:2500,owner:0});sndBoost();}
+  else if(it==='Slick Slime'){for(var sl=0;sl<3;sl++){hazards.push({x:p.x+Math.cos(Math.PI*2*sl/3)*2,y:p.y+0.1,z:p.z+Math.sin(Math.PI*2*sl/3)*2,type:'slime',active:true});}sndCrash();}
+  else if(it==='Speed Star'){p.boostTimer=800;p.boostPower=25;sndBoost();for(var ss=0;ss<15;ss++)spawnP(p.x+(Math.random()-0.5)*3,p.y+Math.random()*0.5,p.z+(Math.random()-0.5)*3,(Math.random()-0.5)*6,Math.random()*8,(Math.random()-0.5)*6,1,0.9,0.2,500);}
+  else if(it==='Chaos Bomb'){for(var cb=0;cb<GS.racers.length;cb++){if(cb===0)continue;var r=GS.racers[cb];var cbx=r.x-p.x,cbz=r.z-p.z,cbd=Math.sqrt(cbx*cbx+cbz*cbz);if(cbd<40){spinoutRacer(r);}}}
  }
 
  // collect coins
@@ -1067,15 +1137,18 @@ function updatePlayer(p,dt){
    for(var gp=0;gp<5;gp++)spawnP(p.x+(Math.random()-0.5),p.y+1,p.z+(Math.random()-0.5),(Math.random()-0.5)*2,3+Math.random()*3,(Math.random()-0.5)*2,1,0.85,0,500);}
  }
 
- // item box collision
+ // item box collision (better item selection like Mario Kart)
  for(var bi=0;bi<itemBoxes.length;bi++){
   var box=itemBoxes[bi];if(!box.active)continue;
   var bdx=box.x-p.x,bdz=box.z-p.z;
   if(bdx*bdx+bdz*bdz<5){box.active=false;box.timer=5000;
    var pos=p.place||1;
-   if(pos<=1)p.item=ITEMS[Math.random()<0.5?1:2];
-   else if(pos<=2)p.item=ITEMS[Math.floor(Math.random()*3)];
-   else p.item=ITEMS[0];
+   var itemIdx=0;
+   if(pos===4)itemIdx=Math.floor(Math.random()*4)+4; // last place: best items (4-7)
+   else if(pos===3)itemIdx=Math.floor(Math.random()*3)+2; // 3rd: mid items (2-4)
+   else if(pos===2)itemIdx=Math.floor(Math.random()*2)+1; // 2nd: some defense (1-2)
+   else itemIdx=Math.floor(Math.random()*2); // 1st: weak items (0-1)
+   p.item=ITEMS[Math.min(itemIdx,ITEMS.length-1)];
    sndPickup();
    for(var ibp=0;ibp<5;ibp++)spawnP(box.x+(Math.random()-0.5),box.y,box.z+(Math.random()-0.5),(Math.random()-0.5)*3,3+Math.random()*3,(Math.random()-0.5)*3,0.5,1,1,500);
    GS.shake.x=(Math.random()-0.5)*0.3;GS.shake.y=(Math.random()-0.5)*0.2;GS.shake.decay=150;
@@ -1161,19 +1234,29 @@ function updateBot(b,dt){
   var bx2=box2.x-b.x,bz2=box2.z-b.z;
   if(bx2*bx2+bz2*bz2<5&&!b.item){box2.active=false;box2.timer=5000;b.item=ITEMS[Math.floor(Math.random()*ITEMS.length)];}
  }
- // Bot item usage
+ // Bot item usage (smarter AI)
  if(b.item){
-  if(b.item==='Skibidi Boost'){b.boostTimer=1200;b.boostPower=16;b.item=null;
+  if(b.item==='Skibidi Boost'||b.item==='Speed Star'){b.boostTimer=1200;b.boostPower=b.item==='Speed Star'?24:16;b.item=null;
    for(var bbp=0;bbp<4;bbp++)spawnP(b.x,b.y+0.5,b.z,(Math.random()-0.5)*3,Math.random()*4,(Math.random()-0.5)*3,0,1,1,400);}
-  else if(b.item==='Banana Splat'&&Math.random()<0.01){hazards.push({x:b.x-Math.sin(b.heading)*3,y:b.y+0.15,z:b.z-Math.cos(b.heading)*3,type:'banana',active:true});b.item=null;}
-  else if(b.item==='Sahur Smack'){
-   // fire when racer close ahead
+  else if(b.item==='Banana Splat'||b.item==='Slick Slime'){
+   if(Math.random()<(b.place<=2?0.3:0.05)){
+    if(b.item==='Banana Splat'){hazards.push({x:b.x-Math.sin(b.heading)*3,y:b.y+0.15,z:b.z-Math.cos(b.heading)*3,type:'banana',active:true});}
+    else{for(var sl2=0;sl2<3;sl2++){hazards.push({x:b.x+Math.cos(Math.PI*2*sl2/3)*2,y:b.y+0.1,z:b.z+Math.sin(Math.PI*2*sl2/3)*2,type:'slime',active:true});}}
+    b.item=null;
+   }}
+  else if(b.item==='Sahur Smack'||b.item==='Reverse Rocket'){
    for(var bri=0;bri<GS.racers.length;bri++){var br=GS.racers[bri];if(br===b)continue;
     var bdx2=br.x-b.x,bdz2=br.z-b.z,bdd=Math.sqrt(bdx2*bdx2+bdz2*bdz2);
     var bahead=Math.sin(b.heading)*bdx2+Math.cos(b.heading)*bdz2;
-    if(bdd<30&&bdd>2&&bahead>0){projectiles.push({x:b.x,y:b.y+0.6,z:b.z,dx:Math.sin(b.heading)*60,dz:Math.cos(b.heading)*60,life:3000,owner:-1});b.item=null;break;}
+    if((bdd<35&&bahead>-5)||(b.place>br.place&&bdd<40)){
+     var isFwd=b.item==='Sahur Smack';
+     projectiles.push({x:b.x,y:b.y+0.6,z:b.z,dx:Math.sin(b.heading)*(isFwd?60:-70),dz:Math.cos(b.heading)*(isFwd?60:-70),life:3000,owner:-1});
+     b.item=null;break;
+    }
    }
   }
+  else if(b.item==='Zoomium Shield'){b.invTimer=2500;b.item=null;}
+  else if(b.item==='Chaos Bomb'){for(var rcb=0;rcb<GS.racers.length;rcb++){if(rcb===b||GS.racers[rcb].isPlayer)continue;var rbx=GS.racers[rcb].x-b.x,rbz=GS.racers[rcb].z-b.z,rbd=Math.sqrt(rbx*rbx+rbz*rbz);if(rbd<40){spinoutRacer(GS.racers[rcb]);}b.item=null;}}
  }
  advanceProgress(b,nearestIndex(b.x,b.z,b.idx));
 }
