@@ -175,7 +175,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v11</div>
+<div id="buildver">3D v12</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -477,39 +477,54 @@ function buildRaceMeshes(){
   rumbleMesh.tri(aR,bR,bRo); rumbleMesh.tri(aR,bRo,aRo);
  }
  trackMesh.upload();rumbleMesh.upload();
- // ground: grass terrain that FOLLOWS the track elevation so the road sits IN
- // the grass (no floating road on hills). A flat band at road height extends out
- // to GRASSW on each side, then a skirt drops to a base plane that fills the
- // horizon. Built from the same CL source as the road, so they connect seamlessly.
+ // ground: a SMOOTH HEIGHTFIELD that follows the track elevation. Each grid
+ // vertex height is a distance-weighted blend of nearby centerline elevations,
+ // so hills roll smoothly with NO vertical cliffs, plateaus, or seam banding.
+ // (The old per-segment flat bands stacked at different heights where the road
+ // ribbon looped near itself, producing the blocky cliffs.) Near the road the
+ // height snaps to the nearest centerline elevation so the road sits flush.
  groundMesh=new Mesh();
- var GRASSW=140;           // grass half-width beyond road center
- var minY=1e9;for(var gi=0;gi<n;gi++)if(CL[gi].y<minY)minY=CL[gi].y;
- var baseY=minY-8;         // skirt/base elevation, below the lowest dip
- for(var i=0;i<n;i++){
-  var a=CL[i],b=CL[(i+1)%n];
-  // left grass band (flat at segment elevation, road edge -> GRASSW)
-  var aLi=[a.x-a.px*ROADW,a.y,a.z-a.pz*ROADW];
-  var aLo=[a.x-a.px*GRASSW,a.y,a.z-a.pz*GRASSW];
-  var bLi=[b.x-b.px*ROADW,b.y,b.z-b.pz*ROADW];
-  var bLo=[b.x-b.px*GRASSW,b.y,b.z-b.pz*GRASSW];
-  groundMesh.tri(aLi,bLo,bLi);groundMesh.tri(aLi,aLo,bLo);
-  // left skirt (drop from grass outer edge down to baseY)
-  var aLb=[a.x-a.px*GRASSW,baseY,a.z-a.pz*GRASSW];
-  var bLb=[b.x-b.px*GRASSW,baseY,b.z-b.pz*GRASSW];
-  groundMesh.tri(aLo,bLb,bLo);groundMesh.tri(aLo,aLb,bLb);
-  // right grass band
-  var aRi=[a.x+a.px*ROADW,a.y,a.z+a.pz*ROADW];
-  var aRo=[a.x+a.px*GRASSW,a.y,a.z+a.pz*GRASSW];
-  var bRi=[b.x+b.px*ROADW,b.y,b.z+b.pz*ROADW];
-  var bRo=[b.x+b.px*GRASSW,b.y,b.z+b.pz*GRASSW];
-  groundMesh.tri(aRi,bRi,bRo);groundMesh.tri(aRi,bRo,aRo);
-  // right skirt
-  var aRb=[a.x+a.px*GRASSW,baseY,a.z+a.pz*GRASSW];
-  var bRb=[b.x+b.px*GRASSW,baseY,b.z+b.pz*GRASSW];
-  groundMesh.tri(aRo,bRo,bRb);groundMesh.tri(aRo,bRb,aRb);
+ var minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9,minY=1e9;
+ for(var gi=0;gi<n;gi++){var cc=CL[gi];
+  if(cc.x<minX)minX=cc.x;if(cc.x>maxX)maxX=cc.x;
+  if(cc.z<minZ)minZ=cc.z;if(cc.z>maxZ)maxZ=cc.z;if(cc.y<minY)minY=cc.y;}
+ var MARGIN=150;
+ minX-=MARGIN;maxX+=MARGIN;minZ-=MARGIN;maxZ+=MARGIN;
+ var baseY=minY-10;
+ var GN=80;                                   // grid cells per axis
+ var gwx=(maxX-minX)/GN, gwz=(maxZ-minZ)/GN;
+ var Hgt=new Float32Array((GN+1)*(GN+1));
+ for(var gj=0;gj<=GN;gj++){
+  for(var gii=0;gii<=GN;gii++){
+   var gx=minX+gii*gwx, gz=minZ+gj*gwz;
+   var sumW=0,sumY=0,minD=1e18,nearY=baseY;
+   for(var k=0;k<n;k+=2){
+    var c=CL[k];var dx=gx-c.x,dz=gz-c.z;var d2=dx*dx+dz*dz;
+    if(d2<minD){minD=d2;nearY=c.y;}
+    var w=1/(d2+60);sumW+=w;sumY+=w*c.y;
+   }
+   var wavg=sumW>0?sumY/sumW:baseY;
+   var dist=Math.sqrt(minD);
+   // near road -> exact nearest elevation (road sits flush); farther -> smooth avg
+   var rb=Math.max(0,Math.min(1,(dist-ROADW)/(ROADW*2.5)));
+   var hy=nearY+(wavg-nearY)*rb;
+   hy-=0.35*(1-rb);   // sit grass just below road near the edge so road never clips through
+   // far edge -> ease down to the base plane so terrain skirts the horizon
+   var fb=Math.max(0,Math.min(1,(dist-MARGIN*0.5)/(MARGIN*0.5)));
+   hy=hy+(baseY-hy)*fb;
+   Hgt[gj*(GN+1)+gii]=hy;
+  }
  }
- // far flat base plane to fill the horizon under everything
- var G=900;
+ for(var gj=0;gj<GN;gj++){
+  for(var gii=0;gii<GN;gii++){
+   var x0=minX+gii*gwx,x1=x0+gwx,z0=minZ+gj*gwz,z1=z0+gwz;
+   var iA=gj*(GN+1)+gii,iB=gj*(GN+1)+gii+1,iC=(gj+1)*(GN+1)+gii+1,iD=(gj+1)*(GN+1)+gii;
+   var A=[x0,Hgt[iA],z0],B=[x1,Hgt[iB],z0],C=[x1,Hgt[iC],z1],D=[x0,Hgt[iD],z1];
+   groundMesh.tri(A,D,C);groundMesh.tri(A,C,B);
+  }
+ }
+ // far flat base plane fills the horizon beyond the grid
+ var G=1400;
  groundMesh.tri([-G,baseY,-G],[-G,baseY,G],[G,baseY,G]);
  groundMesh.tri([-G,baseY,-G],[G,baseY,G],[G,baseY,-G]);
  groundMesh.upload();
@@ -566,13 +581,24 @@ function buildRaceMeshes(){
   roadStripeMesh.tri(aER,bER,bER2);roadStripeMesh.tri(aER,bER2,aER2);
  }
  roadStripeMesh.upload();
- // scenery: scatter trees alongside the road
+ // bilinear sample of the terrain heightfield so scenery sits on the ground
+ function sampleH(x,z){
+  var fx=(x-minX)/gwx, fz=(z-minZ)/gwz;
+  if(fx<0)fx=0;if(fx>GN)fx=GN;if(fz<0)fz=0;if(fz>GN)fz=GN;
+  var i0=Math.floor(fx),j0=Math.floor(fz);
+  if(i0>=GN)i0=GN-1;if(j0>=GN)j0=GN-1;
+  var tx=fx-i0,tz=fz-j0,W=GN+1;
+  var h00=Hgt[j0*W+i0],h10=Hgt[j0*W+i0+1],h01=Hgt[(j0+1)*W+i0],h11=Hgt[(j0+1)*W+i0+1];
+  return (h00*(1-tx)+h10*tx)*(1-tz)+(h01*(1-tx)+h11*tx)*tz;
+ }
+ // scenery: scatter trees alongside the road, planted on the terrain surface
  trees=[];
  for(var s=0;s<n;s+=3){
   var c=CL[s];
   var side=(s%6<3)?-1:1;
   var off=(ROADW+4)+Math.abs(((s*37)%50))/50*6;
-  trees.push({x:c.x+c.px*off*side,y:c.y,z:c.z+c.pz*off*side,sc:0.8+(((s*53)%40)/40)*0.7});
+  var tx=c.x+c.px*off*side,tz=c.z+c.pz*off*side;
+  trees.push({x:tx,y:sampleH(tx,tz)-0.3,z:tz,sc:0.8+(((s*53)%40)/40)*0.7});
  }
  // sky dome (big box) with vertical gradient colors
  skyMesh=new SkyMesh();
@@ -1594,7 +1620,7 @@ function render(){
  // ground is drawn double-sided: belt-and-suspenders so terrain can never be
  // see-through even if a triangle winding is off. Re-enable cull right after.
  gl.disable(gl.CULL_FACE);
- drawMesh(groundMesh,I,track.grass,0.85);
+ drawMesh(groundMesh,I,track.grass,0.7);
  gl.enable(gl.CULL_FACE);
  drawMesh(rumbleMesh,I,track.rumble,0.6);
  drawMesh(trackMesh,I,track.road,0.5);
