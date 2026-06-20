@@ -175,7 +175,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v9</div>
+<div id="buildver">3D v10</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -492,11 +492,11 @@ function buildRaceMeshes(){
   var aLo=[a.x-a.px*GRASSW,a.y,a.z-a.pz*GRASSW];
   var bLi=[b.x-b.px*ROADW,b.y,b.z-b.pz*ROADW];
   var bLo=[b.x-b.px*GRASSW,b.y,b.z-b.pz*GRASSW];
-  groundMesh.tri(aLi,bLi,bLo);groundMesh.tri(aLi,bLo,aLo);
+  groundMesh.tri(aLi,bLo,bLi);groundMesh.tri(aLi,aLo,bLo);
   // left skirt (drop from grass outer edge down to baseY)
   var aLb=[a.x-a.px*GRASSW,baseY,a.z-a.pz*GRASSW];
   var bLb=[b.x-b.px*GRASSW,baseY,b.z-b.pz*GRASSW];
-  groundMesh.tri(aLo,bLo,bLb);groundMesh.tri(aLo,bLb,aLb);
+  groundMesh.tri(aLo,bLb,bLo);groundMesh.tri(aLo,aLb,bLb);
   // right grass band
   var aRi=[a.x+a.px*ROADW,a.y,a.z+a.pz*ROADW];
   var aRo=[a.x+a.px*GRASSW,a.y,a.z+a.pz*GRASSW];
@@ -1591,7 +1591,11 @@ function render(){
  gl.uniformMatrix4fv(L.uView,false,view);
  gl.uniform3fv(L.uLightDir,V.norm([0.4,1.0,0.3]));
  var I=M.ident();
+ // ground is drawn double-sided: belt-and-suspenders so terrain can never be
+ // see-through even if a triangle winding is off. Re-enable cull right after.
+ gl.disable(gl.CULL_FACE);
  drawMesh(groundMesh,I,track.grass,0.55);
+ gl.enable(gl.CULL_FACE);
  drawMesh(rumbleMesh,I,track.rumble,0.6);
  drawMesh(trackMesh,I,track.road,0.5);
  // road center stripe (white, dashed effect via animated texture-like pattern)
