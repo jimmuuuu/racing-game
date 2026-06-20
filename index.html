@@ -275,7 +275,7 @@ canvas.addEventListener('webglcontextrestored',function(){ if(gl){ initGL(); if(
 var VS=
 "attribute vec3 aPos; attribute vec3 aNorm;\n"+
 "uniform mat4 uProj; uniform mat4 uView; uniform mat4 uModel; uniform mat4 uNormMat;\n"+
-"uniform vec3 uColor; uniform vec3 uLightDir; uniform float uAmbient;\n"+
+"uniform vec3 uColor; uniform mediump vec3 uLightDir; uniform float uAmbient;\n"+
 "varying vec3 vColor; varying vec3 vWorldNorm; varying vec3 vWorldPos;\n"+
 "void main(){\n"+
 " vec3 n=normalize((uNormMat*vec4(aNorm,0.0)).xyz);\n"+
@@ -287,7 +287,7 @@ var VS=
 var FS=
 "precision mediump float;\n"+
 "varying vec3 vColor; varying vec3 vWorldNorm; varying vec3 vWorldPos;\n"+
-"uniform vec3 uLightDir;\n"+
+"uniform mediump vec3 uLightDir;\n"+
 "void main(){\n"+
 " vec3 n=normalize(vWorldNorm);\n"+
 " vec3 viewDir=normalize(-vWorldPos);\n"+
