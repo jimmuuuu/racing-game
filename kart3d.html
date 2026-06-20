@@ -240,15 +240,15 @@ var TRACKS=[
  {name:'Ohio Arena',desc:'Wild hills & hairpins',
   sky:[0.95,0.35,0.15],skyBot:[1.0,0.70,0.50],grass:[0.65,0.42,0.20],road:[0.42,0.42,0.42],rumble:[1.0,0.60,0.1],tree:[0.56,0.36,0.15],
   // polar 2-lobe (peanut) loop with hills; xz never crosses itself
-  pts:ringPoints(function(a){var r=98+Math.sin(a*2)*22;return [Math.cos(a)*r,Math.sin(a*3)*8+8*Math.sin(a*2),Math.sin(a)*r*0.9]},52)},
+  pts:ringPoints(function(a){var r=98+Math.sin(a*2)*22;return [Math.cos(a)*r,Math.sin(a*3)*8+8*Math.sin(a*2)+10,Math.sin(a)*r*0.9]},52)},
  {name:'Neon City',desc:'Urban night race',
   sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.15,0.15,0.15],road:[0.25,0.25,0.3],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],
   // polar 4-lobe loop (city blocks feel), guaranteed non-self-intersecting
   pts:ringPoints(function(a){var r=102+Math.sin(a*4)*15;return [Math.cos(a)*r*1.05,0,Math.sin(a)*r]},60)},
  {name:'Dragon Peak',desc:'Mountain extreme',
   sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],
-  // polar 3-lobe loop with big mountain elevation; xz never crosses itself
-  pts:ringPoints(function(a){var r=95+Math.sin(a*3)*20;return [Math.cos(a)*r,Math.sin(a*4)*12+Math.cos(a)*6,Math.sin(a)*r]},64)}
+  // polar 3-lobe with hills; elevation shifted up so lowest point stays above ground
+  pts:ringPoints(function(a){var r=95+Math.sin(a*3)*20;return [Math.cos(a)*r,Math.sin(a*4)*12+Math.cos(a)*6+14,Math.sin(a)*r]},64)}
 ];
 
 var ROADW=10; // road half width
@@ -1116,9 +1116,18 @@ function updatePlayer(p,dt){
  // off-road
  var ni=nearestIndex(p.x,p.z,p.idx);
  var c=CL[ni];
- var dx=p.x-c.x,dz=p.z-c.z;var lateral=Math.abs(dx*c.px+dz*c.pz);
- var offRoad=lateral>ROADW;
+ var dx=p.x-c.x,dz=p.z-c.z;var lateral=dx*c.px+dz*c.pz;
+ var absLateral=Math.abs(lateral);
+ var offRoad=absLateral>ROADW;
+ var WALLW=ROADW+3.5;
  if(offRoad){ if(p.speed>maxSpeed*0.45)p.speed=maxSpeed*0.45; p.speed-=10*dtS; }
+ // hard wall: push back if past rumble strip edge
+ if(absLateral>WALLW){
+  var sign=lateral>0?1:-1;
+  p.x=c.x+c.px*WALLW*sign;
+  p.z=c.z+c.pz*WALLW*sign;
+  p.speed*=0.5;
+ }
  if(p.speed<0)p.speed=0;if(p.speed>maxSpeed)p.speed=maxSpeed;
 
  // drift
@@ -1287,6 +1296,11 @@ function updateBot(b,dt){
  if(b.speed<0)b.speed=0;
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
+ // wall barrier for bots
+ var bc=CL[ni];
+ var bdx=b.x-bc.x,bdz=b.z-bc.z;
+ var blat=bdx*bc.px+bdz*bc.pz;var babs=Math.abs(blat);
+ if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.5)*bs;b.z=bc.z+bc.pz*(ROADW+3.5)*bs;b.speed*=0.6;}
  b.y=groundYAt(b.x,b.z,ni);
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
