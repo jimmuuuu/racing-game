@@ -1151,13 +1151,7 @@ function updatePlayer(p,dt){
  var offRoad=absLateral>ROADW;
  var WALLW=ROADW+3.5;
  if(offRoad){ if(p.speed>maxSpeed*0.45)p.speed=maxSpeed*0.45; p.speed-=10*dtS; }
- // hard wall: push back if past rumble strip edge
- if(absLateral>WALLW){
-  var sign=lateral>0?1:-1;
-  p.x=c.x+c.px*WALLW*sign;
-  p.z=c.z+c.pz*WALLW*sign;
-  p.speed*=0.5;
- }
+ // (wall barrier is enforced AFTER the position update below, matching the bots)
  if(p.speed<0)p.speed=0;if(p.speed>maxSpeed)p.speed=maxSpeed;
 
  // drift
@@ -1203,8 +1197,13 @@ function updatePlayer(p,dt){
 
  p.x+=Math.sin(p.heading)*p.speed*dtS;
  p.z+=Math.cos(p.heading)*p.speed*dtS;
+ // hard wall barrier, enforced on the post-move position (consistent with bots)
+ var pni=nearestIndex(p.x,p.z,ni);
+ var pc=CL[pni];
+ var plat=(p.x-pc.x)*pc.px+(p.z-pc.z)*pc.pz;
+ if(Math.abs(plat)>WALLW){var psign=plat>0?1:-1;p.x=pc.x+pc.px*WALLW*psign;p.z=pc.z+pc.pz*WALLW*psign;p.speed*=0.5;}
  p.prevPrevY=p.prevY;p.prevY=p.y;
- p.y=groundYAt(p.x,p.z,ni);
+ p.y=groundYAt(p.x,p.z,pni);
 
  // jump boost (hill crest detection)
  if(p.prevY>p.prevPrevY+0.01&&p.y<p.prevY-0.01&&driftKey){
@@ -1281,7 +1280,7 @@ function updatePlayer(p,dt){
  if(!touch.taunt)_tauntTouchCheck=false;
  if(GS.tauntCooldown>0)GS.tauntCooldown-=dt;
 
- advanceProgress(p,ni);
+ advanceProgress(p,pni);
 }
 function updateBot(b,dt){
  var dtS=dt/1000;
