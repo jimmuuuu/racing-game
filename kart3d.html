@@ -240,15 +240,15 @@ var TRACKS=[
  {name:'Ohio Arena',desc:'Wild hills & hairpins',
   sky:[0.95,0.35,0.15],skyBot:[1.0,0.70,0.50],grass:[0.65,0.42,0.20],road:[0.42,0.42,0.42],rumble:[1.0,0.60,0.1],tree:[0.56,0.36,0.15],
   // polar 2-lobe (peanut) loop with hills; xz never crosses itself
-  pts:ringPoints(function(a){var r=98+Math.sin(a*2)*22;return [Math.cos(a)*r,Math.sin(a*3)*8+8*Math.sin(a*2)+10,Math.sin(a)*r*0.9]},52)},
+  pts:ringPoints(function(a){var r=98+Math.sin(a*2)*22;return [Math.cos(a)*r,Math.sin(a*3)*8+8*Math.sin(a*2),Math.sin(a)*r*0.9]},52)},
  {name:'Neon City',desc:'Urban night race',
   sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.15,0.15,0.15],road:[0.25,0.25,0.3],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],
   // polar 4-lobe loop (city blocks feel), guaranteed non-self-intersecting
   pts:ringPoints(function(a){var r=102+Math.sin(a*4)*15;return [Math.cos(a)*r*1.05,0,Math.sin(a)*r]},60)},
  {name:'Dragon Peak',desc:'Mountain extreme',
   sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],
-  // polar 3-lobe with hills; elevation shifted up so lowest point stays above ground
-  pts:ringPoints(function(a){var r=95+Math.sin(a*3)*20;return [Math.cos(a)*r,Math.sin(a*4)*12+Math.cos(a)*6+14,Math.sin(a)*r]},64)}
+  // polar 3-lobe loop with big mountain elevation; xz never crosses itself
+  pts:ringPoints(function(a){var r=95+Math.sin(a*3)*20;return [Math.cos(a)*r,Math.sin(a*4)*12+Math.cos(a)*6,Math.sin(a)*r]},64)}
 ];
 
 var ROADW=10; // road half width
@@ -477,11 +477,41 @@ function buildRaceMeshes(){
   rumbleMesh.tri(aR,bR,bRo); rumbleMesh.tri(aR,bRo,aRo);
  }
  trackMesh.upload();rumbleMesh.upload();
- // ground big plane
+ // ground: grass terrain that FOLLOWS the track elevation so the road sits IN
+ // the grass (no floating road on hills). A flat band at road height extends out
+ // to GRASSW on each side, then a skirt drops to a base plane that fills the
+ // horizon. Built from the same CL source as the road, so they connect seamlessly.
  groundMesh=new Mesh();
+ var GRASSW=85;            // grass half-width beyond road center
+ var minY=1e9;for(var gi=0;gi<n;gi++)if(CL[gi].y<minY)minY=CL[gi].y;
+ var baseY=minY-8;         // skirt/base elevation, below the lowest dip
+ for(var i=0;i<n;i++){
+  var a=CL[i],b=CL[(i+1)%n];
+  // left grass band (flat at segment elevation, road edge -> GRASSW)
+  var aLi=[a.x-a.px*ROADW,a.y,a.z-a.pz*ROADW];
+  var aLo=[a.x-a.px*GRASSW,a.y,a.z-a.pz*GRASSW];
+  var bLi=[b.x-b.px*ROADW,b.y,b.z-b.pz*ROADW];
+  var bLo=[b.x-b.px*GRASSW,b.y,b.z-b.pz*GRASSW];
+  groundMesh.tri(aLi,bLi,bLo);groundMesh.tri(aLi,bLo,aLo);
+  // left skirt (drop from grass outer edge down to baseY)
+  var aLb=[a.x-a.px*GRASSW,baseY,a.z-a.pz*GRASSW];
+  var bLb=[b.x-b.px*GRASSW,baseY,b.z-b.pz*GRASSW];
+  groundMesh.tri(aLo,bLo,bLb);groundMesh.tri(aLo,bLb,aLb);
+  // right grass band
+  var aRi=[a.x+a.px*ROADW,a.y,a.z+a.pz*ROADW];
+  var aRo=[a.x+a.px*GRASSW,a.y,a.z+a.pz*GRASSW];
+  var bRi=[b.x+b.px*ROADW,b.y,b.z+b.pz*ROADW];
+  var bRo=[b.x+b.px*GRASSW,b.y,b.z+b.pz*GRASSW];
+  groundMesh.tri(aRi,bRo,bRi);groundMesh.tri(aRi,aRo,bRo);
+  // right skirt
+  var aRb=[a.x+a.px*GRASSW,baseY,a.z+a.pz*GRASSW];
+  var bRb=[b.x+b.px*GRASSW,baseY,b.z+b.pz*GRASSW];
+  groundMesh.tri(aRo,bRb,bRo);groundMesh.tri(aRo,aRb,bRb);
+ }
+ // far flat base plane to fill the horizon under everything
  var G=600;
- groundMesh.tri([-G,-0.05,-G],[-G,-0.05,G],[G,-0.05,G]);
- groundMesh.tri([-G,-0.05,-G],[G,-0.05,G],[G,-0.05,-G]);
+ groundMesh.tri([-G,baseY,-G],[-G,baseY,G],[G,baseY,G]);
+ groundMesh.tri([-G,baseY,-G],[G,baseY,G],[G,baseY,-G]);
  groundMesh.upload();
  // tree (cone foliage + trunk), unit mesh ~ height 4
  treeMesh=new Mesh();
