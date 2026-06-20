@@ -287,16 +287,13 @@ var VS=
 var FS=
 "precision mediump float;\n"+
 "varying vec3 vColor; varying vec3 vWorldNorm; varying vec3 vWorldPos;\n"+
-"uniform vec3 uLightDir; uniform vec3 uFogColor;\n"+
+"uniform vec3 uLightDir;\n"+
 "void main(){\n"+
 " vec3 n=normalize(vWorldNorm);\n"+
 " vec3 viewDir=normalize(-vWorldPos);\n"+
 " vec3 half1=normalize(normalize(uLightDir)+viewDir);\n"+
 " float spec=pow(max(dot(n,half1),0.0),24.0)*0.25;\n"+
-" float dist=length(vWorldPos);\n"+
-" float fog=1.0-exp(-dist*0.003);\n"+
-" vec3 col=vColor+vec3(spec);\n"+
-" gl_FragColor=vec4(mix(col,uFogColor,fog),1.0);\n"+
+" gl_FragColor=vec4(vColor+vec3(spec),1.0);\n"+
 "}\n";
 
 /* sky: no lighting, vertex colors */
@@ -348,7 +345,6 @@ function initGL(){
   uColor:gl.getUniformLocation(prog,'uColor'),
   uLightDir:gl.getUniformLocation(prog,'uLightDir'),
   uAmbient:gl.getUniformLocation(prog,'uAmbient'),
-  uFogColor:gl.getUniformLocation(prog,'uFogColor'),
   sAPos:gl.getAttribLocation(skyProg,'aPos'),
   sACol:gl.getAttribLocation(skyProg,'aCol'),
   sUProj:gl.getUniformLocation(skyProg,'uProj'),
@@ -1534,7 +1530,6 @@ function render(){
  gl.uniformMatrix4fv(L.uProj,false,proj);
  gl.uniformMatrix4fv(L.uView,false,view);
  gl.uniform3fv(L.uLightDir,V.norm([0.4,1.0,0.3]));
- gl.uniform3fv(L.uFogColor,track.skyBot);
  var I=M.ident();
  drawMesh(groundMesh,I,track.grass,0.55);
  drawMesh(rumbleMesh,I,track.rumble,0.6);
