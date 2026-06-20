@@ -400,10 +400,9 @@ var trackLength=0;
 var trees=[];
 
 function buildCenterline(track){
- // smooth the loop points with simple Catmull-Rom resampling for nicer ribbon
  var pts=track.pts,n=pts.length;
  var samples=[];
- var STEP=6; // subdivisions per segment (finer = smoother ribbon on tight curves)
+ var STEP=12;
  function cr(p0,p1,p2,p3,t){
   var t2=t*t,t3=t2*t;
   function c(a,b,cc,d){return 0.5*((2*b)+(-a+cc)*t+(2*a-5*b+4*cc-d)*t2+(-a+3*b-3*cc+d)*t3)}
@@ -413,24 +412,38 @@ function buildCenterline(track){
   var p0=pts[(i-1+n)%n],p1=pts[i],p2=pts[(i+1)%n],p3=pts[(i+2)%n];
   for(var s=0;s<STEP;s++){ samples.push(cr(p0,p1,p2,p3,s/STEP)); }
  }
- CL=[];trackLength=0;
+ // Y-smoothing: 3 iterations of neighbor-averaging to prevent steep vertical steps
+ for(var pass=0;pass<3;pass++){
+  var sm=samples.length;
+  var yBuf=[];
+  for(var j=0;j<sm;j++){
+   var y0=samples[(j-1+sm)%sm][1],y1=samples[j][1],y2=samples[(j+1)%sm][1];
+   yBuf.push((y0+y1+y2)/3);
+  }
+  for(var j=0;j<sm;j++) samples[j][1]=yBuf[j];
+ }
+ // Build CL with per-sample tangent perpendiculars (no bisector—with high STEP
+ // the angle change per sample is small enough that outgoing perp is smooth)
+ var rawCL=[];
  var m=samples.length;
  for(var k=0;k<m;k++){
-  var prev=samples[(k-1+m)%m],cur=samples[k],nx=samples[(k+1)%m];
-  // incoming & outgoing unit directions
-  var ix=cur[0]-prev[0],iz=cur[2]-prev[2];var il=Math.hypot(ix,iz)||1;ix/=il;iz/=il;
+  var nx=samples[(k+1)%m];var cur=samples[k];
   var ox=nx[0]-cur[0],oz=nx[2]-cur[2];var ol=Math.hypot(ox,oz)||1;ox/=ol;oz/=ol;
-  // angle-bisector (averaged) tangent: makes the offset ribbon turn at the joint
-  // bisector instead of snapping per-segment, which removes the chevron/fork tear
-  // on sharp S-curves. Falls back to the outgoing dir at near-180 hairpins.
-  var tx=ix+ox,tz=iz+oz;var tl=Math.hypot(tx,tz);
-  if(tl<1e-4){tx=ox;tz=oz;tl=1;}
-  tx/=tl;tz/=tl;
-  // perpendicular (right side) of the bisector tangent — unit length (no width
-  // scaling, so the inner edge never widens past the curve radius and folds)
-  var px=tz,pz=-tx;
-  CL.push({x:cur[0],y:cur[1],z:cur[2],dx:ox,dz:oz,px:px,pz:pz,dist:trackLength});
-  trackLength+=ol;
+  rawCL.push({x:cur[0],y:cur[1],z:cur[2],dx:ox,dz:oz,px:oz,pz:-ox,segLen:ol});
+ }
+ // Smooth perpendiculars over a 5-sample window to prevent any remaining jitter
+ CL=[];trackLength=0;
+ for(var k=0;k<m;k++){
+  var spx=0,spz=0;
+  for(var w=-2;w<=2;w++){
+   var idx=(k+w+m)%m;
+   spx+=rawCL[idx].px; spz+=rawCL[idx].pz;
+  }
+  var sl=Math.hypot(spx,spz)||1;
+  spx/=sl;spz/=sl;
+  CL.push({x:rawCL[k].x,y:rawCL[k].y,z:rawCL[k].z,
+   dx:rawCL[k].dx,dz:rawCL[k].dz,px:spx,pz:spz,dist:trackLength});
+  trackLength+=rawCL[k].segLen;
  }
 }
 
