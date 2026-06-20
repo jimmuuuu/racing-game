@@ -175,7 +175,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v8 MEGA</div>
+<div id="buildver">3D v9</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -502,11 +502,11 @@ function buildRaceMeshes(){
   var aRo=[a.x+a.px*GRASSW,a.y,a.z+a.pz*GRASSW];
   var bRi=[b.x+b.px*ROADW,b.y,b.z+b.pz*ROADW];
   var bRo=[b.x+b.px*GRASSW,b.y,b.z+b.pz*GRASSW];
-  groundMesh.tri(aRi,bRo,bRi);groundMesh.tri(aRi,aRo,bRo);
+  groundMesh.tri(aRi,bRi,bRo);groundMesh.tri(aRi,bRo,aRo);
   // right skirt
   var aRb=[a.x+a.px*GRASSW,baseY,a.z+a.pz*GRASSW];
   var bRb=[b.x+b.px*GRASSW,baseY,b.z+b.pz*GRASSW];
-  groundMesh.tri(aRo,bRb,bRo);groundMesh.tri(aRo,aRb,bRb);
+  groundMesh.tri(aRo,bRo,bRb);groundMesh.tri(aRo,bRb,aRb);
  }
  // far flat base plane to fill the horizon under everything
  var G=600;
