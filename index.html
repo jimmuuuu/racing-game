@@ -235,16 +235,20 @@ var TRACKS=[
   pts:ringPoints(function(a){return [Math.cos(a)*120,0,Math.sin(a)*78]},48)},
  {name:'Rizz Circuit',desc:'Tight S-curves',
   sky:[0.08,0.08,0.28],skyBot:[0.35,0.25,0.50],grass:[0.16,0.36,0.16],road:[0.35,0.35,0.35],rumble:[1.0,1.0,0.1],tree:[0.14,0.38,0.20],
-  pts:ringPoints(function(a){return [Math.cos(a)*100+Math.sin(a*3)*18,0,Math.sin(a)*90]},56)},
+  // polar simple loop: 3-lobe wavy oval, never self-intersects
+  pts:ringPoints(function(a){var r=92+Math.sin(a*3)*18;return [Math.cos(a)*r*1.15,0,Math.sin(a)*r]},56)},
  {name:'Ohio Arena',desc:'Wild hills & hairpins',
   sky:[0.95,0.35,0.15],skyBot:[1.0,0.70,0.50],grass:[0.65,0.42,0.20],road:[0.42,0.42,0.42],rumble:[1.0,0.60,0.1],tree:[0.56,0.36,0.15],
-  pts:ringPoints(function(a,t){return [Math.cos(a)*110+Math.sin(a*2)*40,Math.sin(a*3)*9+9*Math.sin(a),Math.sin(a)*86]},52)},
+  // polar 2-lobe (peanut) loop with hills; xz never crosses itself
+  pts:ringPoints(function(a){var r=98+Math.sin(a*2)*22;return [Math.cos(a)*r,Math.sin(a*3)*8+8*Math.sin(a*2),Math.sin(a)*r*0.9]},52)},
  {name:'Neon City',desc:'Urban night race',
   sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.15,0.15,0.15],road:[0.25,0.25,0.3],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],
-  pts:ringPoints(function(a){return [Math.cos(a)*105+Math.cos(a*2.5)*25,0,Math.sin(a)*95+Math.sin(a*2.5)*20]},60)},
+  // polar 4-lobe loop (city blocks feel), guaranteed non-self-intersecting
+  pts:ringPoints(function(a){var r=102+Math.sin(a*4)*15;return [Math.cos(a)*r*1.05,0,Math.sin(a)*r]},60)},
  {name:'Dragon Peak',desc:'Mountain extreme',
   sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],
-  pts:ringPoints(function(a,t){return [Math.cos(a)*95+Math.sin(a*1.5)*30,Math.sin(a*4)*15+Math.cos(a)*8,Math.sin(a)*85+Math.cos(a*1.5)*25]},64)}
+  // polar 3-lobe loop with big mountain elevation; xz never crosses itself
+  pts:ringPoints(function(a){var r=95+Math.sin(a*3)*20;return [Math.cos(a)*r,Math.sin(a*4)*12+Math.cos(a)*6,Math.sin(a)*r]},64)}
 ];
 
 var ROADW=10; // road half width
