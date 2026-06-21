@@ -175,7 +175,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v14</div>
+<div id="buildver">3D v15</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -400,6 +400,63 @@ Mesh.prototype.box=function(cx,cy,cz,hx,hy,hz){
  this.quad(p[3],p[7],p[6],p[2]); // +y top
  this.quad(p[0],p[1],p[5],p[4]); // -y bottom
 };
+// cylinder centered at c, radius r, length 2*half along axis (0=x,1=y,2=z), capped
+Mesh.prototype.cyl=function(cx,cy,cz,r,half,axis,segs){
+ segs=segs||12;
+ function P(ang,d){var c=Math.cos(ang)*r,s=Math.sin(ang)*r,o;
+  if(axis===0){o=[d,c,s];}else if(axis===1){o=[c,d,s];}else{o=[c,s,d];}
+  return [cx+o[0],cy+o[1],cz+o[2]];}
+ var capA=[cx+(axis===0?-half:0),cy+(axis===1?-half:0),cz+(axis===2?-half:0)];
+ var capB=[cx+(axis===0?half:0),cy+(axis===1?half:0),cz+(axis===2?half:0)];
+ for(var i=0;i<segs;i++){
+  var a0=i/segs*Math.PI*2,a1=(i+1)/segs*Math.PI*2;
+  var pA0=P(a0,-half),pA1=P(a1,-half),pB0=P(a0,half),pB1=P(a1,half);
+  this.tri(pA0,pB0,pB1);this.tri(pA0,pB1,pA1);
+  this.tri(capA,pA1,pA0);this.tri(capB,pB0,pB1);
+ }
+};
+// extrude a 2D profile (array of [x,y], CCW) along z from z0 to z1 at center cx,cy,cz,
+// scaling the cross-section by sc0 at z0 and sc1 at z1 (for tapered/rounded ends), capped
+Mesh.prototype.extrude=function(cx,cy,cz,prof,z0,z1,sc0,sc1){
+ var nP=prof.length;sc0=sc0==null?1:sc0;sc1=sc1==null?1:sc1;
+ for(var i=0;i<nP;i++){
+  var p=prof[i],q=prof[(i+1)%nP];
+  var a=[cx+p[0]*sc0,cy+p[1]*sc0,cz+z0],b=[cx+q[0]*sc0,cy+q[1]*sc0,cz+z0];
+  var c=[cx+q[0]*sc1,cy+q[1]*sc1,cz+z1],d=[cx+p[0]*sc1,cy+p[1]*sc1,cz+z1];
+  this.tri(a,b,c);this.tri(a,c,d);
+ }
+ var k0=[cx,cy,cz+z0],k1=[cx,cy,cz+z1];
+ for(var i=0;i<nP;i++){
+  var p=prof[i],q=prof[(i+1)%nP];
+  this.tri(k0,[cx+q[0]*sc0,cy+q[1]*sc0,cz+z0],[cx+p[0]*sc0,cy+p[1]*sc0,cz+z0]);
+  this.tri(k1,[cx+p[0]*sc1,cy+p[1]*sc1,cz+z1],[cx+q[0]*sc1,cy+q[1]*sc1,cz+z1]);
+ }
+};
+// tube swept along an arc in the x-y plane (a roll hoop), radius arcR, tube radius tubeR
+Mesh.prototype.tubeArc=function(cx,cy,cz,arcR,tubeR,a0,a1,segPath,segTube){
+ segPath=segPath||8;segTube=segTube||5;
+ var prev=null;
+ for(var j=0;j<=segPath;j++){
+  var ang=a0+(a1-a0)*j/segPath;
+  var ctr=[cx+Math.cos(ang)*arcR,cy+Math.sin(ang)*arcR,cz];
+  var rad=[Math.cos(ang),Math.sin(ang),0];
+  var ring=[];
+  for(var k=0;k<segTube;k++){
+   var tt=k/segTube*Math.PI*2;
+   ring.push([ctr[0]+rad[0]*Math.cos(tt)*tubeR,ctr[1]+rad[1]*Math.cos(tt)*tubeR,ctr[2]+Math.sin(tt)*tubeR]);
+  }
+  if(prev){for(var k=0;k<segTube;k++){var k2=(k+1)%segTube;
+   this.tri(prev[k],prev[k2],ring[k2]);this.tri(prev[k],ring[k2],ring[k]);}}
+  prev=ring;
+ }
+};
+function roundRectProfile(hw,hh,r,seg){
+ seg=seg||3;var pts=[];
+ var corn=[[hw-r,hh-r,0],[-(hw-r),hh-r,Math.PI/2],[-(hw-r),-(hh-r),Math.PI],[hw-r,-(hh-r),Math.PI*1.5]];
+ for(var ci=0;ci<4;ci++){var cxr=corn[ci][0],cyr=corn[ci][1],aa=corn[ci][2];
+  for(var s=0;s<=seg;s++){var a=aa+s/seg*(Math.PI/2);pts.push([cxr+Math.cos(a)*r,cyr+Math.sin(a)*r]);}}
+ return pts;
+}
 
 /* sky mesh uses position+color */
 function SkyMesh(){this.verts=[];this.cols=[];this.count=0;this.posBuf=null;this.colBuf=null;}
@@ -409,7 +466,7 @@ SkyMesh.prototype.upload=function(){
 };
 
 /* ===================== STATIC MESHES (built once per race) ===================== */
-var trackMesh=null,rumbleMesh=null,rumbleMesh2=null,groundMesh=null,treeMesh=null,kartBody=null,kartLower=null,kartWheel=null,kartRoof=null,kartSpoiler=null,kartWheelRim=null,kartBumper=null,kartExhaust=null,roadStripeMesh=null,startLineMesh=null,startLineMesh2=null,skyMesh=null,shoulderMesh=null,roadCenterMesh=null;
+var trackMesh=null,rumbleMesh=null,rumbleMesh2=null,groundMesh=null,treeMesh=null,kartBody=null,kartLower=null,kartWheel=null,kartRoof=null,kartSpoiler=null,kartWheelRim=null,kartBumper=null,kartExhaust=null,kartNose=null,kartSeat=null,kartCage=null,kartHub=null,roadStripeMesh=null,startLineMesh=null,startLineMesh2=null,skyMesh=null,shoulderMesh=null,roadCenterMesh=null;
 var CL=[]; // centerline samples {x,y,z, dirX,dirZ, perpX,perpZ}
 var trackLength=0;
 var trees=[];
@@ -580,14 +637,39 @@ function buildRaceMeshes(){
  }
  treeMesh.upload();
  // kart parts (unit-ish, length along +Z is forward)
- kartBody=new Mesh(); kartBody.box(0,0.55,0,0.7,0.35,1.05); kartBody.upload();
- kartLower=new Mesh(); kartLower.box(0,0.28,0,0.78,0.18,1.1); kartLower.upload();
- kartRoof=new Mesh(); kartRoof.box(0,1.05,-0.15,0.42,0.32,0.42); kartRoof.upload();
- kartWheel=new Mesh(); kartWheel.box(0,0,0,0.22,0.32,0.32); kartWheel.upload();
- kartSpoiler=new Mesh(); kartSpoiler.box(0,0.8,-1.3,0.08,0.4,0.15); kartSpoiler.upload();
- kartWheelRim=new Mesh(); kartWheelRim.box(0,0,0,0.25,0.08,0.08); kartWheelRim.upload();
- kartBumper=new Mesh(); kartBumper.box(0,0.35,1.15,0.65,0.1,0.12); kartBumper.upload();
- kartExhaust=new Mesh(); kartExhaust.box(0,0.35,-1.2,0.12,0.1,0.18); kartExhaust.upload();
+ // ===== rounded go-kart meshes (built once, reused every frame) =====
+ // floor pan / chassis: flat rounded slab
+ kartLower=new Mesh();
+ kartLower.extrude(0,0.26,0,roundRectProfile(0.66,0.13,0.11,3),-1.0,0.95,0.92,0.78);
+ kartLower.upload();
+ // main body tub: rounded cross-section, slight taper to the tail
+ kartBody=new Mesh();
+ kartBody.extrude(0,0.52,0,roundRectProfile(0.52,0.3,0.2,4),-0.72,0.5,0.86,0.92);
+ kartBody.upload();
+ // rounded nose cone
+ kartNose=new Mesh();
+ kartNose.extrude(0,0.5,0,roundRectProfile(0.52,0.26,0.2,4),0.5,1.08,0.9,0.32);
+ kartNose.upload();
+ // driver seat + headrest bump
+ kartSeat=new Mesh();
+ kartSeat.extrude(0,0.66,-0.42,roundRectProfile(0.3,0.26,0.16,3),-0.18,0.22,0.85,1.0);
+ kartSeat.upload();
+ // roll cage hoop over the seat
+ kartCage=new Mesh();
+ kartCage.tubeArc(0,0.5,-0.5,0.46,0.055,-0.18,Math.PI+0.18,9,5);
+ kartCage.upload();
+ // round wheels (tire = cylinder along x)
+ kartWheel=new Mesh(); kartWheel.cyl(0,0,0,0.34,0.17,0,14); kartWheel.upload();
+ // wheel hub/rim disc (lighter, smaller, on outer face)
+ kartHub=new Mesh(); kartHub.cyl(0,0,0,0.16,0.19,0,10); kartHub.upload();
+ // rear spoiler bar
+ kartSpoiler=new Mesh(); kartSpoiler.box(0,0.78,-0.92,0.46,0.045,0.12); kartSpoiler.upload();
+ // front bumper (rounded bar)
+ kartBumper=new Mesh(); kartBumper.cyl(0,0.32,1.04,0.1,0.5,0,8); kartBumper.upload();
+ // exhaust tip
+ kartExhaust=new Mesh(); kartExhaust.cyl(0,0.42,-1.0,0.07,0.16,2,8); kartExhaust.upload();
+ // legacy roof var kept null (replaced by cage)
+ kartRoof=null; kartWheelRim=null;
  // start/finish line — checkerboard pattern
  startLineMesh=new Mesh();
  startLineMesh2=new Mesh();
@@ -698,27 +780,28 @@ function drawMesh(mesh,model,color,ambient){
 function drawKart(racer){
  var skin=getCharColor(racer.chIdx);
  var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
- drawMesh(kartLower,base,skin.dark,0.4);
- drawMesh(kartBody,base,skin.col,0.45);
- drawMesh(kartRoof,base,skin.dark,0.45);
- // spoiler
+ // karts drawn double-sided so the rounded primitives never show holes from winding
+ gl.disable(gl.CULL_FACE);
+ drawMesh(kartLower,base,skin.dark,0.42);
+ drawMesh(kartBody,base,skin.col,0.5);
+ drawMesh(kartNose,base,[skin.col[0]*0.92,skin.col[1]*0.92,skin.col[2]*0.92],0.48);
+ drawMesh(kartSeat,base,skin.dark,0.4);
+ drawMesh(kartCage,base,[0.22,0.22,0.26],0.5);
  drawMesh(kartSpoiler,base,[skin.dark[0]*1.2,skin.dark[1]*1.2,skin.dark[2]*1.2],0.6);
- // wheels with shine
- var wcol=[0.12,0.12,0.12],wshine=[0.3,0.3,0.35];
- var wp=[[-0.7,0.0,0.7],[0.7,0.0,0.7],[-0.7,0.0,-0.7],[0.7,0.0,-0.7]];
+ // wheels: dark round tire + lighter hub
+ var wcol=[0.1,0.1,0.11],wshine=[0.35,0.35,0.4];
+ var wp=[[-0.68,0.0,0.66],[0.68,0.0,0.66],[-0.68,0.0,-0.66],[0.68,0.0,-0.66]];
  for(var i=0;i<4;i++){
   var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
-  drawMesh(kartWheel,wm,wcol,0.4);
-  // wheel rim shine
-  drawMesh(kartWheelRim,wm,wshine,0.8);
+  drawMesh(kartWheel,wm,wcol,0.38);
+  drawMesh(kartHub,wm,wshine,0.7);
  }
- // bumper and exhaust
- drawMesh(kartBumper,base,[0.7,0.7,0.75],0.6);
- drawMesh(kartExhaust,base,[0.2,0.2,0.22],0.35);
- // if boosting, add glow
+ drawMesh(kartBumper,base,[0.75,0.75,0.8],0.6);
+ drawMesh(kartExhaust,base,[0.3,0.3,0.32],0.4);
  if(racer.isPlayer&&racer.boostTimer>0){
-  drawMesh(kartBody,base,[skin.col[0]*1.5,skin.col[1]*1.5,Math.min(1,skin.col[2]*1.5)],0.2);
+  drawMesh(kartBody,base,[Math.min(1,skin.col[0]*1.5),Math.min(1,skin.col[1]*1.5),Math.min(1,skin.col[2]*1.5)],0.2);
  }
+ gl.enable(gl.CULL_FACE);
 }
 
 /* ===================== GAME STATE ===================== */
