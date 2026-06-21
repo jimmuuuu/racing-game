@@ -479,6 +479,19 @@ Mesh.prototype.cone=function(cx,by,cz,r,ay,segs){
   this.tri([cx,by,cz],p1,p0);
  }
 };
+// torus in the Y-Z plane (axis along X) — for rounded tire sidewalls
+Mesh.prototype.torus=function(cx,cy,cz,R,tr,segR,segT){
+ segR=segR||20;segT=segT||8;
+ for(var i=0;i<segR;i++){
+  var a0=i/segR*Math.PI*2,a1=(i+1)/segR*Math.PI*2;
+  for(var j=0;j<segT;j++){
+   var b0=j/segT*Math.PI*2,b1=(j+1)/segT*Math.PI*2;
+   function P(a,b){var rr=R+tr*Math.cos(b);return [cx+tr*Math.sin(b),cy+Math.sin(a)*rr,cz+Math.cos(a)*rr];}
+   this.tri(P(a0,b0),P(a1,b0),P(a1,b1));
+   this.tri(P(a0,b0),P(a1,b1),P(a0,b1));
+  }
+ }
+};
 // ellipsoid centered at cx,cy,cz with radii rx,ry,rz
 Mesh.prototype.ellipsoid=function(cx,cy,cz,rx,ry,rz,rings,segs){
  rings=rings||8;segs=segs||10;
@@ -513,7 +526,7 @@ SkyMesh.prototype.upload=function(){
 
 /* ===================== STATIC MESHES (built once per race) ===================== */
 var trackMesh=null,rumbleMesh=null,rumbleMesh2=null,groundMesh=null,treeMesh=null,kartBody=null,kartLower=null,kartWheel=null,kartRoof=null,kartSpoiler=null,kartWheelRim=null,kartBumper=null,kartExhaust=null,kartNose=null,kartSeat=null,kartCage=null,kartHub=null,roadStripeMesh=null,startLineMesh=null,startLineMesh2=null,skyMesh=null,shoulderMesh=null,roadCenterMesh=null;
-var goatHead=null,goatEyeWhite=null,goatEyePupil=null,goatHorns=null,goatEars=null,goatBody=null,goatFrame=null,goatRope=null,goatSteering=null,goatSeat=null,goatWheel=null,goatWheelHub=null,goatTread=null;
+var goatHead=null,goatEyeWhite=null,goatEyePupil=null,goatHorns=null,goatEars=null,goatBody=null,goatFrame=null,goatFrameBolts=null,goatRope=null,goatSteering=null,goatSeat=null,goatWheel=null,goatWheelHub=null,goatTread=null,goatBolts=null;
 var ttBody=null,ttHead=null,ttEyes=null,ttPupils=null,ttBrows=null,ttSmile=null;
 var sharkNose=null,sharkMouth=null,sharkEyeWhite=null,sharkPupil=null,sharkBody=null,sharkDorsal=null,sharkSideFins=null,sharkTail=null,sharkStripe=null,sharkSneaker=null;
 var crocHead=null,crocEyeWhite=null,crocPupil=null,crocTeeth=null,crocBody=null,crocWings=null,crocPropHub=null,crocPropBlade=null,crocRearHub=null,crocTail=null,crocStripe=null;
@@ -770,21 +783,36 @@ function buildRaceMeshes(){
   goatBody.sphere(Math.cos(fa)*0.55, fy, 0.4+Math.sin(fa)*0.6, 0.1, 4,5);
  }
  goatBody.upload();
- // Wooden kart frame — the cart body
+ // Wooden kart frame — carved planks with softened edges (beveled, not cubes)
  goatFrame=new Mesh();
- // side panels (left and right wooden planks)
- goatFrame.box(-0.55,0.35,-0.1, 0.06,0.28,0.65);
- goatFrame.box(0.55,0.35,-0.1, 0.06,0.28,0.65);
- // back panel
- goatFrame.box(0,0.35,-0.72, 0.55,0.28,0.06);
- // floor
- goatFrame.box(0,0.1,-0.1, 0.52,0.04,0.62);
- // front crossbar connecting to goat
- goatFrame.cyl(0,0.32,0.52, 0.05,0.52, 0, 8);
- // name plate on side panel
- goatFrame.box(-0.62,0.38,-0.1, 0.02,0.14,0.3);
- goatFrame.box(0.62,0.38,-0.1, 0.02,0.14,0.3);
+ // side panels: rounded-rect cross-section extruded along Z (soft edges)
+ goatFrame.extrude(-0.55,0.35,0, roundRectProfile(0.05,0.26,0.045,3), -0.75,0.55, 1,1);
+ goatFrame.extrude(0.55,0.35,0, roundRectProfile(0.05,0.26,0.045,3), -0.75,0.55, 1,1);
+ // back panel (rounded)
+ goatFrame.extrude(0,0.35,-0.72, roundRectProfile(0.55,0.26,0.05,3), -0.05,0.05, 1,1);
+ // floor pan (rounded slab)
+ goatFrame.extrude(0,0.1,0, roundRectProfile(0.52,0.04,0.035,2), -0.6,0.55, 1,1);
+ // front crossbar connecting to goat (round bar)
+ goatFrame.cyl(0,0.32,0.52, 0.05,0.52, 0, 12);
+ // raised name plate blocks on each side panel (rounded)
+ goatFrame.extrude(-0.62,0.38,-0.1, roundRectProfile(0.02,0.13,0.018,2), -0.15,0.15, 1,1);
+ goatFrame.extrude(0.62,0.38,-0.1, roundRectProfile(0.02,0.13,0.018,2), -0.15,0.15, 1,1);
  goatFrame.upload();
+ // Rivets / bolts studding the wooden frame (tertiary mechanical detail)
+ goatFrameBolts=new Mesh();
+ var fbz=[-0.55,-0.1,0.35];
+ for(var fb=0;fb<fbz.length;fb++){
+  goatFrameBolts.sphere(-0.605,0.5,fbz[fb], 0.022, 4,5);
+  goatFrameBolts.sphere(0.605,0.5,fbz[fb], 0.022, 4,5);
+  goatFrameBolts.sphere(-0.605,0.2,fbz[fb], 0.022, 4,5);
+  goatFrameBolts.sphere(0.605,0.2,fbz[fb], 0.022, 4,5);
+ }
+ // corner bolts on the nameplates
+ goatFrameBolts.sphere(-0.645,0.49,-0.1, 0.02, 4,5);
+ goatFrameBolts.sphere(-0.645,0.27,-0.1, 0.02, 4,5);
+ goatFrameBolts.sphere(0.645,0.49,-0.1, 0.02, 4,5);
+ goatFrameBolts.sphere(0.645,0.27,-0.1, 0.02, 4,5);
+ goatFrameBolts.upload();
  // Rope bindings on the frame
  goatRope=new Mesh();
  // rope wraps around front connection
@@ -851,16 +879,42 @@ function buildRaceMeshes(){
   ttSmile.sphere(Math.sin(smAng)*0.12, 1.34+Math.cos(smAng)*0.04-0.04, -0.08, 0.025, 3,4);
  }
  ttSmile.upload();
- // Goat kart wheels (thicker, chunkier tires)
- goatWheel=new Mesh(); goatWheel.cyl(0,0,0, 0.36, 0.2, 0, 14); goatWheel.upload();
- goatWheelHub=new Mesh(); goatWheelHub.cyl(0,0,0, 0.14, 0.22, 0, 8); goatWheelHub.upload();
- // Tread bumps on wheels
+ // ===== PREMIUM SHARED WHEEL (tire + sculpted rim + bolts) =====
+ // tire carcass: high-seg cylinder core with rounded torus shoulders so the
+ // sidewall reads as soft rubber, not a flat disc
+ goatWheel=new Mesh();
+ goatWheel.cyl(0,0,0, 0.355, 0.17, 0, 28);     // tread band (rounded, 28-sided)
+ goatWheel.torus(-0.17,0,0, 0.30, 0.06, 24, 8); // outer sidewall bevel
+ goatWheel.torus(0.17,0,0, 0.30, 0.06, 24, 8);  // inner sidewall bevel
+ goatWheel.upload();
+ // deep chunky tread blocks wrapped around the tread band
  goatTread=new Mesh();
- for(var ti=0;ti<10;ti++){
-  var ta=ti/10*Math.PI*2;
-  goatTread.box(Math.cos(ta)*0.34, Math.sin(ta)*0.34, 0, 0.04, 0.03, 0.18);
+ for(var ti=0;ti<18;ti++){
+  var ta=ti/18*Math.PI*2;
+  // angled tread lugs for an off-road look
+  goatTread.box(Math.cos(ta)*0.355, Math.sin(ta)*0.355, (ti%2?0.06:-0.06), 0.05,0.035,0.06);
  }
  goatTread.upload();
+ // sculpted alloy rim: dish + multi-spoke star + raised center cap
+ goatWheelHub=new Mesh();
+ goatWheelHub.cyl(0,0,0, 0.15, 0.2, 0, 16);    // hub barrel
+ goatWheelHub.torus(0.19,0,0, 0.15, 0.035, 16, 6); // rim lip (outer face)
+ // five spokes radiating from center cap
+ for(var sp=0;sp<5;sp++){
+  var spa=sp/5*Math.PI*2;
+  var sx=Math.cos(spa)*0.14, sy=Math.sin(spa)*0.14;
+  goatWheelHub.cyl(sx*0.5,sy*0.5,0.19, 0.028, 0.14, 2, 5); // each spoke (along Z toward outer face)
+  // taper the spoke outward visually with a small block
+ }
+ goatWheelHub.sphere(0,0,0.21, 0.06, 6,8);     // domed center cap
+ goatWheelHub.upload();
+ // lug bolts ringed around the center cap (tertiary detail)
+ goatBolts=new Mesh();
+ for(var bo=0;bo<6;bo++){
+  var ba=bo/6*Math.PI*2;
+  goatBolts.sphere(Math.cos(ba)*0.085, Math.sin(ba)*0.085, 0.205, 0.018, 4,5);
+ }
+ goatBolts.upload();
 
  // ===== TRALALERO TRALALA SHARK KART =====
  // shark nose / front (pointed snout forms the bumper)
@@ -1171,6 +1225,22 @@ function drawMesh(mesh,model,color,ambient){
  gl.drawArrays(gl.TRIANGLES,0,mesh.count);
 }
 
+// premium shared wheel renderer: tire + tread + sculpted alloy rim + lug bolts.
+// rims face outward (±X) so we flip the hub mesh per side.
+function drawWheels(base,wp,rimCol){
+ var tire=[0.1,0.1,0.11], lug=[0.55,0.56,0.6];
+ rimCol=rimCol||[0.62,0.64,0.7];
+ for(var i=0;i<wp.length;i++){
+  var outward=wp[i][0]<0?-1:1; // left wheels mirror so rim faces out
+  var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
+  var rimM=M.mul(wm,M.rotY(outward<0?Math.PI:0));
+  drawMesh(goatWheel,wm,tire,0.36);
+  drawMesh(goatTread,wm,[0.06,0.06,0.07],0.34);
+  drawMesh(goatWheelHub,rimM,rimCol,0.62);
+  drawMesh(goatBolts,rimM,lug,0.7);
+ }
+}
+
 function drawGoatKart(racer){
  var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
@@ -1187,7 +1257,8 @@ function drawGoatKart(racer){
  drawMesh(goatBody,base,[0.95,0.92,0.85],0.5);
  // wooden frame — warm brown
  drawMesh(goatFrame,base,[0.65,0.42,0.18],0.45);
- // name plate — darker wood
+ // iron rivets studding the frame
+ drawMesh(goatFrameBolts,base,[0.45,0.46,0.5],0.6);
  // rope bindings — tan/beige
  drawMesh(goatRope,base,[0.82,0.72,0.52],0.5);
  // steering wheel — dark iron
@@ -1204,15 +1275,8 @@ function drawGoatKart(racer){
  drawMesh(ttBrows,base,[0.35,0.22,0.1],0.4);
  // TT smile — dark line
  drawMesh(ttSmile,base,[0.3,0.18,0.08],0.35);
- // wheels — thick rubber with tread
- var wcol=[0.12,0.12,0.13],wshine=[0.4,0.4,0.42];
- var wp=[[-0.62,0.0,0.5],[0.62,0.0,0.5],[-0.62,0.0,-0.55],[0.62,0.0,-0.55]];
- for(var i=0;i<4;i++){
-  var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
-  drawMesh(goatWheel,wm,wcol,0.38);
-  drawMesh(goatWheelHub,wm,wshine,0.65);
-  drawMesh(goatTread,wm,[0.08,0.08,0.09],0.35);
- }
+ // premium wheels — brass-toned alloy rims to match the wooden cart
+ drawWheels(base,[[-0.62,0.0,0.5],[0.62,0.0,0.5],[-0.62,0.0,-0.55],[0.62,0.0,-0.55]],[0.7,0.55,0.3]);
  // boost glow
  if(racer.isPlayer&&racer.boostTimer>0){
   drawMesh(goatBody,base,[1,0.95,0.7],0.2);
@@ -1234,10 +1298,7 @@ function drawSharkKart(racer){
  drawMesh(sharkStripe,base,[1,1,1],0.6);
  drawMesh(sharkSneaker,base,[0.1,0.4,1],0.5); // bright blue sneakers
  drawMesh(charSteering,base,[0.12,0.12,0.15],0.4);
- var wcol=[0.1,0.1,0.11],wshine=[0.5,0.5,0.55];
- var wp=[[-0.62,0,0.5],[0.62,0,0.5],[-0.62,0,-0.6],[0.62,0,-0.6]];
- for(var i=0;i<4;i++){var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
-  drawMesh(goatWheel,wm,wcol,0.38);drawMesh(goatWheelHub,wm,wshine,0.7);}
+ drawWheels(base,[[-0.62,0,0.5],[0.62,0,0.5],[-0.62,0,-0.6],[0.62,0,-0.6]],[0.7,0.72,0.78]);
  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(sharkBody,base,[0.5,0.85,1],0.2);
  gl.enable(gl.CULL_FACE);
 }
@@ -1262,10 +1323,7 @@ function drawCrocKart(racer){
   drawMesh(crocPropBlade,pm,[0.2,0.2,0.22],0.4);
  }
  drawMesh(charSteering,base,[0.12,0.12,0.15],0.4);
- var wcol=[0.09,0.09,0.09],wshine=[0.45,0.45,0.48];
- var wp=[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]];
- for(var i=0;i<4;i++){var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
-  drawMesh(goatWheel,wm,wcol,0.38);drawMesh(goatWheelHub,wm,wshine,0.7);}
+ drawWheels(base,[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]],[0.5,0.52,0.45]);
  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(crocBody,base,[0.6,0.8,0.3],0.2);
  gl.enable(gl.CULL_FACE);
 }
@@ -1282,10 +1340,7 @@ function drawCupKart(racer){
  drawMesh(cupBeans,base,[0.35,0.2,0.1],0.45); // coffee beans
  drawMesh(cupPipes,base,[0.6,0.6,0.65],0.5); // chrome steam pipes
  drawMesh(charSteering,base,[0.12,0.12,0.15],0.4);
- var wcol=[0.1,0.1,0.11],wshine=[0.55,0.55,0.6];
- var wp=[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]];
- for(var i=0;i<4;i++){var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
-  drawMesh(goatWheel,wm,wcol,0.38);drawMesh(goatWheelHub,wm,wshine,0.75);}
+ drawWheels(base,[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]],[0.75,0.76,0.82]);
  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(cupFoam,base,[1,0.98,0.9],0.2);
  gl.enable(gl.CULL_FACE);
 }
@@ -1299,10 +1354,7 @@ function drawPatapimKart(racer){
  drawMesh(patPupil,base,[0.08,0.08,0.05],0.3);
  drawMesh(patLegs,base,[0.5,0.34,0.16],0.45);
  drawMesh(charSteering,base,[0.12,0.12,0.15],0.4);
- var wcol=[0.1,0.1,0.11],wshine=[0.4,0.4,0.42];
- var wp=[[-0.55,0,0.4],[0.55,0,0.4],[-0.55,0,-0.5],[0.55,0,-0.5]];
- for(var i=0;i<4;i++){var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
-  drawMesh(goatWheel,wm,wcol,0.38);drawMesh(goatWheelHub,wm,wshine,0.65);}
+ drawWheels(base,[[-0.55,0,0.4],[0.55,0,0.4],[-0.55,0,-0.5],[0.55,0,-0.5]],[0.6,0.5,0.32]);
  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(patCanopy,base,[0.4,0.9,0.4],0.2);
  gl.enable(gl.CULL_FACE);
 }
