@@ -197,6 +197,7 @@ var M={
  scale:function(x,y,z){var o=M.ident();o[0]=x;o[5]=y;o[10]=z;return o},
  rotY:function(a){var c=Math.cos(a),s=Math.sin(a),o=M.ident();o[0]=c;o[2]=-s;o[8]=s;o[10]=c;return o},
  rotX:function(a){var c=Math.cos(a),s=Math.sin(a),o=M.ident();o[5]=c;o[6]=s;o[9]=-s;o[10]=c;return o},
+ rotZ:function(a){var c=Math.cos(a),s=Math.sin(a),o=M.ident();o[0]=c;o[1]=s;o[4]=-s;o[5]=c;return o},
  lookAt:function(eye,center,up){
   var z=V.norm(V.sub(eye,center));
   var x=V.norm(V.cross(up,z));
@@ -514,6 +515,11 @@ SkyMesh.prototype.upload=function(){
 var trackMesh=null,rumbleMesh=null,rumbleMesh2=null,groundMesh=null,treeMesh=null,kartBody=null,kartLower=null,kartWheel=null,kartRoof=null,kartSpoiler=null,kartWheelRim=null,kartBumper=null,kartExhaust=null,kartNose=null,kartSeat=null,kartCage=null,kartHub=null,roadStripeMesh=null,startLineMesh=null,startLineMesh2=null,skyMesh=null,shoulderMesh=null,roadCenterMesh=null;
 var goatHead=null,goatEyeWhite=null,goatEyePupil=null,goatHorns=null,goatEars=null,goatBody=null,goatFrame=null,goatRope=null,goatSteering=null,goatSeat=null,goatWheel=null,goatWheelHub=null,goatTread=null;
 var ttBody=null,ttHead=null,ttEyes=null,ttPupils=null,ttBrows=null,ttSmile=null;
+var sharkNose=null,sharkMouth=null,sharkEyeWhite=null,sharkPupil=null,sharkBody=null,sharkDorsal=null,sharkSideFins=null,sharkTail=null,sharkStripe=null,sharkSneaker=null;
+var crocHead=null,crocEyeWhite=null,crocPupil=null,crocTeeth=null,crocBody=null,crocWings=null,crocPropHub=null,crocPropBlade=null,crocRearHub=null,crocTail=null,crocStripe=null;
+var cupBody=null,cupRim=null,cupHandle=null,cupFoam=null,cupEyeWhite=null,cupPupil=null,cupMustache=null,cupBeans=null,cupPipes=null;
+var patBody=null,patCanopy=null,patEyeWhite=null,patPupil=null,patLegs=null,patFrame=null;
+var charSteering=null;
 var CL=[]; // centerline samples {x,y,z, dirX,dirZ, perpX,perpZ}
 var trackLength=0;
 var trees=[];
@@ -855,6 +861,209 @@ function buildRaceMeshes(){
   goatTread.box(Math.cos(ta)*0.34, Math.sin(ta)*0.34, 0, 0.04, 0.03, 0.18);
  }
  goatTread.upload();
+
+ // ===== TRALALERO TRALALA SHARK KART =====
+ // shark nose / front (pointed snout forms the bumper)
+ sharkNose=new Mesh();
+ sharkNose.ellipsoid(0,0.42,1.1, 0.46,0.34,0.7, 7,10);
+ sharkNose.ellipsoid(0,0.38,1.7, 0.2,0.16,0.32, 6,8); // pointed tip
+ sharkNose.upload();
+ // shark mouth (white grin underside)
+ sharkMouth=new Mesh();
+ for(var smk=0;smk<7;smk++){
+  var ma=smk/7*Math.PI*2;
+  sharkMouth.box(Math.cos(ma)*0.16,0.28,1.5, 0.04,0.06,0.03); // teeth ring
+ }
+ sharkMouth.upload();
+ // shark eyes — big and goofy
+ sharkEyeWhite=new Mesh();
+ sharkEyeWhite.sphere(-0.26,0.6,1.28, 0.14, 6,8);
+ sharkEyeWhite.sphere(0.26,0.6,1.28, 0.14, 6,8);
+ sharkEyeWhite.upload();
+ sharkPupil=new Mesh();
+ sharkPupil.sphere(-0.24,0.62,1.4, 0.07, 5,6);
+ sharkPupil.sphere(0.24,0.62,1.4, 0.07, 5,6);
+ sharkPupil.upload();
+ // shark body — ocean blue tub
+ sharkBody=new Mesh();
+ sharkBody.ellipsoid(0,0.46,0.1, 0.56,0.4,0.85, 7,10);
+ sharkBody.upload();
+ // dorsal fin (top center)
+ sharkDorsal=new Mesh();
+ sharkDorsal.tri([0,0.8,0.2],[ -0.12,0.5,0.5],[0.12,0.5,0.5]);
+ sharkDorsal.tri([0,0.8,0.2],[0.12,0.5,0.5],[0,0.5,-0.1]);
+ sharkDorsal.tri([0,0.8,0.2],[0,0.5,-0.1],[-0.12,0.5,0.5]);
+ sharkDorsal.upload();
+ // side fins
+ sharkSideFins=new Mesh();
+ sharkSideFins.ellipsoid(-0.62,0.4,0.2, 0.18,0.05,0.32, 5,7);
+ sharkSideFins.ellipsoid(0.62,0.4,0.2, 0.18,0.05,0.32, 5,7);
+ sharkSideFins.upload();
+ // tail fin → rear spoiler
+ sharkTail=new Mesh();
+ sharkTail.tri([0,0.95,-0.85],[-0.4,0.55,-0.95],[0,0.6,-0.7]);
+ sharkTail.tri([0,0.95,-0.85],[0,0.6,-0.7],[0.4,0.55,-0.95]);
+ sharkTail.upload();
+ // racing stripe along body
+ sharkStripe=new Mesh();
+ sharkStripe.box(0,0.56,0.1, 0.04,0.04,0.8);
+ sharkStripe.upload();
+ // shark driver: goofy upper body poking up + sneakers shown as accents
+ sharkSneaker=new Mesh();
+ sharkSneaker.ellipsoid(-0.2,0.18,0.55, 0.13,0.1,0.2, 5,7);
+ sharkSneaker.ellipsoid(0.2,0.18,0.55, 0.13,0.1,0.2, 5,7);
+ sharkSneaker.upload();
+
+ // ===== BOMBARDIRO CROCODILO BOMBER-PLANE KART (goofy visual only) =====
+ // crocodile head front with rounded snout
+ crocHead=new Mesh();
+ crocHead.ellipsoid(0,0.46,1.0, 0.44,0.34,0.6, 7,10);
+ crocHead.ellipsoid(0,0.36,1.55, 0.32,0.2,0.42, 6,8); // long snout
+ crocHead.upload();
+ // croc eyes — bulging on top of head
+ crocEyeWhite=new Mesh();
+ crocEyeWhite.sphere(-0.22,0.74,0.95, 0.13, 6,8);
+ crocEyeWhite.sphere(0.22,0.74,0.95, 0.13, 6,8);
+ crocEyeWhite.upload();
+ crocPupil=new Mesh();
+ crocPupil.sphere(-0.21,0.77,1.05, 0.065, 5,6);
+ crocPupil.sphere(0.21,0.77,1.05, 0.065, 5,6);
+ crocPupil.upload();
+ // croc teeth grin
+ crocTeeth=new Mesh();
+ for(var ct=0;ct<8;ct++){
+  var cta=(ct/8-0.5)*1.2;
+  crocTeeth.box(Math.sin(cta)*0.28,0.26,1.45, 0.03,0.05,0.04);
+ }
+ crocTeeth.upload();
+ // croc body
+ crocBody=new Mesh();
+ crocBody.ellipsoid(0,0.44,0.1, 0.5,0.36,0.8, 7,10);
+ crocBody.upload();
+ // bomber plane wings → side panels
+ crocWings=new Mesh();
+ crocWings.box(-0.95,0.5,0.0, 0.42,0.04,0.3);
+ crocWings.box(0.95,0.5,0.0, 0.42,0.04,0.3);
+ crocWings.upload();
+ // twin propeller hubs on the wings (blades drawn separately + spun)
+ crocPropHub=new Mesh();
+ crocPropHub.cyl(-1.3,0.5,0.15, 0.06,0.08,2,6);
+ crocPropHub.cyl(1.3,0.5,0.15, 0.06,0.08,2,6);
+ crocPropHub.upload();
+ // propeller blades (a separate mesh centered at origin, spun in draw)
+ crocPropBlade=new Mesh();
+ crocPropBlade.box(0,0,0, 0.02,0.32,0.05);
+ crocPropBlade.box(0,0,0, 0.32,0.02,0.05);
+ crocPropBlade.upload();
+ // rear-mounted propeller behind the seat
+ crocRearHub=new Mesh();
+ crocRearHub.cyl(0,0.6,-0.85, 0.07,0.08,2,6);
+ crocRearHub.upload();
+ // small tail
+ crocTail=new Mesh();
+ crocTail.cone(0,0.4,-0.9, 0.16, 0.4, 8); // upright fin-ish, reuse cone
+ crocTail.upload();
+ // yellow racing accent stripe
+ crocStripe=new Mesh();
+ crocStripe.box(0,0.5,0.1, 0.52,0.03,0.04);
+ crocStripe.upload();
+
+ // ===== CAPPUCCINO ASSASSINO ESPRESSO KART =====
+ // giant cup forms the cockpit
+ cupBody=new Mesh();
+ cupBody.extrude(0,0.3,-0.1, roundRectProfile(0.5,0.5,0.4,5), -0.45,0.45, 0.78,1.0);
+ cupBody.upload();
+ // cup rim
+ cupRim=new Mesh();
+ for(var crr=0;crr<14;crr++){
+  var cra=crr/14*Math.PI*2;
+  cupRim.cyl(Math.cos(cra)*0.5, 0.75, -0.1+Math.sin(cra)*0.45, 0.04,0.06,1,5);
+ }
+ cupRim.upload();
+ // cup handle
+ cupHandle=new Mesh();
+ cupHandle.tubeArc(-0.55,0.4,-0.1, 0.22,0.05, -Math.PI/2, Math.PI/2, 8, 5);
+ cupHandle.upload();
+ // foam top with the character face
+ cupFoam=new Mesh();
+ cupFoam.ellipsoid(0,0.82,-0.1, 0.48,0.18,0.42, 6,10);
+ cupFoam.sphere(-0.15,0.95,-0.1, 0.16, 5,6); // foam swirl bumps
+ cupFoam.sphere(0.15,0.95,-0.1, 0.16, 5,6);
+ cupFoam.sphere(0,1.05,-0.1, 0.14, 5,6);
+ cupFoam.upload();
+ // cappuccino face eyes
+ cupEyeWhite=new Mesh();
+ cupEyeWhite.sphere(-0.16,0.78,0.32, 0.1, 6,7);
+ cupEyeWhite.sphere(0.16,0.78,0.32, 0.1, 6,7);
+ cupEyeWhite.upload();
+ cupPupil=new Mesh();
+ cupPupil.sphere(-0.16,0.78,0.4, 0.05, 4,5);
+ cupPupil.sphere(0.16,0.78,0.4, 0.05, 4,5);
+ cupPupil.upload();
+ // tiny mustache
+ cupMustache=new Mesh();
+ cupMustache.box(-0.07,0.66,0.42, 0.08,0.02,0.02);
+ cupMustache.box(0.07,0.66,0.42, 0.08,0.02,0.02);
+ cupMustache.upload();
+ // coffee bean decorations on sides
+ cupBeans=new Mesh();
+ cupBeans.ellipsoid(-0.52,0.4,0.2, 0.07,0.1,0.05, 5,6);
+ cupBeans.ellipsoid(-0.52,0.4,-0.4, 0.07,0.1,0.05, 5,6);
+ cupBeans.ellipsoid(0.52,0.4,0.2, 0.07,0.1,0.05, 5,6);
+ cupBeans.ellipsoid(0.52,0.4,-0.4, 0.07,0.1,0.05, 5,6);
+ cupBeans.upload();
+ // steam pipes behind the seat
+ cupPipes=new Mesh();
+ cupPipes.cyl(-0.2,0.7,-0.6, 0.05,0.25,1,6);
+ cupPipes.cyl(0.2,0.7,-0.6, 0.05,0.25,1,6);
+ cupPipes.cyl(0,0.6,-0.65, 0.06,0.2,1,6);
+ cupPipes.upload();
+
+ // ===== BRR BRR PATAPIM FOREST KART (tree-creature themed) =====
+ // tree-trunk body
+ patBody=new Mesh();
+ patBody.cyl(0,0.5,0.0, 0.42,0.4,1, 10);
+ patBody.upload();
+ // leafy canopy head
+ patCanopy=new Mesh();
+ patCanopy.sphere(0,1.05,0.05, 0.4, 6,9);
+ patCanopy.sphere(-0.25,0.95,0.1, 0.22, 5,7);
+ patCanopy.sphere(0.25,0.95,0.1, 0.22, 5,7);
+ patCanopy.upload();
+ // big goofy eyes on the trunk
+ patEyeWhite=new Mesh();
+ patEyeWhite.sphere(-0.18,0.62,0.4, 0.13, 6,7);
+ patEyeWhite.sphere(0.18,0.62,0.4, 0.13, 6,7);
+ patEyeWhite.upload();
+ patPupil=new Mesh();
+ patPupil.sphere(-0.18,0.62,0.5, 0.065, 4,5);
+ patPupil.sphere(0.18,0.62,0.5, 0.065, 4,5);
+ patPupil.upload();
+ // root-leg feet (sticking out front like the meme's long legs)
+ patLegs=new Mesh();
+ patLegs.cyl(-0.22,0.1,0.7, 0.07,0.35,2,6);
+ patLegs.cyl(0.22,0.1,0.7, 0.07,0.35,2,6);
+ patLegs.ellipsoid(-0.22,0.06,1.05, 0.1,0.08,0.18, 5,6); // foot
+ patLegs.ellipsoid(0.22,0.06,1.05, 0.1,0.08,0.18, 5,6);
+ patLegs.upload();
+ // wooden cart frame
+ patFrame=new Mesh();
+ patFrame.box(-0.5,0.3,-0.2, 0.05,0.22,0.5);
+ patFrame.box(0.5,0.3,-0.2, 0.05,0.22,0.5);
+ patFrame.box(0,0.3,-0.62, 0.5,0.22,0.05);
+ patFrame.box(0,0.08,-0.2, 0.48,0.04,0.5);
+ patFrame.upload();
+
+ // ===== SHARED steering wheel + chunky kart wheels for all-but-goat =====
+ charSteering=new Mesh();
+ var CST=8;
+ for(var csi=0;csi<CST;csi++){
+  var csa=csi/CST*Math.PI*2;
+  charSteering.cyl(Math.cos(csa)*0.13,0.66,0.3+Math.sin(csa)*0.13, 0.02,0.05,1,5);
+ }
+ charSteering.cyl(0,0.48,0.3, 0.03,0.16,1,6);
+ charSteering.upload();
+
  // start/finish line — checkerboard pattern
  startLineMesh=new Mesh();
  startLineMesh2=new Mesh();
@@ -1011,9 +1220,100 @@ function drawGoatKart(racer){
  gl.enable(gl.CULL_FACE);
 }
 
+function drawSharkKart(racer){
+ var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ gl.disable(gl.CULL_FACE);
+ drawMesh(sharkBody,base,[0.2,0.55,0.85],0.5);
+ drawMesh(sharkNose,base,[0.25,0.6,0.9],0.5);
+ drawMesh(sharkMouth,base,[1,1,1],0.6);
+ drawMesh(sharkEyeWhite,base,[1,1,1],0.7);
+ drawMesh(sharkPupil,base,[0.08,0.08,0.1],0.3);
+ drawMesh(sharkDorsal,base,[0.15,0.45,0.75],0.45);
+ drawMesh(sharkSideFins,base,[0.18,0.5,0.8],0.45);
+ drawMesh(sharkTail,base,[0.15,0.45,0.75],0.45);
+ drawMesh(sharkStripe,base,[1,1,1],0.6);
+ drawMesh(sharkSneaker,base,[0.1,0.4,1],0.5); // bright blue sneakers
+ drawMesh(charSteering,base,[0.12,0.12,0.15],0.4);
+ var wcol=[0.1,0.1,0.11],wshine=[0.5,0.5,0.55];
+ var wp=[[-0.62,0,0.5],[0.62,0,0.5],[-0.62,0,-0.6],[0.62,0,-0.6]];
+ for(var i=0;i<4;i++){var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
+  drawMesh(goatWheel,wm,wcol,0.38);drawMesh(goatWheelHub,wm,wshine,0.7);}
+ if(racer.isPlayer&&racer.boostTimer>0)drawMesh(sharkBody,base,[0.5,0.85,1],0.2);
+ gl.enable(gl.CULL_FACE);
+}
+function drawCrocKart(racer){
+ var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ var spin=performance.now()*0.02;
+ gl.disable(gl.CULL_FACE);
+ drawMesh(crocBody,base,[0.35,0.5,0.2],0.5);
+ drawMesh(crocHead,base,[0.4,0.55,0.22],0.5);
+ drawMesh(crocTeeth,base,[1,1,0.95],0.6);
+ drawMesh(crocEyeWhite,base,[1,1,1],0.7);
+ drawMesh(crocPupil,base,[0.08,0.08,0.05],0.3);
+ drawMesh(crocWings,base,[0.32,0.42,0.18],0.45);
+ drawMesh(crocStripe,base,[1,0.85,0.1],0.6); // yellow accent
+ drawMesh(crocTail,base,[0.3,0.42,0.18],0.45);
+ drawMesh(crocPropHub,base,[0.3,0.3,0.32],0.4);
+ drawMesh(crocRearHub,base,[0.3,0.3,0.32],0.4);
+ // spinning propeller blades (wings + rear)
+ var props=[[-1.3,0.5,0.15],[1.3,0.5,0.15],[0,0.6,-0.85]];
+ for(var p=0;p<props.length;p++){
+  var pm=M.mul(base,M.mul(M.translate(props[p][0],props[p][1],props[p][2]),M.rotZ(spin+p)));
+  drawMesh(crocPropBlade,pm,[0.2,0.2,0.22],0.4);
+ }
+ drawMesh(charSteering,base,[0.12,0.12,0.15],0.4);
+ var wcol=[0.09,0.09,0.09],wshine=[0.45,0.45,0.48];
+ var wp=[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]];
+ for(var i=0;i<4;i++){var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
+  drawMesh(goatWheel,wm,wcol,0.38);drawMesh(goatWheelHub,wm,wshine,0.7);}
+ if(racer.isPlayer&&racer.boostTimer>0)drawMesh(crocBody,base,[0.6,0.8,0.3],0.2);
+ gl.enable(gl.CULL_FACE);
+}
+function drawCupKart(racer){
+ var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ gl.disable(gl.CULL_FACE);
+ drawMesh(cupBody,base,[0.94,0.9,0.82],0.5); // ceramic cream
+ drawMesh(cupRim,base,[0.8,0.55,0.3],0.5); // coffee rim
+ drawMesh(cupHandle,base,[0.92,0.88,0.8],0.5);
+ drawMesh(cupFoam,base,[0.96,0.93,0.85],0.55); // foam
+ drawMesh(cupEyeWhite,base,[1,1,1],0.7);
+ drawMesh(cupPupil,base,[0.1,0.07,0.05],0.3);
+ drawMesh(cupMustache,base,[0.25,0.15,0.08],0.4);
+ drawMesh(cupBeans,base,[0.35,0.2,0.1],0.45); // coffee beans
+ drawMesh(cupPipes,base,[0.6,0.6,0.65],0.5); // chrome steam pipes
+ drawMesh(charSteering,base,[0.12,0.12,0.15],0.4);
+ var wcol=[0.1,0.1,0.11],wshine=[0.55,0.55,0.6];
+ var wp=[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]];
+ for(var i=0;i<4;i++){var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
+  drawMesh(goatWheel,wm,wcol,0.38);drawMesh(goatWheelHub,wm,wshine,0.75);}
+ if(racer.isPlayer&&racer.boostTimer>0)drawMesh(cupFoam,base,[1,0.98,0.9],0.2);
+ gl.enable(gl.CULL_FACE);
+}
+function drawPatapimKart(racer){
+ var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ gl.disable(gl.CULL_FACE);
+ drawMesh(patFrame,base,[0.55,0.38,0.18],0.45);
+ drawMesh(patBody,base,[0.6,0.42,0.22],0.5); // tree trunk
+ drawMesh(patCanopy,base,[0.25,0.6,0.25],0.5); // green leaves
+ drawMesh(patEyeWhite,base,[1,1,1],0.7);
+ drawMesh(patPupil,base,[0.08,0.08,0.05],0.3);
+ drawMesh(patLegs,base,[0.5,0.34,0.16],0.45);
+ drawMesh(charSteering,base,[0.12,0.12,0.15],0.4);
+ var wcol=[0.1,0.1,0.11],wshine=[0.4,0.4,0.42];
+ var wp=[[-0.55,0,0.4],[0.55,0,0.4],[-0.55,0,-0.5],[0.55,0,-0.5]];
+ for(var i=0;i<4;i++){var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
+  drawMesh(goatWheel,wm,wcol,0.38);drawMesh(goatWheelHub,wm,wshine,0.65);}
+ if(racer.isPlayer&&racer.boostTimer>0)drawMesh(patCanopy,base,[0.4,0.9,0.4],0.2);
+ gl.enable(gl.CULL_FACE);
+}
+
 function drawKart(racer){
- // Tung Tung Sahur (character index 0) gets the goat kart
+ // each character gets a themed kart matching their brainrot identity
  if(racer.chIdx===0 && goatHead){return drawGoatKart(racer);}
+ if(racer.chIdx===1 && sharkBody){return drawSharkKart(racer);}
+ if(racer.chIdx===2 && crocBody){return drawCrocKart(racer);}
+ if(racer.chIdx===3 && cupBody){return drawCupKart(racer);}
+ if(racer.chIdx===4 && patBody){return drawPatapimKart(racer);}
  var skin=getCharColor(racer.chIdx);
  var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
