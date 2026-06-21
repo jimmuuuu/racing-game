@@ -253,6 +253,7 @@ var TRACKS=[
 ];
 
 var ROADW=10; // road half width
+var WHEEL_R=0.355; // kart wheel radius — karts ride this high so tires sit ON the track
 
 /* ===================== WEBGL SETUP ===================== */
 var canvas=document.getElementById('glcanvas'),gl=null;
@@ -1357,12 +1358,16 @@ function drawMesh(mesh,model,color,ambient,gloss){
 
 // premium shared wheel renderer: tire + tread + sculpted alloy rim + lug bolts.
 // rims face outward (±X) so we flip the hub mesh per side.
-function drawWheels(base,wp,rimCol){
+function drawWheels(base,wp,rimCol,roll){
  var tire=[0.1,0.1,0.11], lug=[0.55,0.56,0.6];
  rimCol=rimCol||[0.62,0.64,0.7];
+ roll=roll||0;
+ // wheels roll about their axle (local X). tire/rim cylinders are built along X,
+ // so rotX spins them like real rolling wheels.
+ var spinM=M.rotX(roll);
  for(var i=0;i<wp.length;i++){
   var outward=wp[i][0]<0?-1:1;
-  var wm=M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2]));
+  var wm=M.mul(M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2])),spinM);
   var rimM=M.mul(wm,M.rotY(outward<0?Math.PI:0));
   drawMesh(goatWheel,wm,tire,0.36,8);     // rubber: low gloss
   drawMesh(goatTread,wm,[0.06,0.06,0.07],0.34,6);
@@ -1372,7 +1377,7 @@ function drawWheels(base,wp,rimCol){
 }
 
 function drawGoatKart(racer){
- var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
  // goat head — cream/white fur
  drawMesh(goatHead,base,[0.92,0.88,0.78],0.5,10);  // fur: matte
@@ -1393,7 +1398,7 @@ function drawGoatKart(racer){
  drawMesh(ttBrows,base,[0.35,0.22,0.1],0.4,12);
  drawMesh(ttSmile,base,[0.3,0.18,0.08],0.35,10);
  // premium wheels — brass-toned alloy rims to match the wooden cart
- drawWheels(base,[[-0.62,0.0,0.5],[0.62,0.0,0.5],[-0.62,0.0,-0.55],[0.62,0.0,-0.55]],[0.7,0.55,0.3]);
+ drawWheels(base,[[-0.62,0.0,0.5],[0.62,0.0,0.5],[-0.62,0.0,-0.55],[0.62,0.0,-0.55]],[0.7,0.55,0.3],racer.wheelRoll);
  // boost glow
  if(racer.isPlayer&&racer.boostTimer>0){
   drawMesh(goatBody,base,[1,0.95,0.7],0.2);
@@ -1402,7 +1407,7 @@ function drawGoatKart(racer){
 }
 
 function drawSharkKart(racer){
- var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
  drawMesh(sharkBody,base,[0.2,0.55,0.85],0.5,32);  // glossy skin
  drawMesh(sharkNose,base,[0.25,0.6,0.9],0.5,36);
@@ -1416,12 +1421,12 @@ function drawSharkKart(racer){
  drawMesh(sharkSneaker,base,[0.1,0.4,1],0.5,18);   // rubber/fabric
  drawMesh(sharkSole,base,[0.97,0.97,1],0.6,12);    // rubber sole
  drawMesh(charSteering,base,[0.12,0.12,0.15],0.4,56);
- drawWheels(base,[[-0.62,0,0.5],[0.62,0,0.5],[-0.62,0,-0.6],[0.62,0,-0.6]],[0.7,0.72,0.78]);
+ drawWheels(base,[[-0.62,0,0.5],[0.62,0,0.5],[-0.62,0,-0.6],[0.62,0,-0.6]],[0.7,0.72,0.78],racer.wheelRoll);
  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(sharkBody,base,[0.5,0.85,1],0.2);
  gl.enable(gl.CULL_FACE);
 }
 function drawCrocKart(racer){
- var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  var spin=performance.now()*0.02;
  gl.disable(gl.CULL_FACE);
  drawMesh(crocBody,base,[0.35,0.5,0.2],0.5,18);    // reptile skin
@@ -1440,12 +1445,12 @@ function drawCrocKart(racer){
   drawMesh(crocPropBlade,pm,[0.2,0.2,0.22],0.4,40);
  }
  drawMesh(charSteering,base,[0.12,0.12,0.15],0.4,56);
- drawWheels(base,[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]],[0.5,0.52,0.45]);
+ drawWheels(base,[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]],[0.5,0.52,0.45],racer.wheelRoll);
  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(crocBody,base,[0.6,0.8,0.3],0.2);
  gl.enable(gl.CULL_FACE);
 }
 function drawCupKart(racer){
- var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
  drawMesh(cupBody,base,[0.94,0.9,0.82],0.5,42);    // glazed ceramic
  drawMesh(cupRim,base,[0.8,0.55,0.3],0.5,48);
@@ -1458,12 +1463,12 @@ function drawCupKart(racer){
  drawMesh(cupPipes,base,[0.6,0.6,0.65],0.5,72);    // chrome
  drawMesh(cupBolts,base,[0.7,0.55,0.3],0.6,80);    // brass
  drawMesh(charSteering,base,[0.12,0.12,0.15],0.4,56);
- drawWheels(base,[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]],[0.75,0.76,0.82]);
+ drawWheels(base,[[-0.6,0,0.45],[0.6,0,0.45],[-0.6,0,-0.55],[0.6,0,-0.55]],[0.75,0.76,0.82],racer.wheelRoll);
  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(cupFoam,base,[1,0.98,0.9],0.2);
  gl.enable(gl.CULL_FACE);
 }
 function drawPatapimKart(racer){
- var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
  drawMesh(patFrame,base,[0.55,0.38,0.18],0.45,14);  // wood
  drawMesh(patBody,base,[0.6,0.42,0.22],0.5,10);    // bark: matte
@@ -1473,7 +1478,7 @@ function drawPatapimKart(racer){
  drawMesh(patLegs,base,[0.5,0.34,0.16],0.45,14);   // skin/wood
  drawMesh(patBolts,base,[0.45,0.46,0.5],0.6,72);   // iron
  drawMesh(charSteering,base,[0.12,0.12,0.15],0.4,56);
- drawWheels(base,[[-0.55,0,0.4],[0.55,0,0.4],[-0.55,0,-0.5],[0.55,0,-0.5]],[0.6,0.5,0.32]);
+ drawWheels(base,[[-0.55,0,0.4],[0.55,0,0.4],[-0.55,0,-0.5],[0.55,0,-0.5]],[0.6,0.5,0.32],racer.wheelRoll);
  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(patCanopy,base,[0.4,0.9,0.4],0.2);
  gl.enable(gl.CULL_FACE);
 }
@@ -1486,7 +1491,7 @@ function drawKart(racer){
  if(racer.chIdx===3 && cupBody){return drawCupKart(racer);}
  if(racer.chIdx===4 && patBody){return drawPatapimKart(racer);}
  var skin=getCharColor(racer.chIdx);
- var base=M.mul(M.translate(racer.x,racer.y,racer.z),M.rotY(racer.heading));
+ var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
  drawMesh(kartLower,base,skin.dark,0.42,20);
  drawMesh(kartBody,base,skin.col,0.5,28);
@@ -1494,7 +1499,7 @@ function drawKart(racer){
  drawMesh(kartSeat,base,skin.dark,0.4,14);
  drawMesh(kartCage,base,[0.22,0.22,0.26],0.5,56);
  drawMesh(kartSpoiler,base,[skin.dark[0]*1.2,skin.dark[1]*1.2,skin.dark[2]*1.2],0.6,32);
- drawWheels(base,[[-0.68,0,0.66],[0.68,0,0.66],[-0.68,0,-0.66],[0.68,0,-0.66]]);
+ drawWheels(base,[[-0.68,0,0.66],[0.68,0,0.66],[-0.68,0,-0.66],[0.68,0,-0.66]],null,racer.wheelRoll);
  drawMesh(kartBumper,base,[0.75,0.75,0.8],0.6,56);
  drawMesh(kartExhaust,base,[0.3,0.3,0.32],0.4,48);
  if(racer.isPlayer&&racer.boostTimer>0){
@@ -2085,6 +2090,7 @@ function updatePlayer(p,dt){
  if(Math.abs(plat)>WALLW){var psign=plat>0?1:-1;p.x=pc.x+pc.px*WALLW*psign;p.z=pc.z+pc.pz*WALLW*psign;p.speed*=0.5;}
  p.prevPrevY=p.prevY;p.prevY=p.y;
  p.y=groundYAt(p.x,p.z,pni);
+ p.wheelRoll=(p.wheelRoll||0)+p.speed*dtS/WHEEL_R; // spin wheels by distance travelled
 
  // jump boost (hill crest detection)
  if(p.prevY>p.prevPrevY+0.01&&p.y<p.prevY-0.01&&driftKey){
@@ -2212,6 +2218,7 @@ function updateBot(b,dt){
  var blat=bdx*bc.px+bdz*bc.pz;var babs=Math.abs(blat);
  if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.5)*bs;b.z=bc.z+bc.pz*(ROADW+3.5)*bs;b.speed*=0.6;}
  b.y=groundYAt(b.x,b.z,ni);
+ b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R; // spin wheels by distance travelled
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
