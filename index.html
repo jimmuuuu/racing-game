@@ -577,6 +577,8 @@ var charSteering=null;
 var CL=[]; // centerline samples {x,y,z, dirX,dirZ, perpX,perpZ}
 var trackLength=0;
 var trees=[];
+var scenery=[]; // bushes, rocks, flowers, fences scattered around the world
+var treeMeshes=[],treeTrunkMesh=null,bushMesh=null,rockMesh=null,flowerMesh=null,flowerCenterMesh=null,fenceMesh=null,logMesh=null,grassTuftMesh=null;
 
 function buildCenterline(track){
  var pts=track.pts,n=pts.length;
@@ -732,17 +734,69 @@ function buildRaceMeshes(){
  groundMesh.tri([-G,baseY,-G],[-G,baseY,G],[G,baseY,G]);
  groundMesh.tri([-G,baseY,-G],[G,baseY,G],[G,baseY,-G]);
  groundMesh.upload();
- // tree (cone foliage + trunk), unit mesh ~ height 4
- treeMesh=new Mesh();
- treeMesh.box(0,0.6,0,0.25,0.6,0.25); // trunk
- // cone approx with 6-sided pyramid
- var R=1.4,Hc=3.0,base=1.2,seg=6;
- for(var t=0;t<seg;t++){
-  var a1=t/seg*Math.PI*2,a2=(t+1)/seg*Math.PI*2;
-  var p1=[Math.cos(a1)*R,base,Math.sin(a1)*R],p2=[Math.cos(a2)*R,base,Math.sin(a2)*R],apex=[0,base+Hc,0];
-  treeMesh.tri(p1,p2,apex);
- }
- treeMesh.upload();
+ // ===== STYLIZED SCENERY (Mario-Kart/Pixar look) =====
+ // chunky tapered trunk (shared across all tree species), unit mesh ~ height 4
+ treeTrunkMesh=new Mesh();
+ (function(){
+  var tseg=8,th=1.2,rb=0.34,rt=0.2;
+  for(var i=0;i<tseg;i++){
+   var a0=i/tseg*Math.PI*2,a1=(i+1)/tseg*Math.PI*2;
+   var c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
+   var b0=[c0*rb,0,s0*rb],b1=[c1*rb,0,s1*rb],t0=[c0*rt,th,s0*rt],t1=[c1*rt,th,s1*rt];
+   var n0=V.norm([c0,0.25,s0]),n1=V.norm([c1,0.25,s1]);
+   treeTrunkMesh.triN(b0,n0,t0,n0,t1,n1);treeTrunkMesh.triN(b0,n0,t1,n1,b1,n1);
+  }
+  // root flare bumps at base
+  for(var ri=0;ri<5;ri++){var ra=ri/5*Math.PI*2;treeTrunkMesh.sphere(Math.cos(ra)*0.32,0.05,Math.sin(ra)*0.32,0.13,4,5);}
+ })();
+ treeTrunkMesh.upload();
+ // canopy species — each a cluster of overlapping spheres for a soft rounded silhouette
+ treeMeshes=[];
+ function makeCanopy(clumps){var m=new Mesh();for(var i=0;i<clumps.length;i++){var c=clumps[i];m.sphere(c[0],c[1],c[2],c[3],6,8);}m.upload();return m;}
+ // 0: big round oak — broad layered crown
+ treeMeshes.push(makeCanopy([[0,2.5,0,1.5],[-0.9,2.2,0.3,1.0],[0.95,2.15,-0.2,1.05],[0.2,3.1,0.1,0.95],[-0.3,2.0,-0.8,0.85],[0.4,2.1,0.85,0.8]]));
+ // 1: tall pine — stacked tiers tapering up
+ treeMeshes.push(makeCanopy([[0,1.7,0,1.15],[0,2.55,0,0.92],[0,3.3,0,0.68],[0,3.95,0,0.42]]));
+ // 2: lollipop — single tidy ball
+ treeMeshes.push(makeCanopy([[0,2.6,0,1.35],[0.15,2.9,0.1,0.95]]));
+ // 3: wide low bushy crown
+ treeMeshes.push(makeCanopy([[0,2.0,0,1.3],[-1.15,1.8,0,0.95],[1.15,1.8,0,0.95],[0,2.05,1.0,0.85],[0,2.05,-1.0,0.85]]));
+ // bush — squashed cluster of small blobs
+ bushMesh=new Mesh();
+ bushMesh.ellipsoid(0,0.45,0,0.7,0.5,0.7,6,8);
+ bushMesh.ellipsoid(-0.5,0.32,0.1,0.42,0.36,0.42,5,6);
+ bushMesh.ellipsoid(0.48,0.34,-0.1,0.44,0.38,0.44,5,6);
+ bushMesh.ellipsoid(0.05,0.62,0.2,0.4,0.36,0.4,5,6);
+ bushMesh.upload();
+ // rock — faceted-but-rounded boulder (lumpy ellipsoid)
+ rockMesh=new Mesh();
+ rockMesh.ellipsoid(0,0.45,0,0.8,0.55,0.7,5,7);
+ rockMesh.ellipsoid(0.45,0.25,0.3,0.4,0.3,0.35,4,5);
+ rockMesh.ellipsoid(-0.4,0.3,-0.2,0.35,0.32,0.3,4,5);
+ rockMesh.upload();
+ // flower — slim stem + petal ring (drawn green stem then colored petals separately)
+ flowerMesh=new Mesh();
+ flowerMesh.cyl(0,0.25,0,0.04,0.25,1,5); // stem
+ for(var pf=0;pf<6;pf++){var pa=pf/6*Math.PI*2;flowerMesh.ellipsoid(Math.cos(pa)*0.16,0.52,Math.sin(pa)*0.16,0.12,0.05,0.12,4,5);}
+ flowerMesh.upload();
+ flowerCenterMesh=new Mesh();flowerCenterMesh.sphere(0,0.54,0,0.1,5,6);flowerCenterMesh.upload();
+ // fence — two posts + two rails (a single panel segment)
+ fenceMesh=new Mesh();
+ fenceMesh.box(-0.7,0.5,0,0.09,0.5,0.09);
+ fenceMesh.box(0.7,0.5,0,0.09,0.5,0.09);
+ fenceMesh.box(0,0.72,0,0.7,0.07,0.05);
+ fenceMesh.box(0,0.42,0,0.7,0.07,0.05);
+ fenceMesh.upload();
+ // fallen log — horizontal tapered cylinder with end caps
+ logMesh=new Mesh();
+ logMesh.cyl(0,0.3,0,0.3,1.1,0,9);
+ logMesh.upload();
+ // grass tuft — a few thin blades
+ grassTuftMesh=new Mesh();
+ for(var gt=0;gt<5;gt++){var ga=gt/5*Math.PI*2;grassTuftMesh.ellipsoid(Math.cos(ga)*0.12,0.28,Math.sin(ga)*0.12,0.05,0.3,0.05,3,4);}
+ grassTuftMesh.upload();
+ // legacy alias (kept null; trees now use treeMeshes/treeTrunkMesh)
+ treeMesh=treeMeshes[0];
  // kart parts (unit-ish, length along +Z is forward)
  // ===== rounded go-kart meshes (built once, reused every frame) =====
  // floor pan / chassis: flat rounded slab
@@ -1300,14 +1354,63 @@ function buildRaceMeshes(){
   var h00=Hgt[j0*W+i0],h10=Hgt[j0*W+i0+1],h01=Hgt[(j0+1)*W+i0],h11=Hgt[(j0+1)*W+i0+1];
   return (h00*(1-tx)+h10*tx)*(1-tz)+(h01*(1-tx)+h11*tx)*tz;
  }
- // scenery: scatter trees alongside the road, planted on the terrain surface
- trees=[];
+ // scenery: scatter trees + props alongside the road, planted on the terrain surface.
+ // deterministic pseudo-random so the layout is stable but feels handcrafted.
+ trees=[];scenery=[];
+ function rnd(seed){var x=Math.sin(seed*127.1+311.7)*43758.5453;return x-Math.floor(x);}
+ // canopy palettes: greens + a few autumn / flowering accents for natural variation
+ var leafPalette=[[0.20,0.55,0.22],[0.26,0.62,0.28],[0.16,0.48,0.20],[0.34,0.60,0.24],
+                  [0.80,0.45,0.12],[0.86,0.62,0.16],[0.55,0.72,0.30],[0.30,0.58,0.40]];
+ var barkPalette=[[0.45,0.32,0.20],[0.38,0.27,0.17],[0.50,0.38,0.26]];
  for(var s=0;s<n;s+=3){
   var c=CL[s];
   var side=(s%6<3)?-1:1;
-  var off=(ROADW+4)+Math.abs(((s*37)%50))/50*6;
+  var r1=rnd(s),r2=rnd(s*1.7+5),r3=rnd(s*2.3+9);
+  var off=(ROADW+5)+r1*14;
   var tx=c.x+c.px*off*side,tz=c.z+c.pz*off*side;
-  trees.push({x:tx,y:sampleH(tx,tz)-0.3,z:tz,sc:0.8+(((s*53)%40)/40)*0.7});
+  var variant=Math.floor(r2*treeMeshes.length)%treeMeshes.length;
+  trees.push({x:tx,y:sampleH(tx,tz)-0.3,z:tz,
+    sc:0.75+r1*0.9,
+    rot:r3*Math.PI*2,
+    lean:(r2-0.5)*0.18,
+    variant:variant,
+    leaf:leafPalette[Math.floor(r3*leafPalette.length)%leafPalette.length],
+    bark:barkPalette[Math.floor(r1*barkPalette.length)%barkPalette.length]});
+  // a second row of trees further back for forest depth
+  if(r2>0.4){
+   var off2=off+10+r3*16;
+   var tx2=c.x+c.px*off2*side,tz2=c.z+c.pz*off2*side;
+   var v2=Math.floor(r1*treeMeshes.length)%treeMeshes.length;
+   trees.push({x:tx2,y:sampleH(tx2,tz2)-0.3,z:tz2,sc:0.9+r3*1.1,rot:r1*6.28,lean:(r3-0.5)*0.15,variant:v2,
+     leaf:leafPalette[Math.floor(r2*leafPalette.length)%leafPalette.length],
+     bark:barkPalette[Math.floor(r2*barkPalette.length)%barkPalette.length]});
+  }
+ }
+ // scatter ground props (bushes, rocks, flowers, fences, logs, grass tufts)
+ var flowerCols=[[0.95,0.3,0.4],[0.98,0.8,0.2],[0.7,0.4,0.9],[0.95,0.55,0.75],[0.4,0.6,0.98]];
+ for(var sp=0;sp<n;sp+=2){
+  var cc=CL[sp];var rs1=rnd(sp*3.1+2),rs2=rnd(sp*4.7+13),rs3=rnd(sp*5.9+21);
+  var pside=(rs1<0.5)?-1:1;
+  var poff=(ROADW+2.5)+rs2*16;
+  var px2=cc.x+cc.px*poff*pside,pz2=cc.z+cc.pz*poff*pside;
+  var py2=sampleH(px2,pz2);
+  var pick=rs3;
+  if(pick<0.32){
+   scenery.push({type:'bush',x:px2,y:py2-0.05,z:pz2,sc:0.7+rs1*0.8,rot:rs2*6.28,
+     col:[0.18+rs1*0.12,0.46+rs2*0.16,0.20+rs1*0.08]});
+  }else if(pick<0.52){
+   scenery.push({type:'rock',x:px2,y:py2-0.05,z:pz2,sc:0.6+rs1*1.0,rot:rs2*6.28,
+     col:[0.5+rs1*0.12,0.5+rs1*0.12,0.54+rs1*0.1]});
+  }else if(pick<0.78){
+   scenery.push({type:'flower',x:px2,y:py2,z:pz2,sc:0.7+rs1*0.6,rot:rs2*6.28,
+     col:flowerCols[Math.floor(rs1*flowerCols.length)%flowerCols.length]});
+  }else if(pick<0.9){
+   scenery.push({type:'grass',x:px2,y:py2,z:pz2,sc:0.8+rs1*0.7,rot:rs2*6.28,col:[0.3,0.55,0.24]});
+  }else if(pick<0.96){
+   scenery.push({type:'log',x:px2,y:py2,z:pz2,sc:0.8+rs1*0.6,rot:rs2*6.28,col:barkPalette[1]});
+  }else{
+   scenery.push({type:'fence',x:px2,y:py2,z:pz2,sc:1.0+rs1*0.4,rot:Math.atan2(cc.pz*pside,cc.px*pside),col:[0.62,0.46,0.30]});
+  }
  }
  // sky dome — hemisphere with smooth vertical gradient
  skyMesh=new SkyMesh();
@@ -1779,7 +1882,13 @@ function buildItemsAndCoins(){
  }
  // build meshes
  itemBoxMesh=new Mesh();itemBoxMesh.box(0,0,0,0.7,0.7,0.7);itemBoxMesh.upload();
- coinMesh=new Mesh();coinMesh.box(0,0,0,0.4,0.4,0.1);coinMesh.upload();
+ // premium coin: beveled gold disc with a torus rim + embossed center stud
+ coinMesh=new Mesh();
+ coinMesh.cyl(0,0,0,0.36,0.06,0,18);     // disc body (thin along x, faces in y-z plane)
+ coinMesh.torus(0,0,0,0.36,0.06,18,6);   // rounded rim bevel (lies in y-z plane)
+ coinMesh.sphere(0.07,0,0,0.12,5,6);     // embossed front stud
+ coinMesh.sphere(-0.07,0,0,0.12,5,6);    // embossed back stud
+ coinMesh.upload();
 }
 
 function spinoutRacer(r){
@@ -2499,13 +2608,27 @@ function render(){
   if(startLineMesh2) drawMesh(startLineMesh2,I,[0.1,0.1,0.1],0.85);
  }
  gl.disable(gl.POLYGON_OFFSET_FILL);
- // trees (cull by distance for perf)
+ // ground props (bushes, rocks, flowers, logs, fences, grass) — cull by distance
+ for(var sc=0;sc<scenery.length;sc++){
+  var o=scenery[sc];
+  var sdx=o.x-p.x,sdz=o.z-p.z;
+  if(sdx*sdx+sdz*sdz>160*160)continue;
+  var om=M.mul(M.translate(o.x,o.y,o.z),M.rotY(o.rot),M.scale(o.sc,o.sc,o.sc));
+  if(o.type==='bush'){drawMesh(bushMesh,om,o.col,0.5,8);}
+  else if(o.type==='rock'){drawMesh(rockMesh,om,o.col,0.55,14);}
+  else if(o.type==='flower'){drawMesh(flowerMesh,om,[0.25,0.5,0.22],0.5,8);drawMesh(flowerCenterMesh,om,o.col,0.7,20);}
+  else if(o.type==='grass'){drawMesh(grassTuftMesh,om,o.col,0.55,6);}
+  else if(o.type==='log'){drawMesh(logMesh,om,o.col,0.5,8);}
+  else if(o.type==='fence'){drawMesh(fenceMesh,om,o.col,0.5,10);}
+ }
+ // trees (cull by distance for perf) — trunk + tinted canopy, with lean + rotation
  for(var t=0;t<trees.length;t++){
   var tr=trees[t];
   var ddx=tr.x-p.x,ddz=tr.z-p.z;
-  if(ddx*ddx+ddz*ddz>180*180)continue;
-  var tm=M.mul(M.translate(tr.x,tr.y,tr.z),M.scale(tr.sc,tr.sc,tr.sc));
-  drawMesh(treeMesh,tm,track.tree,0.5);
+  if(ddx*ddx+ddz*ddz>220*220)continue;
+  var tm=M.mul(M.translate(tr.x,tr.y,tr.z),M.rotY(tr.rot),M.rotZ(tr.lean||0),M.scale(tr.sc,tr.sc,tr.sc));
+  drawMesh(treeTrunkMesh,tm,tr.bark||[0.45,0.32,0.20],0.5,10);
+  drawMesh(treeMeshes[tr.variant]||treeMesh,tm,tr.leaf||track.tree,0.5,8);
  }
  // item boxes (spinning with glow)
  if(itemBoxMesh){
