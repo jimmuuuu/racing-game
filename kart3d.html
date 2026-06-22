@@ -581,6 +581,9 @@ var scenery=[]; // bushes, rocks, flowers, fences scattered around the world
 var treeMeshes=[],treeTrunkMesh=null,bushMesh=null,rockMesh=null,flowerMesh=null,flowerCenterMesh=null,fenceMesh=null,logMesh=null,grassTuftMesh=null;
 var landmarks=[],arches=[],bgMountains=null,bgMountainSnow=null;
 var edgeLineMesh=null,patchMesh=null,waterMesh=null,lakes=[];
+var curbMeshA=null,curbMeshB=null;
+var stallBase=null,stallAwning=null,stallPost=null,wellBody=null,wellRoof=null,villages=[];
+var standMesh=null,standRoof=null,fanBody=null,fanHead=null,crowdFans=[],stands=[];
 var windmillBase=null,windmillBlade=null,cabinBody=null,cabinRoof=null,towerBody=null,towerRoof=null,lighthouseBody=null,lighthouseTop=null;
 var coneMesh=null,coneStripe=null,tyreMesh=null,balloonMesh=null,balloonString=null,archPost=null,archBanner=null,flagPole=null,flagCloth=null,billboardMesh=null,billboardLegs=null,statueMesh=null;
 
@@ -702,6 +705,32 @@ function buildRaceMeshes(){
   edgeLineMesh.tri(aRo,bRi,bRo);edgeLineMesh.tri(aRo,aRi,bRi);
  }
  edgeLineMesh.upload();
+ // raised red/white racing kerbs along both edges. The lip rises higher through
+ // corners (where the centerline turns) so apexes read as exciting banked kerbs.
+ curbMeshA=new Mesh();curbMeshB=new Mesh();   // A=red, B=white (alternate)
+ var CURBW=1.4;
+ for(var i=0;i<n;i++){
+  var a=CL[i],b=CL[(i+1)%n];
+  // curvature: compare direction a few samples apart so real corners register
+  var fwd=CL[(i+6)%n];
+  var turn=a.dx*fwd.dx+a.dz*fwd.dz;                   // ~1 straight, lower on bends
+  var curve=Math.max(0,1-turn);                       // 0 straight .. up on bends
+  var lift=0.1+Math.min(0.34,curve*2.2);              // kerb height (taller on corners)
+  var cm=(Math.floor(i/2)%2===0)?curbMeshA:curbMeshB;
+  // inner edge (at road), outer edge (CURBW out), top raised by lift
+  function curbSide(sgn){
+   var ai=[a.x+a.px*ROADW*sgn,a.y+0.04,a.z+a.pz*ROADW*sgn];
+   var ao=[a.x+a.px*(ROADW+CURBW)*sgn,a.y+0.04,a.z+a.pz*(ROADW+CURBW)*sgn];
+   var bi=[b.x+b.px*ROADW*sgn,b.y+0.04,b.z+b.pz*ROADW*sgn];
+   var bo=[b.x+b.px*(ROADW+CURBW)*sgn,b.y+0.04,b.z+b.pz*(ROADW+CURBW)*sgn];
+   var aoT=[ao[0],a.y+lift,ao[2]],boT=[bo[0],b.y+lift,bo[2]]; // raised outer top
+   // top slope (inner low -> outer high), then outer vertical face down
+   if(sgn>0){cm.tri(ai,bi,boT);cm.tri(ai,boT,aoT);cm.tri(aoT,boT,bo);cm.tri(aoT,bo,ao);}
+   else     {cm.tri(bi,ai,aoT);cm.tri(bi,aoT,boT);cm.tri(boT,aoT,ao);cm.tri(boT,ao,bo);}
+  }
+  curbSide(1);curbSide(-1);
+ }
+ curbMeshA.upload();curbMeshB.upload();
  // ground: a SMOOTH HEIGHTFIELD that follows the track elevation. Each grid
  // vertex height is a distance-weighted blend of nearby centerline elevations,
  // so hills roll smoothly with NO vertical cliffs, plateaus, or seam banding.
@@ -923,6 +952,47 @@ function buildRaceMeshes(){
  statueMesh.ellipsoid(-0.55,2.1,0,0.18,0.7,0.18,5,6); // arms
  statueMesh.ellipsoid(0.55,2.1,0,0.18,0.7,0.18,5,6);
  statueMesh.upload();
+ // ===== VILLAGE / MARKET props =====
+ // market stall: wooden counter + 4 posts (awning drawn separately, striped)
+ stallBase=new Mesh();
+ stallBase.box(0,0.55,0,1.1,0.12,0.7);     // counter top
+ stallBase.box(0,0.28,0.6,1.1,0.28,0.08);  // front board
+ stallBase.box(-1.0,1.0,-0.6,0.08,1.0,0.08);// posts
+ stallBase.box(1.0,1.0,-0.6,0.08,1.0,0.08);
+ stallBase.box(-1.0,1.0,0.6,0.08,1.0,0.08);
+ stallBase.box(1.0,1.0,0.6,0.08,1.0,0.08);
+ stallBase.upload();
+ stallAwning=new Mesh();                    // pitched striped roof
+ (function(){var w=1.3,d=0.95,y=2.0,h=0.5;
+  var L0=[-w,y,-d],L1=[-w,y,d],R0=[w,y,-d],R1=[w,y,d],Rg0=[0,y+h,-d],Rg1=[0,y+h,d];
+  stallAwning.tri(L0,L1,Rg1);stallAwning.tri(L0,Rg1,Rg0);
+  stallAwning.tri(R1,R0,Rg0);stallAwning.tri(R1,Rg0,Rg1);})();
+ stallAwning.upload();
+ // stone well: cylindrical wall + little peaked roof on posts
+ wellBody=new Mesh();
+ wellBody.cyl(0,0.45,0,0.6,0.45,1,12);
+ wellBody.torus(0,0.9,0,0.6,0.08,12,6);
+ wellBody.box(-0.55,1.5,0,0.07,0.6,0.07);
+ wellBody.box(0.55,1.5,0,0.07,0.6,0.07);
+ wellBody.upload();
+ wellRoof=new Mesh();wellRoof.cone(0,2.0,0,0.85,2.7,4);wellRoof.upload();
+ // ===== GRANDSTAND + SPECTATORS =====
+ // tiered grandstand: 4 stepped rows
+ standMesh=new Mesh();
+ for(var sr=0;sr<4;sr++){var sy=sr*0.55,sz=-sr*0.7;
+  standMesh.box(0,sy+0.25,sz,3.2,0.28,0.35);}
+ standMesh.box(0,0.1,0,3.4,0.1,1.6); // base slab
+ standMesh.box(-3.3,1.2,-0.5,0.15,1.2,1.4); // side walls
+ standMesh.box(3.3,1.2,-0.5,0.15,1.2,1.4);
+ standMesh.upload();
+ standRoof=new Mesh();
+ standRoof.box(0,3.0,-1.0,3.5,0.12,1.4);
+ standRoof.box(-3.3,2.6,-1.6,0.12,0.5,0.12);
+ standRoof.box(3.3,2.6,-1.6,0.12,0.5,0.12);
+ standRoof.upload();
+ // simple spectator: rounded body + head (drawn in team colors, bobbing)
+ fanBody=new Mesh();fanBody.ellipsoid(0,0.28,0,0.16,0.28,0.16,5,7);fanBody.upload();
+ fanHead=new Mesh();fanHead.sphere(0,0.62,0,0.13,6,7);fanHead.upload();
  // ===== TRACKSIDE ATMOSPHERE =====
  // traffic cone: cone + base + stripe ring
  coneMesh=new Mesh();coneMesh.cone(0,0,0,0.28,0.7,8);coneMesh.box(0,0.03,0,0.34,0.03,0.34);coneMesh.upload();
@@ -1660,6 +1730,57 @@ function buildRaceMeshes(){
  }
  // finish gate at the start line (bigger, checkered)
  (function(){var ac=CL[0];arches.unshift({x:ac.x,y:ac.y,z:ac.z,px:ac.px,pz:ac.pz,finish:true,idx:0});})();
+ // ===== VILLAGE CLUSTER: a little market town the player drives past =====
+ villages=[];
+ (function(){
+  var vi=Math.floor(n*0.33);var vc=CL[vi];var vside=1;
+  var stallCols=[[0.9,0.35,0.3],[0.95,0.8,0.3],[0.35,0.65,0.85],[0.5,0.75,0.45]];
+  // arrange a small grid of buildings just off the track
+  var items=[
+   {type:'cabin',doff:26,along:-10,rot:-0.4},
+   {type:'cabin',doff:34,along:6,rot:0.5},
+   {type:'stall',doff:20,along:-2,rot:0.1,ci:0},
+   {type:'stall',doff:22,along:4,rot:-0.2,ci:1},
+   {type:'stall',doff:28,along:12,rot:0.3,ci:2},
+   {type:'well',doff:30,along:-6,rot:0},
+   {type:'stall',doff:24,along:-14,rot:0.2,ci:3}
+  ];
+  for(var vk=0;vk<items.length;vk++){var it=items[vk];
+   var bx=vc.x+vc.px*it.doff*vside + vc.dx*it.along;
+   var bz=vc.z+vc.pz*it.doff*vside + vc.dz*it.along;
+   villages.push({type:it.type,x:bx,y:sampleH(bx,bz),z:bz,rot:it.rot,
+     col:it.ci!=null?stallCols[it.ci]:null});
+  }
+  // ring the village with a low fence
+  for(var fk=0;fk<8;fk++){var fa=fk/8*Math.PI*2;
+   var fx=vc.x+vc.px*27*vside+vc.dirX*0+Math.cos(fa)*16, fz=vc.z+vc.pz*27*vside+Math.sin(fa)*16;
+   scenery.push({type:'fence',x:fx,y:sampleH(fx,fz),z:fz,sc:1.2,rot:fa+1.57,col:[0.6,0.45,0.3]});}
+ })();
+ // ===== GRANDSTANDS + CHEERING CROWD flanking the start/finish line =====
+ crowdFans=[];stands=[];
+ var standDefs=stands;
+ (function(){
+  var teamCols=[[0.9,0.25,0.3],[0.95,0.8,0.2],[0.3,0.5,0.9],[0.3,0.8,0.45],[0.85,0.5,0.85],[0.95,0.95,0.95]];
+  for(var ss=0;ss<2;ss++){var sgn=ss===0?1:-1;
+   // place a couple of stands just behind the finish-line on each side
+   for(var sb=0;sb<2;sb++){
+    var sc0=CL[(sb*6)%n];
+    var stx=sc0.x+sc0.px*(ROADW+5)*sgn, stz=sc0.z+sc0.pz*(ROADW+5)*sgn;
+    var srot=Math.atan2((sc0.x-stx),(sc0.z-stz)); // face the track
+    standDefs.push({x:stx,y:sampleH(stx,stz),z:stz,rot:srot});
+    // fans across the 4 tiers
+    for(var row=0;row<4;row++){for(var col=0;col<7;col++){
+     var lx=(col-3)*0.85, ly=row*0.55+0.55, lz=-row*0.7;
+     // rotate local offset by srot into world
+     var cw=Math.cos(srot),sw=Math.sin(srot);
+     var wx=stx+(lx*cw+lz*sw),wz=stz+(-lx*sw+lz*cw);
+     crowdFans.push({x:wx,y:sampleH(stx,stz)+ly,z:wz,
+       phase:Math.random()*6.28,
+       col:teamCols[(row+col)%teamCols.length]});
+    }}
+   }
+  }
+ })();
  // sky dome — hemisphere with smooth vertical gradient
  skyMesh=new SkyMesh();
  var top=track.sky,bot=track.skyBot;
@@ -2880,6 +3001,8 @@ function render(){
  if(shoulderMesh) drawMesh(shoulderMesh,I,track.roadDark||[0.3,0.3,0.3],0.35);
  drawMesh(trackMesh,I,track.road,0.5);
  if(roadCenterMesh) drawMesh(roadCenterMesh,I,[track.road[0]*1.12,track.road[1]*1.12,track.road[2]*1.12],0.55);
+ // raised red/white racing kerbs (cull off — double-sided lip)
+ if(curbMeshA){gl.disable(gl.CULL_FACE);drawMesh(curbMeshA,I,[0.85,0.18,0.18],0.5,18);drawMesh(curbMeshB,I,[0.95,0.95,0.97],0.6,18);gl.enable(gl.CULL_FACE);}
  if(edgeLineMesh) drawMesh(edgeLineMesh,I,[0.95,0.95,1.0],0.85,12);
  if(roadStripeMesh) drawMesh(roadStripeMesh,I,[0.95,0.95,1.0],0.8);
  if(startLineMesh){
@@ -2945,6 +3068,42 @@ function render(){
    drawMesh(treeMeshes[3],M.mul(lbase,M.translate(0,1.0,0),M.scale(1.5,1.5,1.5)),[0.22,0.52,0.26],0.5,8);
   }
  }
+ // ===== village / market cluster =====
+ gl.disable(gl.CULL_FACE);
+ for(var vg=0;vg<villages.length;vg++){
+  var vo=villages[vg];
+  var vdx=vo.x-p.x,vdz=vo.z-p.z;if(vdx*vdx+vdz*vdz>360*360)continue;
+  var vm=M.mul(M.translate(vo.x,vo.y,vo.z),M.rotY(vo.rot));
+  if(vo.type==='cabin'){
+   drawMesh(cabinBody,vm,[0.55,0.40,0.28],0.55,8);
+   drawMesh(cabinRoof,vm,[0.45,0.22,0.18],0.5,8);
+  }else if(vo.type==='stall'){
+   drawMesh(stallBase,vm,[0.5,0.36,0.24],0.55,8);
+   drawMesh(stallAwning,vm,vo.col||[0.9,0.4,0.35],0.6,10);
+  }else if(vo.type==='well'){
+   drawMesh(wellBody,vm,[0.6,0.6,0.62],0.55,12);
+   drawMesh(wellRoof,vm,[0.45,0.25,0.2],0.5,8);
+  }
+ }
+ // ===== grandstands + cheering crowd =====
+ for(var gd=0;gd<stands.length;gd++){
+  var st=stands[gd];
+  var stdx=st.x-p.x,stdz=st.z-p.z;if(stdx*stdx+stdz*stdz>300*300)continue;
+  var stm=M.mul(M.translate(st.x,st.y,st.z),M.rotY(st.rot));
+  drawMesh(standMesh,stm,[0.55,0.55,0.6],0.55,10);
+  drawMesh(standRoof,stm,[0.8,0.3,0.3],0.55,12);
+ }
+ // cheering fans bob up and down (the wave!)
+ var fanT=GS.raceTime*0.006;
+ for(var fn=0;fn<crowdFans.length;fn++){
+  var fan=crowdFans[fn];
+  var fdx=fan.x-p.x,fdz=fan.z-p.z;if(fdx*fdx+fdz*fdz>200*200)continue;
+  var bob=Math.abs(Math.sin(fanT+fan.phase))*0.22;
+  var fm=M.translate(fan.x,fan.y+bob,fan.z);
+  drawMesh(fanBody,fm,fan.col,0.55,8);
+  drawMesh(fanHead,fm,[0.95,0.8,0.65],0.6,12);
+ }
+ gl.enable(gl.CULL_FACE);
  // ===== checkpoint arches / finish gate spanning the road =====
  for(var A9=0;A9<arches.length;A9++){
   var ah=arches[A9];
