@@ -579,6 +579,9 @@ var trackLength=0;
 var trees=[];
 var scenery=[]; // bushes, rocks, flowers, fences scattered around the world
 var treeMeshes=[],treeTrunkMesh=null,bushMesh=null,rockMesh=null,flowerMesh=null,flowerCenterMesh=null,fenceMesh=null,logMesh=null,grassTuftMesh=null;
+var landmarks=[],arches=[],bgMountains=null,bgMountainSnow=null;
+var windmillBase=null,windmillBlade=null,cabinBody=null,cabinRoof=null,towerBody=null,towerRoof=null,lighthouseBody=null,lighthouseTop=null;
+var coneMesh=null,coneStripe=null,tyreMesh=null,balloonMesh=null,balloonString=null,archPost=null,archBanner=null,flagPole=null,flagCloth=null,billboardMesh=null,billboardLegs=null,statueMesh=null;
 
 function buildCenterline(track){
  var pts=track.pts,n=pts.length;
@@ -797,6 +800,132 @@ function buildRaceMeshes(){
  grassTuftMesh.upload();
  // legacy alias (kept null; trees now use treeMeshes/treeTrunkMesh)
  treeMesh=treeMeshes[0];
+ // ===== LANDMARKS (large memorable scenery) =====
+ // windmill: tapered tower + conical cap (blades drawn separately so they spin)
+ windmillBase=new Mesh();
+ (function(){var seg=10,h=6,rb=1.1,rt=0.7;
+  for(var i=0;i<seg;i++){var a0=i/seg*Math.PI*2,a1=(i+1)/seg*Math.PI*2;
+   var c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
+   var b0=[c0*rb,0,s0*rb],b1=[c1*rb,0,s1*rb],t0=[c0*rt,h,s0*rt],t1=[c1*rt,h,s1*rt];
+   var n0=V.norm([c0,0.15,s0]),n1=V.norm([c1,0.15,s1]);
+   windmillBase.triN(b0,n0,t0,n0,t1,n1);windmillBase.triN(b0,n0,t1,n1,b1,n1);}
+  windmillBase.cone(0,h,0,0.95,h+1.6,9);   // roof cap (apex above tower top)
+  windmillBase.box(0,1.6,rt+0.55,0.5,0.7,0.12); // door
+ })();
+ windmillBase.upload();
+ // sails: 4 long thin rectangular blades radiating from the hub
+ windmillBlade=new Mesh();
+ for(var bl2=0;bl2<4;bl2++){var ba=bl2/4*Math.PI*2,bcc=Math.cos(ba),bss=Math.sin(ba);
+  var ax=bcc,ay=bss, px=-bss,py=bcc;   // axis + perp
+  var inner=0.4,outer=3.6,hw=0.32,z0=-0.05,z1=0.05;
+  var A=[ax*inner-px*hw,ay*inner-py*hw,z1],B=[ax*outer-px*hw,ay*outer-py*hw,z1];
+  var C=[ax*outer+px*hw,ay*outer+py*hw,z1],D=[ax*inner+px*hw,ay*inner+py*hw,z1];
+  var A2=[A[0],A[1],z0],B2=[B[0],B[1],z0],C2=[C[0],C[1],z0],D2=[D[0],D[1],z0];
+  windmillBlade.quad(A,B,C,D);windmillBlade.quad(D2,C2,B2,A2);
+ }
+ windmillBlade.sphere(0,0,0,0.4,7,8);
+ windmillBlade.upload();
+ // cozy cabin: log body + pitched roof
+ cabinBody=new Mesh();
+ cabinBody.box(0,0.9,0,1.6,0.9,1.3);
+ cabinBody.box(0,0.55,1.32,0.45,0.55,0.08); // door
+ cabinBody.box(-0.9,1.1,1.32,0.35,0.3,0.06); // window
+ cabinBody.box(0.9,1.1,1.32,0.35,0.3,0.06);
+ cabinBody.box(0.9,2.6,-0.6,0.28,0.7,0.28); // chimney
+ cabinBody.upload();
+ cabinRoof=new Mesh();
+ (function(){var w=1.95,d=1.65,h=1.0,ry=1.8;
+  // two slopes meeting at ridge
+  var L0=[-w,ry,-d],L1=[-w,ry,d],R0=[w,ry,-d],R1=[w,ry,d],Rg0=[0,ry+h,-d],Rg1=[0,ry+h,d];
+  cabinRoof.tri(L0,L1,Rg1);cabinRoof.tri(L0,Rg1,Rg0);
+  cabinRoof.tri(R1,R0,Rg0);cabinRoof.tri(R1,Rg0,Rg1);
+  cabinRoof.tri(L0,Rg0,R0);cabinRoof.tri(L1,R1,Rg1); // gable ends
+ })();
+ cabinRoof.upload();
+ // watch/observation tower: tall tapered post + platform + roof
+ towerBody=new Mesh();
+ (function(){var seg=4,h=5.5,rb=0.7,rt=0.45;
+  for(var i=0;i<seg;i++){var a0=(i+0.5)/seg*Math.PI*2,a1=(i+1.5)/seg*Math.PI*2;
+   var c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
+   var b0=[c0*rb,0,s0*rb],b1=[c1*rb,0,s1*rb],t0=[c0*rt,h,s0*rt],t1=[c1*rt,h,s1*rt];
+   var n0=V.norm([c0,0.1,s0]),n1=V.norm([c1,0.1,s1]);
+   towerBody.triN(b0,n0,t0,n0,t1,n1);towerBody.triN(b0,n0,t1,n1,b1,n1);}
+  towerBody.box(0,h+0.15,0,1.0,0.15,1.0); // platform
+ })();
+ towerBody.upload();
+ towerRoof=new Mesh();towerRoof.cone(0,5.7,0,1.1,7.2,4);towerRoof.upload();
+ // lighthouse: tapered tower + lantern room
+ lighthouseBody=new Mesh();
+ (function(){var seg=12,h=6.5,rb=1.0,rt=0.55;
+  for(var i=0;i<seg;i++){var a0=i/seg*Math.PI*2,a1=(i+1)/seg*Math.PI*2;
+   var c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
+   var b0=[c0*rb,0,s0*rb],b1=[c1*rb,0,s1*rb],t0=[c0*rt,h,s0*rt],t1=[c1*rt,h,s1*rt];
+   var n0=V.norm([c0,0.12,s0]),n1=V.norm([c1,0.12,s1]);
+   lighthouseBody.triN(b0,n0,t0,n0,t1,n1);lighthouseBody.triN(b0,n0,t1,n1,b1,n1);}
+ })();
+ lighthouseBody.upload();
+ lighthouseTop=new Mesh();
+ lighthouseTop.cyl(0,7.0,0,0.62,0.55,1,10);
+ lighthouseTop.cone(0,7.55,0,0.7,8.35,9);
+ lighthouseTop.upload();
+ // ancient statue: pedestal + rounded figure
+ statueMesh=new Mesh();
+ statueMesh.box(0,0.4,0,0.9,0.4,0.9);
+ statueMesh.box(0,0.9,0,0.7,0.2,0.7);
+ statueMesh.ellipsoid(0,2.0,0,0.5,1.0,0.4,7,8); // torso
+ statueMesh.sphere(0,3.1,0,0.4,7,8); // head
+ statueMesh.ellipsoid(-0.55,2.1,0,0.18,0.7,0.18,5,6); // arms
+ statueMesh.ellipsoid(0.55,2.1,0,0.18,0.7,0.18,5,6);
+ statueMesh.upload();
+ // ===== TRACKSIDE ATMOSPHERE =====
+ // traffic cone: cone + base + stripe ring
+ coneMesh=new Mesh();coneMesh.cone(0,0,0,0.28,0.7,8);coneMesh.box(0,0.03,0,0.34,0.03,0.34);coneMesh.upload();
+ coneStripe=new Mesh();coneStripe.cone(0,0.32,0,0.19,0.5,8);coneStripe.upload();
+ // tyre stack: 3 stacked torus tyres
+ tyreMesh=new Mesh();
+ tyreMesh.torus(0,0.22,0,0.34,0.18,12,7);
+ tyreMesh.torus(0,0.55,0,0.34,0.18,12,7);
+ tyreMesh.torus(0,0.88,0,0.34,0.18,12,7);
+ tyreMesh.upload();
+ // balloon: glossy sphere + little knot
+ balloonMesh=new Mesh();balloonMesh.ellipsoid(0,0,0,0.55,0.68,0.55,8,10);balloonMesh.cone(0,-0.66,0,0.12,-0.84,6);balloonMesh.upload();
+ balloonString=new Mesh();balloonString.cyl(0,-1.5,0,0.02,0.85,1,4);balloonString.upload();
+ // flag: pole + triangular pennant
+ flagPole=new Mesh();flagPole.cyl(0,1.0,0,0.05,1.0,1,6);flagPole.upload();
+ flagCloth=new Mesh();flagCloth.tri([0.05,1.9,0],[0.05,1.3,0],[0.9,1.6,0.05]);flagCloth.tri([0.05,1.9,0],[0.9,1.6,0.05],[0.05,1.3,0]);flagCloth.upload();
+ // billboard / sponsor sign: panel on legs
+ billboardMesh=new Mesh();billboardMesh.box(0,2.6,0,2.2,0.9,0.12);billboardMesh.box(0,2.6,0,2.25,0.95,0.06);billboardMesh.upload();
+ billboardLegs=new Mesh();billboardLegs.box(-1.4,0.9,0,0.12,0.9,0.12);billboardLegs.box(1.4,0.9,0,0.12,0.9,0.12);billboardLegs.upload();
+ // ===== CHECKPOINT ARCH / FINISH GATE (spans the road) =====
+ archPost=new Mesh();
+ archPost.cyl(0,2.0,0,0.32,2.0,1,8);   // single post (drawn on both sides)
+ archPost.upload();
+ archBanner=new Mesh();                 // horizontal banner beam
+ archBanner.box(0,0,0,1,0.45,0.18);
+ archBanner.upload();
+ // ===== BACKGROUND MOUNTAIN RING (distant backdrop) =====
+ bgMountains=new Mesh();bgMountainSnow=new Mesh();
+ (function(){
+  var ring=18,RAD=720,seed=7;
+  for(var i=0;i<ring;i++){
+   var a0=i/ring*Math.PI*2,a1=(i+1)/ring*Math.PI*2,am=(a0+a1)/2;
+   var hh=120+ (Math.sin(i*1.7)*0.5+0.5)*180;
+   var spread=0.5;
+   function pt(a,r){return [Math.cos(a)*r,0,Math.sin(a)*r];}
+   var base0=pt(a0,RAD),base1=pt(a1,RAD),peak=[Math.cos(am)*RAD,hh,Math.sin(am)*RAD];
+   bgMountains.tri(base0,base1,peak);
+   // overlap a nearer, lower ridge for depth
+   var hh2=80+(Math.sin(i*2.3+1.1)*0.5+0.5)*120;
+   var b0b=pt(a0+0.04,RAD*0.82),b1b=pt(a1+0.04,RAD*0.82),pk2=[Math.cos(am+0.04)*RAD*0.82,hh2,Math.sin(am+0.04)*RAD*0.82];
+   bgMountains.tri(b0b,b1b,pk2);
+   // snow cap on tall peaks
+   if(hh>230){var sc=0.32;
+    var sp0=[base0[0]+(peak[0]-base0[0])*(1-sc),hh*(1-sc),base0[2]+(peak[2]-base0[2])*(1-sc)];
+    var sp1=[base1[0]+(peak[0]-base1[0])*(1-sc),hh*(1-sc),base1[2]+(peak[2]-base1[2])*(1-sc)];
+    bgMountainSnow.tri(sp0,sp1,peak);}
+  }
+ })();
+ bgMountains.upload();bgMountainSnow.upload();
  // kart parts (unit-ish, length along +Z is forward)
  // ===== rounded go-kart meshes (built once, reused every frame) =====
  // floor pan / chassis: flat rounded slab
@@ -1412,6 +1541,50 @@ function buildRaceMeshes(){
    scenery.push({type:'fence',x:px2,y:py2,z:pz2,sc:1.0+rs1*0.4,rot:Math.atan2(cc.pz*pside,cc.px*pside),col:[0.62,0.46,0.30]});
   }
  }
+ // ===== trackside atmosphere props placed close to the road edge =====
+ var balloonCols=[[0.95,0.25,0.3],[0.98,0.8,0.2],[0.3,0.7,0.95],[0.6,0.35,0.9],[0.3,0.85,0.45]];
+ for(var at=0;at<n;at+=5){
+  var tc=CL[at];var ta1=rnd(at*6.1+3),ta2=rnd(at*7.3+8);
+  var tside=(ta1<0.5)?-1:1;
+  var toff=ROADW+1.4+ta2*1.2;
+  var atx=tc.x+tc.px*toff*tside,atz=tc.z+tc.pz*toff*tside;
+  var aty=sampleH(atx,atz);
+  var apick=ta2;
+  var ent={x:atx,y:aty,z:atz,rot:ta1*6.28,sc:0.9+ta1*0.4};
+  if(apick<0.3){ent.atm='cone';ent.sc=0.8+ta1*0.4;}
+  else if(apick<0.5){ent.atm='tyre';}
+  else if(apick<0.75){ent.atm='flag';ent.col=balloonCols[Math.floor(ta1*balloonCols.length)%balloonCols.length];}
+  else{ent.atm='balloon';ent.col=balloonCols[Math.floor(ta2*balloonCols.length)%balloonCols.length];ent.sc=0.8+ta1*0.5;}
+  scenery.push(ent);
+ }
+ // ===== place large landmarks at spaced intervals around the track =====
+ landmarks=[];
+ var lmTypes=['windmill','cabin','tower','lighthouse','statue','billboard'];
+ var lmCount=lmTypes.length*2; // two laps of each type around the circuit
+ for(var lm=0;lm<lmCount;lm++){
+  var idx=Math.floor((lm+0.5)/lmCount*n)%n;
+  var lc=CL[idx];var lr=rnd(idx*9.3+lm*3.7);
+  var lside=(lm%2===0)?-1:1;
+  var loff=(ROADW+22)+lr*18;
+  var lx=lc.x+lc.px*loff*lside,lz=lc.z+lc.pz*loff*lside;
+  var type=lmTypes[lm%lmTypes.length];
+  landmarks.push({type:type,x:lx,y:sampleH(lx,lz),z:lz,
+    rot:Math.atan2(lc.x-lx,lc.z-lz),  // face roughly toward the road
+    sc:0.9+lr*0.5});
+ }
+ // a single huge ancient tree as a hero landmark
+ (function(){var hi=Math.floor(n*0.5);var hc=CL[hi];var hx=hc.x+hc.px*40,hz=hc.z+hc.pz*40;
+  landmarks.push({type:'bigtree',x:hx,y:sampleH(hx,hz)-0.3,z:hz,rot:1.2,sc:3.2});})();
+ // ===== checkpoint arches + finish gate spanning the road =====
+ arches=[];
+ var archCount=5;
+ for(var ar=0;ar<archCount;ar++){
+  var ai=Math.floor((ar+0.5)/archCount*n)%n;
+  var ac=CL[ai];
+  arches.push({x:ac.x,y:ac.y,z:ac.z,px:ac.px,pz:ac.pz,finish:false,idx:ai});
+ }
+ // finish gate at the start line (bigger, checkered)
+ (function(){var ac=CL[0];arches.unshift({x:ac.x,y:ac.y,z:ac.z,px:ac.px,pz:ac.pz,finish:true,idx:0});})();
  // sky dome — hemisphere with smooth vertical gradient
  skyMesh=new SkyMesh();
  var top=track.sky,bot=track.skyBot;
@@ -2592,6 +2765,19 @@ function render(){
  gl.uniform1f(L.uFogNear,80.0);
  gl.uniform1f(L.uFogFar,450.0);
  var I=M.ident();
+ // distant background mountain ring — centered on player, drawn with soft
+ // atmospheric fade so it reads as a far backdrop, not a near object
+ if(bgMountains){
+  gl.depthMask(false);
+  gl.uniform1f(L.uFogNear,520.0);gl.uniform1f(L.uFogFar,1500.0);
+  var mtnM=M.translate(p.x,(track.baseGroundY||0)-2,p.z);
+  gl.disable(gl.CULL_FACE);
+  drawMesh(bgMountains,mtnM,track.mtn||[0.42,0.46,0.58],0.78);
+  if(bgMountainSnow)drawMesh(bgMountainSnow,mtnM,[0.92,0.95,1.0],0.85);
+  gl.enable(gl.CULL_FACE);
+  gl.uniform1f(L.uFogNear,80.0);gl.uniform1f(L.uFogFar,450.0);
+  gl.depthMask(true);
+ }
  gl.disable(gl.CULL_FACE);
  drawMesh(groundMesh,I,track.grass,0.7);
  gl.enable(gl.CULL_FACE);
@@ -2629,6 +2815,72 @@ function render(){
   var tm=M.mul(M.translate(tr.x,tr.y,tr.z),M.rotY(tr.rot),M.rotZ(tr.lean||0),M.scale(tr.sc,tr.sc,tr.sc));
   drawMesh(treeTrunkMesh,tm,tr.bark||[0.45,0.32,0.20],0.5,10);
   drawMesh(treeMeshes[tr.variant]||treeMesh,tm,tr.leaf||track.tree,0.5,8);
+ }
+ // ===== large landmarks =====
+ var lmTime=GS.raceTime*0.001;
+ for(var L9=0;L9<landmarks.length;L9++){
+  var lo=landmarks[L9];
+  var lddx=lo.x-p.x,lddz=lo.z-p.z;
+  if(lddx*lddx+lddz*lddz>420*420)continue;
+  var lbase=M.mul(M.translate(lo.x,lo.y,lo.z),M.rotY(lo.rot),M.scale(lo.sc,lo.sc,lo.sc));
+  if(lo.type==='windmill'){
+   drawMesh(windmillBase,lbase,[0.86,0.84,0.78],0.55,12);
+   drawMesh(windmillBase,M.mul(lbase,M.translate(0,0,0)),[0.86,0.84,0.78],0.55,12);
+   // spinning sails on the front face of the cap
+   var wm=M.mul(lbase,M.translate(0,5.4,1.0),M.rotZ(lmTime*1.6));
+   drawMesh(windmillBlade,wm,[0.95,0.93,0.88],0.5,14);
+  }else if(lo.type==='cabin'){
+   drawMesh(cabinBody,lbase,[0.55,0.40,0.28],0.55,8);
+   drawMesh(cabinRoof,lbase,[0.45,0.22,0.18],0.5,8);
+  }else if(lo.type==='tower'){
+   drawMesh(towerBody,lbase,[0.58,0.42,0.30],0.55,8);
+   drawMesh(towerRoof,lbase,[0.4,0.2,0.18],0.5,8);
+  }else if(lo.type==='lighthouse'){
+   drawMesh(lighthouseBody,lbase,[0.95,0.95,0.97],0.6,16);
+   // red spiral band
+   drawMesh(lighthouseBody,M.mul(lbase,M.translate(0,3.2,0),M.scale(1.01,0.18,1.01)),[0.85,0.2,0.2],0.55,16);
+   drawMesh(lighthouseTop,lbase,[0.3,0.32,0.4],0.6,30);
+  }else if(lo.type==='statue'){
+   drawMesh(statueMesh,lbase,[0.66,0.66,0.62],0.55,18);
+  }else if(lo.type==='billboard'){
+   drawMesh(billboardLegs,lbase,[0.35,0.35,0.38],0.5,8);
+   drawMesh(billboardMesh,lbase,[0.9,0.3,0.35],0.55,20);
+   drawMesh(billboardMesh,M.mul(lbase,M.translate(0,0,0.07),M.scale(0.7,0.7,1)),[0.98,0.85,0.3],0.6,20);
+  }else if(lo.type==='bigtree'){
+   drawMesh(treeTrunkMesh,M.mul(lbase,M.scale(2.2,2.4,2.2)),[0.42,0.3,0.2],0.5,10);
+   drawMesh(treeMeshes[0],M.mul(lbase,M.scale(1.8,1.9,1.8)),[0.18,0.46,0.22],0.5,8);
+   drawMesh(treeMeshes[3],M.mul(lbase,M.translate(0,1.0,0),M.scale(1.5,1.5,1.5)),[0.22,0.52,0.26],0.5,8);
+  }
+ }
+ // ===== checkpoint arches / finish gate spanning the road =====
+ for(var A9=0;A9<arches.length;A9++){
+  var ah=arches[A9];
+  var adx=ah.x-p.x,adz=ah.z-p.z;
+  if(adx*adx+adz*adz>300*300)continue;
+  var half=ROADW+1.5;
+  var lpx=ah.x-ah.px*half,lpz=ah.z-ah.pz*half;
+  var rpx=ah.x+ah.px*half,rpz=ah.z+ah.pz*half;
+  var postCol=ah.finish?[0.95,0.95,0.98]:[0.9,0.3,0.3];
+  drawMesh(archPost,M.translate(lpx,ah.y,lpz),postCol,0.55,12);
+  drawMesh(archPost,M.translate(rpx,ah.y,rpz),postCol,0.55,12);
+  // banner beam across the top
+  var bw=Math.hypot(rpx-lpx,rpz-lpz)/2;
+  var bang=Math.atan2(ah.px,ah.pz);
+  var beamM=M.mul(M.translate(ah.x,ah.y+4.0,ah.z),M.rotY(bang),M.scale(bw,1,1));
+  drawMesh(archBanner,beamM,ah.finish?[0.15,0.15,0.18]:[0.95,0.85,0.2],0.6,14);
+ }
+ // ===== trackside atmosphere (cones, tyres, balloons, flags) =====
+ var atmTime=GS.raceTime*0.002;
+ for(var sc2=0;sc2<scenery.length;sc2++){
+  var ao=scenery[sc2];if(!ao.atm)continue;
+  var adx2=ao.x-p.x,adz2=ao.z-p.z;if(adx2*adx2+adz2*adz2>140*140)continue;
+  var am2=M.mul(M.translate(ao.x,ao.y,ao.z),M.rotY(ao.rot),M.scale(ao.sc,ao.sc,ao.sc));
+  if(ao.atm==='cone'){drawMesh(coneMesh,am2,[0.95,0.4,0.1],0.55,10);drawMesh(coneStripe,am2,[1,1,1],0.6,10);}
+  else if(ao.atm==='tyre'){drawMesh(tyreMesh,am2,[0.12,0.12,0.13],0.5,8);}
+  else if(ao.atm==='balloon'){var bob=Math.sin(atmTime*2+ao.x)*0.3;
+   var bm2=M.mul(M.translate(ao.x,ao.y+2.0+bob,ao.z),M.scale(ao.sc,ao.sc,ao.sc));
+   drawMesh(balloonString,bm2,[0.3,0.3,0.3],0.5,6);drawMesh(balloonMesh,bm2,ao.col,0.5,40);}
+  else if(ao.atm==='flag'){drawMesh(flagPole,am2,[0.6,0.6,0.62],0.5,10);drawMesh(flagCloth,am2,ao.col,0.55,8);}
  }
  // item boxes (spinning with glow)
  if(itemBoxMesh){
