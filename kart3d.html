@@ -580,6 +580,7 @@ var trees=[];
 var scenery=[]; // bushes, rocks, flowers, fences scattered around the world
 var treeMeshes=[],treeTrunkMesh=null,bushMesh=null,rockMesh=null,flowerMesh=null,flowerCenterMesh=null,fenceMesh=null,logMesh=null,grassTuftMesh=null;
 var landmarks=[],arches=[],bgMountains=null,bgMountainSnow=null;
+var edgeLineMesh=null,patchMesh=null,waterMesh=null,lakes=[];
 var windmillBase=null,windmillBlade=null,cabinBody=null,cabinRoof=null,towerBody=null,towerRoof=null,lighthouseBody=null,lighthouseTop=null;
 var coneMesh=null,coneStripe=null,tyreMesh=null,balloonMesh=null,balloonString=null,archPost=null,archBanner=null,flagPole=null,flagCloth=null,billboardMesh=null,billboardLegs=null,statueMesh=null;
 
@@ -686,6 +687,21 @@ function buildRaceMeshes(){
   roadCenterMesh.tri(aL,bL,bR);roadCenterMesh.tri(aL,bR,aR);
  }
  roadCenterMesh.upload();
+ // crisp painted white edge lines just inside both road edges
+ edgeLineMesh=new Mesh();
+ var ELo=ROADW-0.35,ELi=ROADW-0.7;
+ for(var i=0;i<n;i++){
+  var a=CL[i],b=CL[(i+1)%n];
+  // left line
+  var aLo=[a.x-a.px*ELo,a.y+0.035,a.z-a.pz*ELo],aLi=[a.x-a.px*ELi,a.y+0.035,a.z-a.pz*ELi];
+  var bLo=[b.x-b.px*ELo,b.y+0.035,b.z-b.pz*ELo],bLi=[b.x-b.px*ELi,b.y+0.035,b.z-b.pz*ELi];
+  edgeLineMesh.tri(aLo,bLo,bLi);edgeLineMesh.tri(aLo,bLi,aLi);
+  // right line
+  var aRo=[a.x+a.px*ELo,a.y+0.035,a.z+a.pz*ELo],aRi=[a.x+a.px*ELi,a.y+0.035,a.z+a.pz*ELi];
+  var bRo=[b.x+b.px*ELo,b.y+0.035,b.z+b.pz*ELo],bRi=[b.x+b.px*ELi,b.y+0.035,b.z+b.pz*ELi];
+  edgeLineMesh.tri(aRo,bRi,bRo);edgeLineMesh.tri(aRo,aRi,bRi);
+ }
+ edgeLineMesh.upload();
  // ground: a SMOOTH HEIGHTFIELD that follows the track elevation. Each grid
  // vertex height is a distance-weighted blend of nearby centerline elevations,
  // so hills roll smoothly with NO vertical cliffs, plateaus, or seam banding.
@@ -703,6 +719,17 @@ function buildRaceMeshes(){
  var GN=80;                                   // grid cells per axis
  var gwx=(maxX-minX)/GN, gwz=(maxZ-minZ)/GN;
  var Hgt=new Float32Array((GN+1)*(GN+1));
+ // lake basins: carve smooth depressions into the terrain away from the road,
+ // then fill them with a stylized water surface (placed below).
+ lakes=[];
+ var lakeDefs=[{f:0.18,side:1,off:74,r:16},{f:0.56,side:-1,off:88,r:22}];
+ for(var lkI=0;lkI<lakeDefs.length;lkI++){
+  var ld=lakeDefs[lkI];var lci=Math.floor(ld.f*n)%n;var lcc=CL[lci];
+  var lx=lcc.x+lcc.px*ld.off*ld.side, lz=lcc.z+lcc.pz*ld.off*ld.side;
+  // r = visible water radius; basinR = terrain carve radius (carves a smooth bowl
+  // whose shoreline meets the water surface just outside the water disc).
+  lakes.push({x:lx,z:lz,r:ld.r,basinR:ld.r*2.2,floorY:lcc.y-3.0,y:lcc.y-1.6});
+ }
  for(var gj=0;gj<=GN;gj++){
   for(var gii=0;gii<=GN;gii++){
    var gx=minX+gii*gwx, gz=minZ+gj*gwz;
@@ -721,6 +748,11 @@ function buildRaceMeshes(){
    // far edge -> ease down to the base plane so terrain skirts the horizon
    var fb=Math.max(0,Math.min(1,(dist-MARGIN*0.5)/(MARGIN*0.5)));
    hy=hy+(baseY-hy)*fb;
+   // carve lake basins (smooth bowl, blended out to the shoreline)
+   for(var lkB=0;lkB<lakes.length;lkB++){var lb=lakes[lkB];
+    var bdx=gx-lb.x,bdz=gz-lb.z,bdd=Math.sqrt(bdx*bdx+bdz*bdz),bR=lb.basinR;
+    if(bdd<bR){var bt=1-bdd/bR;bt=bt*bt*(3-2*bt); // smoothstep
+     hy=hy+(lb.floorY-hy)*bt;}}
    Hgt[gj*(GN+1)+gii]=hy;
   }
  }
@@ -800,6 +832,20 @@ function buildRaceMeshes(){
  grassTuftMesh.upload();
  // legacy alias (kept null; trees now use treeMeshes/treeTrunkMesh)
  treeMesh=treeMeshes[0];
+ // flat ground patch disc (dirt / grass-tone / flower-field decals on terrain)
+ patchMesh=new Mesh();
+ (function(){var seg=12;for(var i=0;i<seg;i++){var a0=i/seg*Math.PI*2,a1=(i+1)/seg*Math.PI*2;
+  patchMesh.triN([0,0,0],[0,1,0],[Math.cos(a1),0,Math.sin(a1)],[0,1,0],[Math.cos(a0),0,Math.sin(a0)],[0,1,0]);}})();
+ patchMesh.upload();
+ // stylized water disc (lake surface) — gentle dome of ripples
+ waterMesh=new Mesh();
+ (function(){var seg=20,rings=4;
+  for(var r=0;r<rings;r++){var r0=r/rings,r1=(r+1)/rings;
+   for(var i=0;i<seg;i++){var a0=i/seg*Math.PI*2,a1=(i+1)/seg*Math.PI*2;
+    function wp(rr,aa){var ripple=Math.sin(rr*9)*0.04;return [Math.cos(aa)*rr,ripple,Math.sin(aa)*rr];}
+    var A=wp(r0,a0),B=wp(r1,a0),C=wp(r1,a1),D=wp(r0,a1),up=[0,1,0];
+    waterMesh.triN(A,up,B,up,C,up);waterMesh.triN(A,up,C,up,D,up);}}})();
+ waterMesh.upload();
  // ===== LANDMARKS (large memorable scenery) =====
  // windmill: tapered tower + conical cap (blades drawn separately so they spin)
  windmillBase=new Mesh();
@@ -1483,6 +1529,9 @@ function buildRaceMeshes(){
   var h00=Hgt[j0*W+i0],h10=Hgt[j0*W+i0+1],h01=Hgt[(j0+1)*W+i0],h11=Hgt[(j0+1)*W+i0+1];
   return (h00*(1-tx)+h10*tx)*(1-tz)+(h01*(1-tx)+h11*tx)*tz;
  }
+ // true if (x,z) falls within (or near the shoreline of) a lake — keeps props dry
+ function inLake(x,z){for(var L=0;L<lakes.length;L++){var lb=lakes[L];
+  var rr=lb.r*1.15,dx=x-lb.x,dz=z-lb.z;if(dx*dx+dz*dz<rr*rr)return true;}return false;}
  // scenery: scatter trees + props alongside the road, planted on the terrain surface.
  // deterministic pseudo-random so the layout is stable but feels handcrafted.
  trees=[];scenery=[];
@@ -1497,6 +1546,7 @@ function buildRaceMeshes(){
   var r1=rnd(s),r2=rnd(s*1.7+5),r3=rnd(s*2.3+9);
   var off=(ROADW+5)+r1*14;
   var tx=c.x+c.px*off*side,tz=c.z+c.pz*off*side;
+  if(inLake(tx,tz))continue;
   var variant=Math.floor(r2*treeMeshes.length)%treeMeshes.length;
   trees.push({x:tx,y:sampleH(tx,tz)-0.3,z:tz,
     sc:0.75+r1*0.9,
@@ -1522,6 +1572,7 @@ function buildRaceMeshes(){
   var pside=(rs1<0.5)?-1:1;
   var poff=(ROADW+2.5)+rs2*16;
   var px2=cc.x+cc.px*poff*pside,pz2=cc.z+cc.pz*poff*pside;
+  if(inLake(px2,pz2))continue;
   var py2=sampleH(px2,pz2);
   var pick=rs3;
   if(pick<0.32){
@@ -1539,6 +1590,30 @@ function buildRaceMeshes(){
    scenery.push({type:'log',x:px2,y:py2,z:pz2,sc:0.8+rs1*0.6,rot:rs2*6.28,col:barkPalette[1]});
   }else{
    scenery.push({type:'fence',x:px2,y:py2,z:pz2,sc:1.0+rs1*0.4,rot:Math.atan2(cc.pz*pside,cc.px*pside),col:[0.62,0.46,0.30]});
+  }
+ }
+ // ===== ground color variation: dirt / grass-tone / flower-field patches =====
+ var patchCols=[[0.55,0.42,0.28],[0.50,0.38,0.24],[0.22,0.42,0.18],[0.30,0.52,0.22],[0.45,0.55,0.20]];
+ for(var pa=0;pa<n;pa+=2){
+  var pc=CL[pa];var pr1=rnd(pa*8.7+4),pr2=rnd(pa*2.9+17);
+  var pgside=(pr1<0.5)?-1:1;
+  var pgoff=(ROADW+3)+pr2*22;
+  var pgx=pc.x+pc.px*pgoff*pgside,pgz=pc.z+pc.pz*pgoff*pgside;
+  if(inLake(pgx,pgz))continue;
+  scenery.push({type:'patch',x:pgx,y:sampleH(pgx,pgz),z:pgz,sc:2.0+pr1*3.2,rot:pr2*6.28,
+    col:patchCols[Math.floor(pr1*patchCols.length)%patchCols.length]});
+ }
+ // ===== shoreline dressing: rocks + reeds ringing each lake =====
+ for(var ls=0;ls<lakes.length;ls++){var lb=lakes[ls];
+  var ringN=Math.floor(lb.r*0.9);
+  for(var rg=0;rg<ringN;rg++){var ra=rg/ringN*Math.PI*2+rnd(ls*13+rg)*0.3;
+   var rrad=lb.r*(1.02+rnd(rg*3+ls)*0.12);
+   var sx=lb.x+Math.cos(ra)*rrad,sz=lb.z+Math.sin(ra)*rrad,sy=sampleH(sx,sz);
+   if(rnd(rg*7+ls*5)<0.45){
+    scenery.push({type:'rock',x:sx,y:sy-0.05,z:sz,sc:0.4+rnd(rg+ls)*0.6,rot:ra,col:[0.52,0.5,0.5]});
+   }else{
+    scenery.push({type:'grass',x:sx,y:sy,z:sz,sc:0.9+rnd(rg*2+ls)*0.8,rot:ra,col:[0.32,0.5,0.22]});
+   }
   }
  }
  // ===== trackside atmosphere props placed close to the road edge =====
@@ -2780,6 +2855,23 @@ function render(){
  }
  gl.disable(gl.CULL_FACE);
  drawMesh(groundMesh,I,track.grass,0.7);
+ // ground color-variation patches (dirt paths, grass tones) hug the terrain
+ gl.enable(gl.POLYGON_OFFSET_FILL);
+ gl.polygonOffset(-1,-1);
+ for(var pq=0;pq<scenery.length;pq++){var po=scenery[pq];if(po.type!=='patch')continue;
+  var pdx=po.x-p.x,pdz=po.z-p.z;if(pdx*pdx+pdz*pdz>170*170)continue;
+  drawMesh(patchMesh,M.mul(M.translate(po.x,po.y+0.02,po.z),M.rotY(po.rot),M.scale(po.sc,1,po.sc)),po.col,0.7,4);}
+ gl.disable(gl.POLYGON_OFFSET_FILL);
+ // stylized lake water
+ if(waterMesh){var wTime=GS.raceTime*0.0006;
+  for(var wl=0;wl<lakes.length;wl++){var lb=lakes[wl];
+   var wdx=lb.x-p.x,wdz=lb.z-p.z;if(wdx*wdx+wdz*wdz>260*260)continue;
+   var shimmer=0.82+Math.sin(wTime*3+wl)*0.06;
+   var wm=M.mul(M.translate(lb.x,lb.y,lb.z),M.rotY(wTime+wl),M.scale(lb.r,1,lb.r));
+   drawMesh(waterMesh,wm,[0.18*shimmer,0.45*shimmer,0.72*shimmer],0.55,80);
+   // brighter rim/foam ring slightly inset
+   drawMesh(waterMesh,M.mul(M.translate(lb.x,lb.y+0.03,lb.z),M.scale(lb.r*0.7,1,lb.r*0.7)),[0.4,0.65,0.85],0.6,80);
+  }}
  gl.enable(gl.CULL_FACE);
  gl.enable(gl.POLYGON_OFFSET_FILL);
  gl.polygonOffset(-1,-1);
@@ -2788,6 +2880,7 @@ function render(){
  if(shoulderMesh) drawMesh(shoulderMesh,I,track.roadDark||[0.3,0.3,0.3],0.35);
  drawMesh(trackMesh,I,track.road,0.5);
  if(roadCenterMesh) drawMesh(roadCenterMesh,I,[track.road[0]*1.12,track.road[1]*1.12,track.road[2]*1.12],0.55);
+ if(edgeLineMesh) drawMesh(edgeLineMesh,I,[0.95,0.95,1.0],0.85,12);
  if(roadStripeMesh) drawMesh(roadStripeMesh,I,[0.95,0.95,1.0],0.8);
  if(startLineMesh){
   drawMesh(startLineMesh,I,[1,1,1],0.85);
