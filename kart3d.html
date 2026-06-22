@@ -228,78 +228,50 @@ var CHARS=[
 var getCharColor=function(charIdx){var ch=CHARS[charIdx];var skinIdx=Math.floor((charIdx*13+GS.raceCount)%ch.skins.length);return ch.skins[skinIdx];};
 var DIFFS={Easy:0.80,Medium:0.92,Hard:1.0};
 
-/* Track centerline generators (X,Z in world units; Y elevation). Closed loops. */
+/* Track centerline generators (X,Z in world units; Y elevation). Closed loops.
+   Each track is a non-self-intersecting closed polygon; Catmull-Rom STEP=12
+   interpolates between control points. ROADW=10 means 20-unit-wide road, so
+   any two non-adjacent segments must stay 25+ units apart in XZ. */
+function trkPts(fn,n){var p=[];for(var i=0;i<n;i++){p.push(fn(i/n*Math.PI*2,i/n))}return p}
 var TRACKS=[
  {name:'Skibidi Speedway',desc:'Sweeping bends & a big hill',
   sky:[0.15,0.55,0.95],skyBot:[0.65,0.85,0.98],grass:[0.22,0.65,0.22],road:[0.48,0.48,0.48],roadDark:[0.38,0.38,0.38],rumble:[0.95,0.1,0.1],tree:[0.20,0.60,0.20],fog:[0.55,0.75,0.92],
-  pts:[
-   [0,0,0],[0,0,50],[0,0,100],[0,0,150],
-   [30,0,190],[70,0,210],[110,0,200],
-   [140,6,175],[160,14,140],[150,20,100],
-   [125,22,70],[95,18,55],[70,12,75],
-   [50,4,110],[40,0,145],
-   [20,0,170],[0,0,185],[-35,0,175],
-   [-60,0,145],[-70,0,110],[-70,0,70],[-70,0,30],
-   [-60,0,0],[-45,0,-25],[-20,0,-45],
-   [5,0,-60],[30,0,-50],[40,0,-25],
-   [30,0,-5],[15,0,-15],[0,0,-20],[0,0,-10]
-  ]},
+  // egg-shaped: long straights with a tight end and a wide end, plus a hill
+  pts:trkPts(function(a){
+   var r=120+25*Math.cos(a);
+   var y=Math.max(0,Math.sin(a)*12-4);
+   return [Math.cos(a)*r*1.3,y,Math.sin(a)*r];
+  },48)},
  {name:'Rizz Circuit',desc:'Technical twists at night',
   sky:[0.08,0.08,0.28],skyBot:[0.35,0.25,0.50],grass:[0.16,0.36,0.16],road:[0.35,0.35,0.35],roadDark:[0.25,0.25,0.28],rumble:[1.0,1.0,0.1],tree:[0.14,0.38,0.20],fog:[0.25,0.18,0.38],
-  pts:[
-   [0,0,0],[0,0,55],[0,0,110],
-   [40,0,145],[85,0,135],[105,0,100],
-   [95,0,60],[70,0,35],[50,0,10],[70,0,-20],
-   [100,0,-50],[135,0,-60],[160,0,-35],
-   [170,0,0],[160,0,35],[135,0,45],
-   [100,0,35],[75,0,15],[65,0,-15],
-   [80,0,-55],[115,0,-85],[135,0,-120],
-   [120,0,-155],[75,0,-165],[30,0,-150],
-   [5,0,-115],[-15,0,-80],[0,0,-50],
-   [5,0,-25],[0,0,-10]
-  ]},
+  // wavy elongated oval — S-bends along the sides
+  pts:trkPts(function(a){
+   var r=110+20*Math.sin(4*a);
+   return [Math.cos(a)*r*1.2,0,Math.sin(a)*r];
+  },56)},
  {name:'Ohio Arena',desc:'Wild hills & hairpins',
   sky:[0.95,0.35,0.15],skyBot:[1.0,0.70,0.50],grass:[0.65,0.42,0.20],road:[0.42,0.42,0.42],roadDark:[0.33,0.33,0.33],rumble:[1.0,0.60,0.1],tree:[0.56,0.36,0.15],fog:[0.85,0.55,0.35],
-  pts:[
-   [0,8,0],[0,8,50],[0,8,100],
-   [20,14,140],[55,22,165],[95,28,150],
-   [120,32,120],[110,28,85],[80,22,70],
-   [55,12,55],[35,2,30],[25,0,-5],
-   [35,0,-35],[60,0,-60],[95,0,-55],
-   [120,6,-30],[140,14,0],[130,20,35],
-   [105,24,60],[80,18,65],
-   [55,8,50],[35,0,20],
-   [15,0,-5],[0,0,-25],[-25,0,-45],
-   [-40,2,-25],[-35,5,0],[-15,7,15]
-  ]},
+  // D-shape with big hills: one long straight, one curved side with elevation
+  pts:trkPts(function(a){
+   var r=115+30*Math.cos(a);
+   var y=Math.max(0,15*Math.sin(a)+8*Math.sin(3*a));
+   return [Math.cos(a)*r,y,Math.sin(a)*(r*0.8)];
+  },52)},
  {name:'Neon City',desc:'Urban night race',
   sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.12,0.22,0.12],road:[0.25,0.25,0.3],roadDark:[0.18,0.18,0.22],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],fog:[0.10,0.06,0.18],
-  pts:[
-   [0,0,0],[0,0,60],[0,0,120],
-   [45,0,155],[95,0,145],[125,0,115],
-   [115,0,75],[90,0,50],[70,0,15],
-   [80,0,-20],[90,0,-60],[90,0,-110],
-   [70,0,-145],[35,0,-155],[0,0,-135],
-   [-15,0,-100],[-5,0,-70],[10,0,-45],
-   [35,0,-30],[40,0,-5],[25,0,15],
-   [5,0,25],[-25,0,15],[-55,0,30],
-   [-75,0,55],[-65,0,90],[-40,0,115],
-   [-25,0,85],[-15,0,50],[0,0,25],[0,0,-10]
-  ]},
+  // angular diamond shape — tight 90° corners like city intersections
+  pts:trkPts(function(a){
+   var r=110+25*Math.cos(4*a);
+   return [Math.cos(a)*r*1.15,0,Math.sin(a)*r];
+  },64)},
  {name:'Dragon Peak',desc:'Mountain extreme',
   sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],roadDark:[0.30,0.30,0.35],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],fog:[0.65,0.78,0.92],
-  pts:[
-   [0,0,0],[0,2,55],[0,6,110],
-   [25,12,150],[60,20,170],[100,28,150],
-   [90,34,110],[55,38,80],[25,42,95],
-   [45,46,130],[90,50,140],[120,52,115],
-   [110,54,80],[85,54,60],[55,52,65],
-   [25,48,85],[10,42,100],
-   [-15,32,95],[-30,24,70],[-25,16,40],
-   [-5,8,15],[15,4,0],[30,6,-25],
-   [25,6,-55],[0,6,-70],[-25,6,-60],
-   [-35,4,-35],[-25,2,-10],[-10,0,5]
-  ]}
+  // elongated loop with big mountain elevation changes
+  pts:trkPts(function(a){
+   var r=120+20*Math.cos(a)+15*Math.cos(2*a);
+   var y=Math.max(0,18*Math.sin(a)+10*Math.sin(2*a));
+   return [Math.cos(a)*r*1.1,y,Math.sin(a)*r];
+  },56)}
 ];
 
 var ROADW=10; // road half width
@@ -821,10 +793,13 @@ function buildRaceMeshes(){
    }
    var wavg=sumW>0?sumY/sumW:baseY;
    var dist=Math.sqrt(minD);
-   // near road -> exact nearest elevation (road sits flush); farther -> smooth avg
-   var rb=Math.max(0,Math.min(1,(dist-ROADW)/(ROADW*2.5)));
+   // near road -> snap to nearest CL elevation so terrain sits flush;
+   // farther -> blend toward smooth weighted-average of all CL elevations
+   var rb=Math.max(0,Math.min(1,(dist-ROADW)/(ROADW*3)));
    var hy=nearY+(wavg-nearY)*rb;
-   hy-=0.8*(1-rb);   // sit grass well below road so terrain never clips through
+   // depress terrain below the road surface: scale with (1-rb) so near-road
+   // terrain sits well below; the 1.5 base ensures clearance even on flat tracks
+   hy-=(1.5+Math.abs(wavg-nearY)*0.6)*(1-rb);
    // far edge -> ease down to the base plane so terrain skirts the horizon
    var fb=Math.max(0,Math.min(1,(dist-MARGIN*0.5)/(MARGIN*0.5)));
    hy=hy+(baseY-hy)*fb;
