@@ -586,6 +586,7 @@ var stallBase=null,stallAwning=null,stallPost=null,wellBody=null,wellRoof=null,v
 var standMesh=null,standRoof=null,fanBody=null,fanHead=null,crowdFans=[],stands=[];
 var windmillBase=null,windmillBlade=null,cabinBody=null,cabinRoof=null,towerBody=null,towerRoof=null,lighthouseBody=null,lighthouseTop=null;
 var coneMesh=null,coneStripe=null,tyreMesh=null,balloonMesh=null,balloonString=null,archPost=null,archBanner=null,flagPole=null,flagCloth=null,billboardMesh=null,billboardLegs=null,statueMesh=null;
+var lampPostMesh=null,lampGlobe=null,arrowSign=null,arrowPost=null,hotAirBalloon=null,hotAirBasket=null,skyBalloons=[],bridgeMesh=null,bridgeRail=null,campfireLogs=null,campfireFlame=null,finishGate=null,finishGateTop=null,cloudMesh=null,skyClouds=[];
 
 function buildCenterline(track){
  var pts=track.pts,n=pts.length;
@@ -993,6 +994,70 @@ function buildRaceMeshes(){
  // simple spectator: rounded body + head (drawn in team colors, bobbing)
  fanBody=new Mesh();fanBody.ellipsoid(0,0.28,0,0.16,0.28,0.16,5,7);fanBody.upload();
  fanHead=new Mesh();fanHead.sphere(0,0.62,0,0.13,6,7);fanHead.upload();
+ // ===== LAMP POSTS (line the straights, classic curved gooseneck) =====
+ lampPostMesh=new Mesh();
+ lampPostMesh.cyl(0,1.6,0,0.1,1.6,1,8);          // pole
+ lampPostMesh.box(0,0.12,0,0.26,0.12,0.26);       // base
+ lampPostMesh.torus(0,0.45,0,0.16,0.04,8,5);      // decorative collar
+ lampPostMesh.tubeArc(0,3.2,0,0.45,0.07,0,Math.PI*0.5,6,5); // gooseneck arm
+ lampPostMesh.upload();
+ lampGlobe=new Mesh();lampGlobe.sphere(0.45,3.1,0,0.2,7,8);lampGlobe.upload(); // lamp head at arm tip
+ // ===== DIRECTION ARROW SIGN (chevron board on a post) =====
+ arrowPost=new Mesh();arrowPost.cyl(0,0.7,0,0.07,0.7,1,6);arrowPost.upload();
+ arrowSign=new Mesh();
+ (function(){ // a right-pointing chevron arrow as a flat extruded shape
+  var z0=-0.04,z1=0.04;
+  var pts=[[-0.5,1.55],[0.1,1.55],[0.5,1.3],[0.1,1.05],[-0.5,1.05],[-0.2,1.3]];
+  for(var i=0;i<pts.length;i++){var a=pts[i],b=pts[(i+1)%pts.length];
+   arrowSign.quad([a[0],a[1],z1],[b[0],b[1],z1],[b[0],b[1],z0],[a[0],a[1],z0]);}
+  // front + back faces (fan from first vertex)
+  for(var i=1;i<pts.length-1;i++){
+   arrowSign.tri([pts[0][0],pts[0][1],z1],[pts[i][0],pts[i][1],z1],[pts[i+1][0],pts[i+1][1],z1]);
+   arrowSign.tri([pts[0][0],pts[0][1],z0],[pts[i+1][0],pts[i+1][1],z0],[pts[i][0],pts[i][1],z0]);}
+ })();
+ arrowSign.upload();
+ // ===== HOT AIR BALLOON (floating in the sky backdrop) =====
+ hotAirBalloon=new Mesh();hotAirBalloon.ellipsoid(0,0,0,3.2,3.8,3.2,10,12);hotAirBalloon.cone(0,-3.6,0,1.4,-5.6,10);hotAirBalloon.upload();
+ hotAirBasket=new Mesh();hotAirBasket.box(0,-6.4,0,0.7,0.5,0.7);hotAirBasket.upload();
+ // ===== STONE BRIDGE (arched span) =====
+ bridgeMesh=new Mesh();
+ (function(){var span=9,W=ROADW+1.5,segs=10;
+  // arched deck: a gentle hump across the span (along x), full road width along z
+  for(var i=0;i<segs;i++){var t0=i/segs,t1=(i+1)/segs;
+   var x0=(t0-0.5)*span*2,x1=(t1-0.5)*span*2;
+   var y0=Math.sin(t0*Math.PI)*1.2,y1=Math.sin(t1*Math.PI)*1.2;
+   bridgeMesh.quad([x0,y0,-W],[x1,y1,-W],[x1,y1,W],[x0,y0,W]);              // deck top
+   // side walls (both edges) hanging down to form the arch underside
+   bridgeMesh.quad([x0,y0,-W],[x0,y0-1.6,-W],[x1,y1-1.6,-W],[x1,y1,-W]);
+   bridgeMesh.quad([x1,y1,W],[x1,y1-1.6,W],[x0,y0-1.6,W],[x0,y0,W]);}
+ })();
+ bridgeMesh.upload();
+ bridgeRail=new Mesh();
+ (function(){var span=9,W=ROADW+1.5,segs=10;
+  for(var s=0;s<2;s++){var zz=(s===0?-W:W);
+   for(var i=0;i<segs;i++){var t0=i/segs;var x0=(t0-0.5)*span*2;var y0=Math.sin(t0*Math.PI)*1.2;
+    bridgeRail.box(x0,y0+0.55,zz,0.18,0.55,0.18);}}
+ })();
+ bridgeRail.upload();
+ // ===== CAMPFIRE (stacked logs + flame) =====
+ campfireLogs=new Mesh();
+ for(var cf=0;cf<5;cf++){var ca=cf/5*Math.PI*2;
+  campfireLogs.cyl(Math.cos(ca)*0.22,0.12,Math.sin(ca)*0.22,0.07,0.45,0,6);}
+ for(var cr=0;cr<8;cr++){var cra=cr/8*Math.PI*2;campfireLogs.sphere(Math.cos(cra)*0.5,0.04,Math.sin(cra)*0.5,0.08,4,5);} // stone ring
+ campfireLogs.upload();
+ campfireFlame=new Mesh();campfireFlame.cone(0,0.15,0,0.22,0.9,7);campfireFlame.cone(0,0.3,0,0.13,0.75,6);campfireFlame.upload();
+ // ===== GRAND FINISH GATE (big arch over the start line) =====
+ finishGate=new Mesh();
+ finishGate.box(0,2.2,0,0.5,2.2,0.5);   // single tower (drawn both sides)
+ finishGate.upload();
+ finishGateTop=new Mesh();
+ finishGateTop.box(0,0,0,1,0.7,0.6);    // crossbeam (scaled to span)
+ finishGateTop.upload();
+ // ===== STYLIZED CLOUDS (puffy clusters drifting across the sky) =====
+ cloudMesh=new Mesh();
+ var cloudBlobs=[[0,0,0,2.4],[-2.2,-0.3,0.3,1.7],[2.1,-0.2,-0.2,1.8],[-0.9,0.6,-0.4,1.5],[1.1,0.5,0.4,1.6],[0.2,-0.5,1.0,1.4]];
+ for(var cb=0;cb<cloudBlobs.length;cb++){var b=cloudBlobs[cb];cloudMesh.ellipsoid(b[0],b[1],b[2],b[3],b[3]*0.7,b[3],7,9);}
+ cloudMesh.upload();
  // ===== TRACKSIDE ATMOSPHERE =====
  // traffic cone: cone + base + stripe ring
  coneMesh=new Mesh();coneMesh.cone(0,0,0,0.28,0.7,8);coneMesh.box(0,0.03,0,0.34,0.03,0.34);coneMesh.upload();
@@ -1702,6 +1767,57 @@ function buildRaceMeshes(){
   else{ent.atm='balloon';ent.col=balloonCols[Math.floor(ta2*balloonCols.length)%balloonCols.length];ent.sc=0.8+ta1*0.5;}
   scenery.push(ent);
  }
+ // ===== lamp posts evenly spaced along both sides of the road =====
+ for(var lp=0;lp<n;lp+=14){
+  var lpc=CL[lp];
+  for(var lps=0;lps<2;lps++){var sgn=lps===0?1:-1;
+   var lpx=lpc.x+lpc.px*(ROADW+2.4)*sgn,lpz=lpc.z+lpc.pz*(ROADW+2.4)*sgn;
+   if(inLake(lpx,lpz))continue;
+   // face the gooseneck arm toward the road
+   var lprot=Math.atan2((lpc.x-lpx),(lpc.z-lpz));
+   scenery.push({type:'lamp',x:lpx,y:sampleH(lpx,lpz),z:lpz,rot:lprot,sc:1.0});}
+ }
+ // ===== direction arrow signs on the sharpest corners =====
+ for(var as=0;as<n;as+=3){
+  var a0=CL[as],a1=CL[(as+6)%n];
+  var dot=a0.dx*a1.dx+a0.dz*a1.dz;
+  if(dot>0.985)continue;                         // straight enough -> skip
+  // cross product sign tells which way the road turns
+  var cross=a0.dx*a1.dz-a0.dz*a1.dx;
+  var sgn=cross<0?1:-1;                           // place sign on outside of bend
+  var arx=a0.x+a0.px*(ROADW+2.0)*sgn,arz=a0.z+a0.pz*(ROADW+2.0)*sgn;
+  if(inLake(arx,arz))continue;
+  // arrow points along travel direction, flipped to indicate turn side
+  var arrot=Math.atan2(a0.dx,a0.dz)+(cross<0?0:Math.PI);
+  scenery.push({type:'arrow',x:arx,y:sampleH(arx,arz),z:arz,rot:arrot,sc:1.0});
+  as+=6; // don't spam a whole corner
+ }
+ // ===== decorative stone bridges spanning each lake =====
+ for(var bz=0;bz<lakes.length;bz++){var lb=lakes[bz];
+  var bang=rnd(bz*17+3)*Math.PI*2;
+  scenery.push({type:'bridge',x:lb.x,y:lb.y+0.4,z:lb.z,rot:bang,sc:1.0});}
+ // ===== campfires (a couple, near the village + a lake) =====
+ (function(){
+  var vi=Math.floor(n*0.33);var vc=CL[vi];
+  var cfx=vc.x+vc.px*40,cfz=vc.z+vc.pz*40;
+  scenery.push({type:'campfire',x:cfx,y:sampleH(cfx,cfz),z:cfz,rot:0,sc:1.0});
+  if(lakes.length){var lb=lakes[0];var clx=lb.x+lb.r*1.3,clz=lb.z;
+   scenery.push({type:'campfire',x:clx,y:sampleH(clx,clz),z:clz,rot:0,sc:1.0});}
+ })();
+ // ===== hot air balloons drifting in the sky =====
+ skyBalloons=[];
+ var habCols=[[0.9,0.25,0.3],[0.95,0.75,0.2],[0.3,0.55,0.9],[0.4,0.8,0.45],[0.85,0.4,0.8]];
+ for(var hb=0;hb<6;hb++){
+  var hbi=Math.floor(hb/6*n)%n;var hc=CL[hbi];var hr=rnd(hb*23+7);
+  var hside=(hb%2===0)?1:-1;
+  skyBalloons.push({x:hc.x+hc.px*(120+hr*120)*hside,baseY:(hc.y||0)+70+hr*50,z:hc.z+hc.pz*(120+hr*120)*hside,
+    col:habCols[hb%habCols.length],phase:hr*6.28,drift:40+hr*60});
+ }
+ // ===== puffy clouds scattered across the sky =====
+ skyClouds=[];
+ for(var cl=0;cl<14;cl++){var cr=rnd(cl*31+11),cr2=rnd(cl*13+5);
+  var cang=cl/14*Math.PI*2+cr*0.4;var crad=200+cr*260;
+  skyClouds.push({x:Math.cos(cang)*crad,y:120+cr2*120,z:Math.sin(cang)*crad,sc:3+cr*5});}
  // ===== place large landmarks at spaced intervals around the track =====
  landmarks=[];
  var lmTypes=['windmill','cabin','tower','lighthouse','statue','billboard'];
@@ -2970,6 +3086,19 @@ function render(){
   gl.disable(gl.CULL_FACE);
   drawMesh(bgMountains,mtnM,track.mtn||[0.42,0.46,0.58],0.78);
   if(bgMountainSnow)drawMesh(bgMountainSnow,mtnM,[0.92,0.95,1.0],0.85);
+  // puffy clouds drifting across the sky (follow the camera so the sky is never empty)
+  if(cloudMesh){var cloudDrift=GS.raceTime*0.004;
+   for(var cd=0;cd<skyClouds.length;cd++){var ck=skyClouds[cd];
+    var cwx=p.x+ck.x+Math.sin(cloudDrift*0.2+cd)*8,cwz=p.z+ck.z;
+    drawMesh(cloudMesh,M.mul(M.translate(cwx,ck.y,cwz),M.scale(ck.sc,ck.sc,ck.sc)),[1.0,1.0,1.0],0.92);}}
+  // hot air balloons floating over the world
+  if(hotAirBalloon){var habT=GS.raceTime*0.001;
+   for(var hb2=0;hb2<skyBalloons.length;hb2++){var hbo=skyBalloons[hb2];
+    var hby=hbo.baseY+Math.sin(habT+hbo.phase)*6;
+    var hbx=hbo.x+Math.sin(habT*0.3+hbo.phase)*hbo.drift;
+    var hbm=M.translate(hbx,hby,hbo.z);
+    drawMesh(hotAirBalloon,hbm,hbo.col,0.7,24);
+    drawMesh(hotAirBasket,hbm,[0.45,0.32,0.2],0.6,12);}}
   gl.enable(gl.CULL_FACE);
   gl.uniform1f(L.uFogNear,80.0);gl.uniform1f(L.uFogFar,450.0);
   gl.depthMask(true);
@@ -3013,8 +3142,10 @@ function render(){
  // ground props (bushes, rocks, flowers, logs, fences, grass) — cull by distance
  for(var sc=0;sc<scenery.length;sc++){
   var o=scenery[sc];
+  if(o.type==='patch')continue; // drawn earlier on the ground
   var sdx=o.x-p.x,sdz=o.z-p.z;
-  if(sdx*sdx+sdz*sdz>160*160)continue;
+  var cullR=(o.type==='bridge')?260:160;
+  if(sdx*sdx+sdz*sdz>cullR*cullR)continue;
   var om=M.mul(M.translate(o.x,o.y,o.z),M.rotY(o.rot),M.scale(o.sc,o.sc,o.sc));
   if(o.type==='bush'){drawMesh(bushMesh,om,o.col,0.5,8);}
   else if(o.type==='rock'){drawMesh(rockMesh,om,o.col,0.55,14);}
@@ -3022,6 +3153,13 @@ function render(){
   else if(o.type==='grass'){drawMesh(grassTuftMesh,om,o.col,0.55,6);}
   else if(o.type==='log'){drawMesh(logMesh,om,o.col,0.5,8);}
   else if(o.type==='fence'){drawMesh(fenceMesh,om,o.col,0.5,10);}
+  else if(o.type==='lamp'){drawMesh(lampPostMesh,om,[0.22,0.22,0.26],0.45,24);drawMesh(lampGlobe,om,[1.0,0.95,0.7],0.85,40);}
+  else if(o.type==='arrow'){gl.disable(gl.CULL_FACE);drawMesh(arrowPost,om,[0.3,0.3,0.32],0.5,10);drawMesh(arrowSign,om,[0.1,0.1,0.12],0.5,10);drawMesh(arrowSign,M.mul(om,M.scale(0.82,0.82,1.3)),[1.0,0.85,0.1],0.7,18);gl.enable(gl.CULL_FACE);}
+  else if(o.type==='bridge'){gl.disable(gl.CULL_FACE);drawMesh(bridgeMesh,om,[0.6,0.58,0.55],0.55,12);drawMesh(bridgeRail,om,[0.5,0.48,0.45],0.5,10);gl.enable(gl.CULL_FACE);}
+  else if(o.type==='campfire'){drawMesh(campfireLogs,om,[0.4,0.28,0.18],0.5,8);
+   var ff=1+Math.sin(GS.raceTime*0.02+o.x)*0.12;
+   drawMesh(campfireFlame,M.mul(M.translate(o.x,o.y,o.z),M.scale(ff,1.1+ff*0.2,ff)),[1.0,0.55,0.12],0.95,30);
+   drawMesh(campfireFlame,M.mul(M.translate(o.x,o.y+0.1,o.z),M.scale(ff*0.7,ff*0.9,ff*0.7)),[1.0,0.85,0.3],0.98,30);}
  }
  // trees (cull by distance for perf) — trunk + tinted canopy, with lean + rotation
  for(var t=0;t<trees.length;t++){
@@ -3112,14 +3250,24 @@ function render(){
   var half=ROADW+1.5;
   var lpx=ah.x-ah.px*half,lpz=ah.z-ah.pz*half;
   var rpx=ah.x+ah.px*half,rpz=ah.z+ah.pz*half;
-  var postCol=ah.finish?[0.95,0.95,0.98]:[0.9,0.3,0.3];
-  drawMesh(archPost,M.translate(lpx,ah.y,lpz),postCol,0.55,12);
-  drawMesh(archPost,M.translate(rpx,ah.y,rpz),postCol,0.55,12);
-  // banner beam across the top
   var bw=Math.hypot(rpx-lpx,rpz-lpz)/2;
   var bang=Math.atan2(ah.px,ah.pz);
-  var beamM=M.mul(M.translate(ah.x,ah.y+4.0,ah.z),M.rotY(bang),M.scale(bw,1,1));
-  drawMesh(archBanner,beamM,ah.finish?[0.15,0.15,0.18]:[0.95,0.85,0.2],0.6,14);
+  if(ah.finish){
+   // grand finish gate: chunky towers + checkered crossbeam + fluttering flags
+   drawMesh(finishGate,M.translate(lpx,ah.y,lpz),[0.95,0.95,0.98],0.55,16);
+   drawMesh(finishGate,M.translate(rpx,ah.y,rpz),[0.95,0.95,0.98],0.55,16);
+   var topM=M.mul(M.translate(ah.x,ah.y+4.4,ah.z),M.rotY(bang),M.scale(bw,1,1));
+   drawMesh(finishGateTop,topM,[0.12,0.12,0.14],0.6,18);
+   // checker accents along the beam
+   for(var ck2=0;ck2<6;ck2++){var t=(ck2/5-0.5);
+    var cmx=ah.x+ah.px*t*bw*2,cmz=ah.z+ah.pz*t*bw*2;
+    drawMesh(finishGateTop,M.mul(M.translate(cmx,ah.y+4.9,cmz),M.rotY(bang),M.scale(bw*0.16,0.5,1.1)),(ck2%2?[1,1,1]:[0.1,0.1,0.1]),0.7,14);}
+  }else{
+   drawMesh(archPost,M.translate(lpx,ah.y,lpz),[0.9,0.3,0.3],0.55,12);
+   drawMesh(archPost,M.translate(rpx,ah.y,rpz),[0.9,0.3,0.3],0.55,12);
+   var beamM=M.mul(M.translate(ah.x,ah.y+4.0,ah.z),M.rotY(bang),M.scale(bw,1,1));
+   drawMesh(archBanner,beamM,[0.95,0.85,0.2],0.6,14);
+  }
  }
  // ===== trackside atmosphere (cones, tyres, balloons, flags) =====
  var atmTime=GS.raceTime*0.002;
@@ -3153,10 +3301,13 @@ function render(){
    var cn=coins[ci];if(!cn.active)continue;
    var cdx2=cn.x-p.x,cdz2=cn.z-p.z;if(cdx2*cdx2+cdz2*cdz2>120*120)continue;
    var shimmer=0.85+Math.sin(cTime+ci)*0.15;
-   var cm=M.mul(M.translate(cn.x,cn.y+Math.sin(cTime+ci*0.3)*0.25,cn.z),M.rotY(cTime*4+ci),M.rotX(cTime*2));
-   drawMesh(coinMesh,cm,[shimmer,shimmer*0.9,0.1],0.85);
-   // coin highlight
-   drawMesh(coinMesh,cm,[1,1,0.4],0.2);
+   var bobY=cn.y+Math.sin(cTime+ci*0.3)*0.25;
+   var cm=M.mul(M.translate(cn.x,bobY,cn.z),M.rotY(cTime*4+ci),M.rotX(cTime*2));
+   // glowing halo behind the coin (slightly larger, bright, faces spin)
+   drawMesh(coinMesh,M.mul(M.translate(cn.x,bobY,cn.z),M.rotY(cTime*4+ci),M.rotX(cTime*2),M.scale(1.35,1.35,0.5)),[1.0,0.9,0.35],0.95,8);
+   drawMesh(coinMesh,cm,[shimmer,shimmer*0.85,0.12],0.6,64);
+   // bright specular highlight pass
+   drawMesh(coinMesh,cm,[1,1,0.55],0.25,80);
   }
  }
  // hazards (bananas = yellow with glow)
