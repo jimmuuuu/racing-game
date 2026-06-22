@@ -234,44 +234,43 @@ var DIFFS={Easy:0.80,Medium:0.92,Hard:1.0};
    any two non-adjacent segments must stay 25+ units apart in XZ. */
 function trkPts(fn,n){var p=[];for(var i=0;i<n;i++){p.push(fn(i/n*Math.PI*2,i/n))}return p}
 var TRACKS=[
- {name:'Skibidi Speedway',desc:'Sweeping bends & a big hill',
+ {name:'Skibidi Speedway',desc:'Countryside teardrop with a hill',
   sky:[0.15,0.55,0.95],skyBot:[0.65,0.85,0.98],grass:[0.22,0.65,0.22],road:[0.48,0.48,0.48],roadDark:[0.38,0.38,0.38],rumble:[0.95,0.1,0.1],tree:[0.20,0.60,0.20],fog:[0.55,0.75,0.92],
-  // egg-shaped: long straights with a tight end and a wide end, plus a hill
+  // teardrop: long sweepers into a tight pointed hairpin, gentle hill on one side
   pts:trkPts(function(a){
-   var r=120+25*Math.cos(a);
-   var y=Math.max(0,Math.sin(a)*12-4);
-   return [Math.cos(a)*r*1.3,y,Math.sin(a)*r];
-  },48)},
- {name:'Rizz Circuit',desc:'Technical twists at night',
-  sky:[0.08,0.08,0.28],skyBot:[0.35,0.25,0.50],grass:[0.16,0.36,0.16],road:[0.35,0.35,0.35],roadDark:[0.25,0.25,0.28],rumble:[1.0,1.0,0.1],tree:[0.14,0.38,0.20],fog:[0.25,0.18,0.38],
-  // wavy elongated oval — S-bends along the sides
-  pts:trkPts(function(a){
-   var r=110+20*Math.sin(4*a);
-   return [Math.cos(a)*r*1.2,0,Math.sin(a)*r];
+   var r=140+26*Math.cos(a)-8*Math.cos(2*a);
+   var y=Math.max(0,10*Math.sin(a)-3);
+   return [Math.cos(a)*r*1.15,y,Math.sin(a)*r];
   },56)},
- {name:'Ohio Arena',desc:'Wild hills & hairpins',
-  sky:[0.95,0.35,0.15],skyBot:[1.0,0.70,0.50],grass:[0.65,0.42,0.20],road:[0.42,0.42,0.42],roadDark:[0.33,0.33,0.33],rumble:[1.0,0.60,0.1],tree:[0.56,0.36,0.15],fog:[0.85,0.55,0.35],
-  // D-shape with big hills: one long straight, one curved side with elevation
+ {name:'Rizz Beach',desc:'Flowing seaside curves',
+  sky:[0.35,0.72,0.98],skyBot:[0.85,0.95,1.0],grass:[0.86,0.78,0.52],road:[0.46,0.46,0.48],roadDark:[0.36,0.36,0.38],rumble:[1.0,0.55,0.15],tree:[0.18,0.55,0.30],fog:[0.70,0.88,0.95],
+  // long sweeping crescent hugging the coast
   pts:trkPts(function(a){
-   var r=115+30*Math.cos(a);
-   var y=Math.max(0,15*Math.sin(a)+8*Math.sin(3*a));
-   return [Math.cos(a)*r,y,Math.sin(a)*(r*0.8)];
-  },52)},
- {name:'Neon City',desc:'Urban night race',
-  sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.12,0.22,0.12],road:[0.25,0.25,0.3],roadDark:[0.18,0.18,0.22],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],fog:[0.10,0.06,0.18],
-  // angular diamond shape — tight 90° corners like city intersections
+   var r=135+34*Math.cos(a+0.4)+9*Math.cos(2*a+0.8);
+   return [Math.cos(a)*r*1.25,0,Math.sin(a)*r];
+  },60)},
+ {name:'Maple Heights',desc:'Suburban neighborhood loop',
+  sky:[0.45,0.68,0.92],skyBot:[0.82,0.90,0.98],grass:[0.35,0.62,0.30],road:[0.44,0.44,0.46],roadDark:[0.34,0.34,0.36],rumble:[0.90,0.90,0.95],tree:[0.22,0.58,0.26],fog:[0.68,0.80,0.92],
+  // peanut: two suburban "blocks" joined by a pinched neck — gentle bends
   pts:trkPts(function(a){
-   var r=110+25*Math.cos(4*a);
+   var r=132+30*Math.cos(2*a)+8*Math.sin(a);
    return [Math.cos(a)*r*1.15,0,Math.sin(a)*r];
-  },64)},
- {name:'Dragon Peak',desc:'Mountain extreme',
-  sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],roadDark:[0.30,0.30,0.35],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],fog:[0.65,0.78,0.92],
-  // elongated loop with big mountain elevation changes
+  },56)},
+ {name:'Neon City',desc:'Urban night grid',
+  sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.12,0.22,0.12],road:[0.25,0.25,0.3],roadDark:[0.18,0.18,0.22],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],fog:[0.10,0.06,0.18],
+  // rounded square — four city-block corners with short connecting straights
   pts:trkPts(function(a){
-   var r=120+20*Math.cos(a)+15*Math.cos(2*a);
-   var y=Math.max(0,18*Math.sin(a)+10*Math.sin(2*a));
-   return [Math.cos(a)*r*1.1,y,Math.sin(a)*r];
-  },56)}
+   var r=118+24*Math.cos(4*a)+11*Math.cos(2*a);
+   return [Math.cos(a)*r*1.12,0,Math.sin(a)*r];
+  },64)},
+ {name:'Dragon Peak',desc:'Mountain climb & plunge',
+  sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],roadDark:[0.30,0.30,0.35],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],fog:[0.65,0.78,0.92],
+  // elongated loop climbing to a summit then plunging — biggest elevation change
+  pts:trkPts(function(a){
+   var r=130+25*Math.cos(a)+15*Math.cos(2*a);
+   var y=Math.max(0,20*Math.sin(a)+12*Math.sin(2*a)+6);
+   return [Math.cos(a)*r*1.05,y,Math.sin(a)*r];
+  },60)}
 ];
 
 var ROADW=10; // road half width
@@ -768,7 +767,7 @@ function buildRaceMeshes(){
  var MARGIN=150;
  minX-=MARGIN;maxX+=MARGIN;minZ-=MARGIN;maxZ+=MARGIN;
  var baseY=minY-10;
- var GN=80;                                   // grid cells per axis
+ var GN=110;                                  // grid cells per axis (finer = smoother hills, less poke-through)
  var gwx=(maxX-minX)/GN, gwz=(maxZ-minZ)/GN;
  var Hgt=new Float32Array((GN+1)*(GN+1));
  // lake basins: carve smooth depressions into the terrain away from the road,
@@ -793,13 +792,15 @@ function buildRaceMeshes(){
    }
    var wavg=sumW>0?sumY/sumW:baseY;
    var dist=Math.sqrt(minD);
-   // near road -> snap to nearest CL elevation so terrain sits flush;
-   // farther -> blend toward smooth weighted-average of all CL elevations
-   var rb=Math.max(0,Math.min(1,(dist-ROADW)/(ROADW*3)));
+   // Flush corridor: out to ROADW+3 (past the rumble strips at ROADW+1.8) the
+   // terrain snaps to the nearest centerline elevation so grass meets the road
+   // edge at the SAME height — no visible step. Beyond that it blends to the
+   // smooth weighted-average so hills roll naturally.
+   var rb=Math.max(0,Math.min(1,(dist-(ROADW+3))/(ROADW*3)));
    var hy=nearY+(wavg-nearY)*rb;
-   // depress terrain below the road surface: scale with (1-rb) so near-road
-   // terrain sits well below; the 1.5 base ensures clearance even on flat tracks
-   hy-=(1.5+Math.abs(wavg-nearY)*0.6)*(1-rb);
+   // tiny base depression (hides z-fighting, keeps grass just under the road)
+   // plus a transition-zone term so terrain stays below the road on steep hills
+   hy-=0.5+Math.abs(wavg-nearY)*0.4*rb;
    // far edge -> ease down to the base plane so terrain skirts the horizon
    var fb=Math.max(0,Math.min(1,(dist-MARGIN*0.5)/(MARGIN*0.5)));
    hy=hy+(baseY-hy)*fb;
