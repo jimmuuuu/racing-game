@@ -2371,11 +2371,23 @@ function renderParticles(proj,view){
 /* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
 var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack','Zoomium Shield','Reverse Rocket','Slick Slime','Speed Star','Chaos Bomb'];
 var itemBoxes=[],coins=[],hazards=[],projectiles=[];
-var itemBoxMesh=null,coinMesh=null;
+var boostPads=[],trackHazards=[];
+var itemBoxMesh=null,coinMesh=null,boostPadMesh=null,hazardMesh=null;
 
 function buildItemsAndCoins(){
- itemBoxes=[];coins=[];hazards=[];projectiles=[];
+ itemBoxes=[];coins=[];hazards=[];projectiles=[];boostPads=[];trackHazards=[];
  var n=CL.length;
+ // boost pads on the racing line every ~24 samples (skip start/finish straight)
+ for(var bpI=18;bpI<n-6;bpI+=24){
+  var bc=CL[bpI%n];
+  boostPads.push({x:bc.x,y:bc.y,z:bc.z,dx:bc.dx,dz:bc.dz,heading:Math.atan2(bc.dx,bc.dz)});
+ }
+ // dynamic moving hazards (rolling boulders that sweep across the road)
+ var hazCount=4,hazStep=Math.floor(n/(hazCount+1));
+ for(var hz=0;hz<hazCount;hz++){
+  var hi2=(hazStep*(hz+1)+10)%n;
+  trackHazards.push({i:hi2,range:ROADW*0.85,phase:hz*1.7,spd:0.0011+hz*0.0002,yoff:1.1,sc:1.3,rad:2.6});
+ }
  // item boxes every ~20 segments, offset left/right
  for(var i=0;i<n;i+=20){
   var c=CL[i%n],side=((i/20)%2===0)?-1:1;
@@ -2395,6 +2407,34 @@ function buildItemsAndCoins(){
  coinMesh.sphere(0.07,0,0,0.12,5,6);     // embossed front stud
  coinMesh.sphere(-0.07,0,0,0.12,5,6);    // embossed back stud
  coinMesh.upload();
+ // boost pad: double chevron arrow pointing forward (+z local), flat on the road
+ boostPadMesh=new Mesh();
+ function addChev(z0){
+  var tip=[0,0.06,z0+2.4],R=[2.4,0.06,z0],L=[-2.4,0.06,z0];        // outer arrowhead
+  var tipI=[0,0.06,z0+1.0],RI=[1.4,0.06,z0+0.55],LI=[-1.4,0.06,z0+0.55];
+  // outer V band: two arms (winding tip,right,left => upward normal, front-facing)
+  boostPadMesh.tri(tip,R,RI);boostPadMesh.tri(tip,RI,tipI);
+  boostPadMesh.tri(tip,tipI,LI);boostPadMesh.tri(tip,LI,L);
+ }
+ addChev(-2.6);addChev(0);addChev(2.6);
+ boostPadMesh.upload();
+ // moving hazard: chunky low-poly boulder
+ hazardMesh=new Mesh();
+ hazardMesh.sphere(0,0,0,1,8,7);
+ hazardMesh.upload();
+}
+
+// current world position of a moving track hazard
+function hazPos(h){
+ var c=CL[h.i%CL.length];
+ var off=Math.sin(GS.raceTime*h.spd+h.phase)*h.range;
+ return {x:c.x+c.px*off,y:c.y+h.yoff,z:c.z+c.pz*off};
+}
+// award a speed boost to a racer (used by boost pads)
+function padBoost(r){
+ if(r.boostTimer>500)return; // already boosting strongly — don't stack
+ r.boostTimer=Math.max(r.boostTimer,700);r.boostPower=Math.max(r.boostPower,18);
+ if(r.isPlayer){sndBoost();GS.fovTarget=74;GS.fovTimer=400;}
 }
 
 function spinoutRacer(r){
@@ -2772,6 +2812,18 @@ function updatePlayer(p,dt){
   var hdx=hazards[hi].x-p.x,hdz=hazards[hi].z-p.z;
   if(hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(p);GS.shake.x=(Math.random()-0.5)*0.8;GS.shake.y=(Math.random()-0.5)*0.6;GS.shake.decay=350;}
  }
+ // boost pad pass-over
+ for(var bpc=0;bpc<boostPads.length;bpc++){
+  var bp=boostPads[bpc];var pdx=bp.x-p.x,pdz=bp.z-p.z;
+  if(pdx*pdx+pdz*pdz<16)padBoost(p);
+ }
+ // moving track hazard collision
+ for(var th=0;th<trackHazards.length;th++){
+  var hp=hazPos(trackHazards[th]);var tdx=hp.x-p.x,tdz=hp.z-p.z;
+  var rr2=trackHazards[th].rad+0.8;
+  if(tdx*tdx+tdz*tdz<rr2*rr2&&p.invTimer<=0&&p.spinTimer<=0){
+   spinoutRacer(p);GS.shake.x=(Math.random()-0.5)*1.2;GS.shake.y=(Math.random()-0.5)*0.8;GS.shake.decay=400;}
+ }
 
  // engine sound
  sndEngine(p.speed,maxSpeed);
@@ -2839,6 +2891,16 @@ function updateBot(b,dt){
   if(!hazards[hi].active)continue;
   var hdx=hazards[hi].x-b.x,hdz=hazards[hi].z-b.z;
   if(hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(b);}
+ }
+ // boost pads + moving hazards for bots
+ for(var bpc2=0;bpc2<boostPads.length;bpc2++){
+  var bp2=boostPads[bpc2];var pdx2=bp2.x-b.x,pdz2=bp2.z-b.z;
+  if(pdx2*pdx2+pdz2*pdz2<16)padBoost(b);
+ }
+ for(var th2=0;th2<trackHazards.length;th2++){
+  var hp2=hazPos(trackHazards[th2]);var tdx2=hp2.x-b.x,tdz2=hp2.z-b.z;
+  var rr3=trackHazards[th2].rad+0.8;
+  if(tdx2*tdx2+tdz2*tdz2<rr3*rr3&&b.invTimer<=0&&b.spinTimer<=0)spinoutRacer(b);
  }
  // coin collect + item box pickup
  for(var ci=coins.length-1;ci>=0;ci--){
@@ -3340,6 +3402,28 @@ function render(){
    drawMesh(itemBoxMesh,hm,[1,0.95,0.1],0.75);
    // banana glow
    drawMesh(itemBoxMesh,hm,[1,1,0.3],0.25);
+  }
+ }
+ // boost pads (glowing orange chevrons that pulse)
+ if(boostPadMesh){
+  var bpPulse=0.7+Math.sin(GS.raceTime*0.008)*0.3;
+  for(var bpd=0;bpd<boostPads.length;bpd++){
+   var bp3=boostPads[bpd];
+   var ddx3=bp3.x-p.x,ddz3=bp3.z-p.z;if(ddx3*ddx3+ddz3*ddz3>160*160)continue;
+   var bpm=M.mul(M.translate(bp3.x,bp3.y+0.04,bp3.z),M.rotY(bp3.heading));
+   drawMesh(boostPadMesh,bpm,[1,0.45*bpPulse+0.2,0.05],0.9,20);
+   drawMesh(boostPadMesh,M.mul(bpm,M.scale(1.08,1,1.08)),[1,0.8,0.3],0.35,8);
+  }
+ }
+ // moving track hazards (rolling boulders)
+ if(hazardMesh){
+  var thT=GS.raceTime*0.006;
+  for(var thd=0;thd<trackHazards.length;thd++){
+   var th3=trackHazards[thd];var hp3=hazPos(th3);
+   var ddx4=hp3.x-p.x,ddz4=hp3.z-p.z;if(ddx4*ddx4+ddz4*ddz4>180*180)continue;
+   var thm=M.mul(M.translate(hp3.x,hp3.y,hp3.z),M.rotY(thT*2+thd),M.rotX(thT*3),M.scale(th3.sc,th3.sc,th3.sc));
+   drawMesh(hazardMesh,thm,[0.38,0.36,0.34],0.45,6);
+   drawMesh(hazardMesh,M.mul(thm,M.scale(0.7,0.7,0.7)),[0.28,0.26,0.24],0.5,4);
   }
  }
  // projectiles (fast moving, glowing red)
