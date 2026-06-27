@@ -2286,9 +2286,9 @@ function stopMusic(){if(musicInterval){clearInterval(musicInterval);musicInterva
 
 /* Taunt */
 var TAUNTS=['EZ','skill issue',"you're cooked",'ratio','get good','sit down'];
-var OVERTAKE_TEXTS=['GET REKT','SKIBIDI!','sheeesh','GYATT'];
-var PASSED_TEXTS=['NOOO','wait what','L + ratio'];
-var CRASH_TEXTS=['BONK','Ohio moment','oof','skill issue'];
+var OVERTAKE_TEXTS=['OVERTAKE!','NICE PASS!','POSITION UP!'];
+var PASSED_TEXTS=['PASSED!','POSITION LOST'];
+var CRASH_TEXTS=['CRASH!','SPUN OUT!','OUCH!'];
 function doTaunt(){
  if(GS.tauntCooldown>0||GS.scr!=='race')return;
  GS.tauntCooldown=2000;sndTaunt();
@@ -2371,15 +2371,10 @@ function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOs
 
 /* ===================== PARTICLES ===================== */
 var MAXPART=200,particles=[];
-var MEME_TEXTS=['RIZZ','GYATT','SIGMA','SKIBIDI','OHIO','MEWING','BUSSIN','GLOW UP','SLAY','NO CAP'];
 var destructibleProps=[];
 function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
  for(var i=0;i<particles.length;i++){if(particles[i].life<=0){var p=particles[i];p.x=x;p.y=y;p.z=z;p.vx=vx;p.vy=vy;p.vz=vz;p.r=r;p.g=g;p.b=b;p.a=1;p.life=life;p.maxLife=life;return;}}
  if(particles.length<MAXPART)particles.push({x:x,y:y,z:z,vx:vx,vy:vy,vz:vz,r:r,g:g,b:b,a:1,life:life,maxLife:life});
-}
-function spawnMemeText(text,x,y,color,size){
- var rnd=MEME_TEXTS[Math.floor(Math.random()*MEME_TEXTS.length)];
- spawnFloatText(text||rnd,x,y,color,size);
 }
 function spawnPropBurst(x,y,z,propType){
  var count=8+Math.floor(Math.random()*4);
@@ -2497,7 +2492,6 @@ function spinoutRacer(r){
  }
  if(r.isPlayer){
   var ct=CRASH_TEXTS[Math.floor(Math.random()*CRASH_TEXTS.length)];spawnFloatText(ct,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#f44',38);
-  spawnMemeText('-500 AURA 💀',fxCanvas?fxCanvas.width/2+Math.random()*100-50:400,fxCanvas?fxCanvas.height*0.4+50:200,'#ff4444',28);
  }
  var drop=Math.min(r.coinCount,3);r.coinCount-=drop;
  for(var d=0;d<drop;d++){
@@ -2773,8 +2767,8 @@ function updatePlayer(p,dt){
     var beepFreq=(stage2===1?660:990)+p.driftCombo*44;
     beep(beepFreq,0.15);
     for(var bp=0;bp<8;bp++)spawnP(p.x,p.y+0.4,p.z,(Math.random()-0.5)*5,Math.random()*6,(Math.random()-0.5)*5,1,0.4+Math.random()*0.4,0,500);
-    var boostTxt=stage2===1?'GYATT BOOST':'MAX SIGMA 👑';
-    spawnMemeText(boostTxt,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.35:150,'#0f0',36);
+    var boostTxt=stage2===1?'BOOST!':'TURBO BOOST!';
+    spawnFloatText(boostTxt,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.35:150,'#0f0',36);
    } else {
     p.driftCombo=0;
    }
@@ -2832,7 +2826,7 @@ function updatePlayer(p,dt){
  for(var ci=coins.length-1;ci>=0;ci--){
   if(!coins[ci].active)continue;
   var cdx=coins[ci].x-p.x,cdz=coins[ci].z-p.z;
-  if(cdx*cdx+cdz*cdz<4){coins[ci].active=false;if(p.coinCount<10)p.coinCount++;sndPickup();spawnMemeText('+100 RIZZ',fxCanvas?fxCanvas.width/2+Math.random()*80-40:400,fxCanvas?fxCanvas.height*0.3:180,'#ffd700',32);
+  if(cdx*cdx+cdz*cdz<4){coins[ci].active=false;if(p.coinCount<10)p.coinCount++;sndPickup();
    for(var gp=0;gp<5;gp++)spawnP(p.x+(Math.random()-0.5),p.y+1,p.z+(Math.random()-0.5),(Math.random()-0.5)*2,3+Math.random()*3,(Math.random()-0.5)*2,1,0.85,0,500);}
  }
 
@@ -3073,9 +3067,6 @@ function loop(now){
    while(physicsAccumulator>=FIXED_TIMESTEP){
     updatePlayer(GS.racers[0],FIXED_TIMESTEP);
     for(var i=1;i<GS.racers.length;i++)updateBot(GS.racers[i],FIXED_TIMESTEP);
-    physicsAccumulator-=FIXED_TIMESTEP;
-   }
-   while(physicsAccumulator>=FIXED_TIMESTEP){
     var dtS2=FIXED_TIMESTEP/1000;
     for(var pi=projectiles.length-1;pi>=0;pi--){
      var pr=projectiles[pi];pr.life-=FIXED_TIMESTEP;pr.x+=pr.dx*dtS2;pr.z+=pr.dz*dtS2;
@@ -3094,6 +3085,7 @@ function loop(now){
     updateFloatTexts(FIXED_TIMESTEP);
     if(GS.shake.decay>0){GS.shake.decay-=FIXED_TIMESTEP;if(GS.shake.decay<=0){GS.shake.x=0;GS.shake.y=0;GS.shake.decay=0;}}
     if(GS.fovTimer>0){GS.fovTimer-=FIXED_TIMESTEP;if(GS.fovTimer<=0)GS.fovTarget=65;}
+    physicsAccumulator-=FIXED_TIMESTEP;
    }
    GS.fov+=(GS.fovTarget-GS.fov)*Math.min(1,dt*0.006);
 
