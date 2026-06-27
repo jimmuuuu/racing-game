@@ -229,43 +229,57 @@ var getCharColor=function(charIdx){var ch=CHARS[charIdx];var skinIdx=Math.floor(
 var DIFFS={Easy:0.80,Medium:0.92,Hard:1.0};
 
 /* Track centerline generators (X,Z in world units; Y elevation). Closed loops.
-   Each track is a non-self-intersecting closed polygon; Catmull-Rom STEP=12
-   interpolates between control points. ROADW=10 means 20-unit-wide road, so
-   any two non-adjacent segments must stay 25+ units apart in XZ. */
-function trkPts(fn,n){var p=[];for(var i=0;i<n;i++){p.push(fn(i/n*Math.PI*2,i/n))}return p}
+   Tracks are authored as CLOCKWISE polygons of corner points; polyTrack()
+   rounds each corner with radius R and fills straights with evenly spaced
+   points, producing real F1-style circuits (long straights + distinct
+   corners) instead of smooth ovals. Catmull-Rom STEP=12 then interpolates.
+   ROADW=10 => 20-unit road; the polygons keep parallel sections 100+ apart. */
+function polyTrack(verts,R,arcSteps,straightDensity,yFn){
+ arcSteps=arcSteps||5;straightDensity=straightDensity||55;yFn=yFn||function(){return 0;};
+ var n=verts.length,V=[];
+ for(var i=0;i<n;i++){
+  var prev=verts[(i-1+n)%n],curr=verts[i],next=verts[(i+1)%n];
+  var inDx=curr[0]-prev[0],inDz=curr[1]-prev[1];var inL=Math.hypot(inDx,inDz);inDx/=inL;inDz/=inL;
+  var outDx=next[0]-curr[0],outDz=next[1]-curr[1];var outL=Math.hypot(outDx,outDz);outDx/=outL;outDz/=outL;
+  var d=Math.acos(Math.max(-1,Math.min(1,inDx*outDx+inDz*outDz))); // deflection angle
+  var t=R*Math.tan(d/2),cDist=R/Math.cos(d/2);                     // tangent len, center dist
+  var toCx=outDx-inDx,toCz=outDz-inDz,toCL=Math.hypot(toCx,toCz);
+  if(toCL<1e-6){V.push(null);continue;}toCx/=toCL;toCz/=toCL;
+  var cx=curr[0]+toCx*cDist,cz=curr[1]+toCz*cDist;
+  var asx=curr[0]-inDx*t,asz=curr[1]-inDz*t,aex=curr[0]+outDx*t,aez=curr[1]+outDz*t;
+  var sA=Math.atan2(asz-cz,asx-cx),eA=Math.atan2(aez-cz,aex-cx);
+  var sweep=eA-sA;while(sweep<=-Math.PI)sweep+=Math.PI*2;while(sweep>Math.PI)sweep-=Math.PI*2;
+  V.push({cx:cx,cz:cz,aex:aex,aez:aez,asx:asx,asz:asz,sA:sA,sweep:sweep});
+ }
+ var totalLen=0;for(var i=0;i<n;i++){var a=verts[i],b=verts[(i+1)%n];totalLen+=Math.hypot(b[0]-a[0],b[1]-a[1]);}
+ var pts=[],run=0;
+ for(var i=0;i<n;i++){
+  var cur=V[i],nxt=V[(i+1)%n];if(!cur||!nxt)continue;
+  var sx=nxt.asx-cur.aex,sz=nxt.asz-cur.aez,sLen=Math.hypot(sx,sz);
+  var nSeg=Math.max(1,Math.round(sLen/straightDensity));
+  for(var s=0;s<=nSeg;s++){var f=run/totalLen;pts.push([cur.aex+sx*s/nSeg,yFn(f),cur.aez+sz*s/nSeg]);run+=sLen/nSeg;}
+  for(var k=1;k<=arcSteps;k++){var ang=nxt.sA+nxt.sweep*k/arcSteps;var f2=run/totalLen;pts.push([nxt.cx+Math.cos(ang)*R,yFn(f2),nxt.cz+Math.sin(ang)*R]);run+=Math.abs(nxt.sweep)*R/arcSteps;}
+ }
+ var out=[];for(var i=0;i<pts.length;i++){var p=pts[i],q=out[out.length-1];if(!q||Math.hypot(p[0]-q[0],p[2]-q[2])>2)out.push(p);}
+ while(out.length>3&&Math.hypot(out[0][0]-out[out.length-1][0],out[0][2]-out[out.length-1][2])<3)out.pop();
+ return out;
+}
 var TRACKS=[
- {name:'Skibidi Speedway',desc:'High-speed stadium oval with long straights',
+ {name:'Skibidi Speedway',desc:'Sweeping countryside circuit — long straights & fast corners',
   sky:[0.15,0.55,0.95],skyBot:[0.65,0.85,0.98],grass:[0.22,0.65,0.22],road:[0.48,0.48,0.48],roadDark:[0.38,0.38,0.38],rumble:[0.95,0.1,0.1],tree:[0.20,0.60,0.20],fog:[0.55,0.75,0.92],
-  pts:trkPts(function(a){
-   return [Math.cos(a)*250,0,Math.sin(a)*150];
-  },40)},
- {name:'Rizz Beach',desc:'Coastal teardrop with tight hairpin end',
+  pts:polyTrack([[0,0],[500,0],[600,200],[500,500],[100,500],[-50,200]],110,5,55)},
+ {name:'Rizz Beach',desc:'Long coastal blast with a tight stadium section',
   sky:[0.35,0.72,0.98],skyBot:[0.85,0.95,1.0],grass:[0.86,0.78,0.52],road:[0.46,0.46,0.48],roadDark:[0.36,0.36,0.38],rumble:[1.0,0.55,0.15],tree:[0.18,0.55,0.30],fog:[0.70,0.88,0.95],
-  pts:trkPts(function(a){
-   var r=165+35*Math.cos(a);
-   return [Math.cos(a)*r*1.3,0,Math.sin(a)*r];
-  },44)},
- {name:'Maple Heights',desc:'Triangular neighborhood circuit',
+  pts:polyTrack([[0,0],[700,0],[760,160],[700,320],[0,320],[-60,160]],110,5,55)},
+ {name:'Maple Heights',desc:'Flat-out speedway — two huge straights',
   sky:[0.45,0.68,0.92],skyBot:[0.82,0.90,0.98],grass:[0.35,0.62,0.30],road:[0.44,0.44,0.46],roadDark:[0.34,0.34,0.36],rumble:[0.90,0.90,0.95],tree:[0.22,0.58,0.26],fog:[0.68,0.80,0.92],
-  pts:trkPts(function(a){
-   var r=180+35*Math.cos(3*a);
-   return [Math.cos(a)*r,0,Math.sin(a)*r];
-  },48)},
- {name:'Neon City',desc:'L-shaped night street circuit',
+  pts:polyTrack([[0,0],[850,0],[850,320],[0,320]],110,5,50)},
+ {name:'Neon City',desc:'Angular night street circuit — eight corners',
   sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.12,0.22,0.12],road:[0.25,0.25,0.3],roadDark:[0.18,0.18,0.22],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],fog:[0.10,0.06,0.18],
-  pts:trkPts(function(a){
-   var extra=0;
-   if(a>0.8&&a<2.3)extra=80*Math.sin((a-0.8)/1.5*Math.PI);
-   var r=130+extra+20*Math.cos(2*a);
-   return [Math.cos(a)*r*1.2,0,Math.sin(a)*r];
-  },48)},
- {name:'Dragon Peak',desc:'Mountain circuit with summit climb',
+  pts:polyTrack([[150,0],[420,0],[570,140],[570,360],[420,500],[150,500],[0,360],[0,140]],110,5,55)},
+ {name:'Dragon Peak',desc:'Mountain pentagon with a big climb & plunge',
   sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],roadDark:[0.30,0.30,0.35],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],fog:[0.65,0.78,0.92],
-  pts:trkPts(function(a){
-   var r=200+20*Math.cos(5*a)+25*Math.cos(a);
-   var y=Math.max(0,30*Math.sin(a)+15*Math.sin(2*a));
-   return [Math.cos(a)*r*1.1,y,Math.sin(a)*r];
-  },48)}
+  pts:polyTrack([[0,0],[560,0],[720,320],[340,560],[-120,320]],110,5,55,function(f){return Math.max(0,38*Math.sin(f*Math.PI));})}
 ];
 
 var ROADW=10; // road half width
