@@ -295,10 +295,14 @@ try{ gl=canvas.getContext('webgl')||canvas.getContext('experimental-webgl'); }ca
 if(!gl){ fail('Could not create a WebGL context.'); }
 
 var DPR=Math.min(window.devicePixelRatio||1,1.5);
+var projMat=null;
 function resize(){
  var w=window.innerWidth||800,h=window.innerHeight||600;
  canvas.style.width=w+'px';canvas.style.height=h+'px';
  canvas.width=Math.floor(w*DPR);canvas.height=Math.floor(h*DPR);
+ if(gl){gl.viewport(0,0,canvas.width,canvas.height);projMat=null;}
+ var fxc=document.getElementById('fxcanvas');
+ if(fxc){fxc.width=canvas.width;fxc.height=canvas.height;}
 }
 window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',resize);
@@ -2166,12 +2170,13 @@ var audioCtx=null,masterGain=null,sfxGain=null,musicGain=null,audioMuted=false,e
 var _driftThrottle=0;
 function initAudio(){
  try{
-  if(audioCtx)return;
+  if(audioCtx){if(audioCtx.state==='suspended')audioCtx.resume();return;}
   audioCtx=new (window.AudioContext||window.webkitAudioContext)();
   masterGain=audioCtx.createGain();masterGain.connect(audioCtx.destination);
   sfxGain=audioCtx.createGain();sfxGain.gain.value=0.5;sfxGain.connect(masterGain);
   musicGain=audioCtx.createGain();musicGain.gain.value=0.25;musicGain.connect(masterGain);
   var m=localStorage.getItem('brr_muted');if(m==='1'){audioMuted=true;masterGain.gain.value=0;document.getElementById('muteBtn').textContent='🔇';}
+  if(audioCtx.state==='suspended')audioCtx.resume();
  }catch(e){}
 }
 document.addEventListener('click',initAudio,{once:true});
@@ -2294,12 +2299,15 @@ document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='p'&&GS
 setupT('ttaunt','taunt');
 var _tauntTouchCheck=false;
 
+var racerIndices={};
 function nearestIndex(x,z,hint){
  var n=CL.length;if(!n)return 0;
- if(hint!==undefined&&hint>=0&&hint<n){
-  var best=hint,bd=1e9;
-  var lo=(hint-12+n)%n;
-  for(var k=0;k<25;k++){
+ var searchHint=hint;if(searchHint===undefined||searchHint<0||searchHint>=n)searchHint=null;
+ if(searchHint!==null){
+  var best=searchHint,bd=1e9;
+  var windowSize=30;
+  var lo=(searchHint-windowSize+n)%n;
+  for(var k=0;k<windowSize*2;k++){
    var i=(lo+k)%n;var dx=CL[i].x-x,dz=CL[i].z-z;var d=dx*dx+dz*dz;
    if(d<bd){bd=d;best=i;}
   }
@@ -2483,11 +2491,11 @@ function show(id){
   document.getElementById(s).classList.toggle('active',s===id);
  });
 }
-function goMenu(){GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();}
-function goCharSel(){GS.scr='char';buildCharGrid();show('char-screen');}
-function goTrackSel(){GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';}
-function goSettings(){GS.scr='settings';updateSettingsDisplay();show('settings-screen');}
-function goTutorial(){GS.scr='tutorial';show('tutorial-screen');}
+function goMenu(){initAudio();GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();}
+function goCharSel(){initAudio();GS.scr='char';buildCharGrid();show('char-screen');}
+function goTrackSel(){initAudio();GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';}
+function goSettings(){initAudio();GS.scr='settings';updateSettingsDisplay();show('settings-screen');}
+function goTutorial(){initAudio();GS.scr='tutorial';show('tutorial-screen');}
 function updateSettingsDisplay(){
  var audioState=audioMuted?'OFF':'ON';
  document.getElementById('sb-audio').textContent=audioState;
@@ -2528,6 +2536,7 @@ function buildTrackGrid(){
 }
 
 function startRace(){
+ initAudio();
  if(!gl){fail('WebGL unavailable.');return;}
  GS.scr='race';GS.started=false;GS.raceTime=0;GS.finishOrder=[];
  show(null);
@@ -2633,7 +2642,7 @@ function saveToLeaderboard(){
  if(lb[key].length>10)lb[key]=lb[key].slice(0,10);
  saveLB(lb);
 }
-function goLeaderboard(){GS.scr='lb';lbTrackIdx=0;showLeaderboard();show('leaderboard-screen');}
+function goLeaderboard(){initAudio();GS.scr='lb';lbTrackIdx=0;showLeaderboard();show('leaderboard-screen');}
 function showLeaderboard(){
  var tname=TRACKS[lbTrackIdx].name;
  document.getElementById('lb-trackname').textContent=tname+' ('+GS.diff+')';
@@ -2700,8 +2709,8 @@ function updatePlayer(p,dt){
  else if(brk)p.speed-=accel*1.2*dtS;
  else p.speed-=18*dtS;
 
- // off-road
  var ni=nearestIndex(p.x,p.z,p.idx);
+ p.idx=ni;
  var c=CL[ni];
  var dx=p.x-c.x,dz=p.z-c.z;var lateral=dx*c.px+dz*c.pz;
  var absLateral=Math.abs(lateral);
@@ -2982,9 +2991,16 @@ function computePositions(){
 
 /* ===================== MAIN LOOP ===================== */
 var lastT=0,fpsAccum=0,fpsCount=0,frameDt=16;
+var physicsAccumulator=0;
+var FIXED_TIMESTEP=1000/60;
+var MAX_FRAME_DELTA=250;
 function loop(now){
  if(!running)return;
- var dt=now-lastT;lastT=now;if(dt>50)dt=50;if(dt<0)dt=0;frameDt=dt;
+ var dt=now-lastT;lastT=now;
+ if(dt<0)dt=0;
+ if(dt>MAX_FRAME_DELTA)dt=MAX_FRAME_DELTA;
+ frameDt=dt;
+ physicsAccumulator+=dt;
  if(GS.scr==='race'){
   // countdown
   if(!GS.started){
@@ -3009,33 +3025,31 @@ function loop(now){
    }
   } else {
    GS.raceTime+=dt;
-   updatePlayer(GS.racers[0],dt);
-   for(var i=1;i<GS.racers.length;i++)updateBot(GS.racers[i],dt);
-   // update projectiles
-   var dtS2=dt/1000;
-   for(var pi=projectiles.length-1;pi>=0;pi--){
-    var pr=projectiles[pi];pr.life-=dt;pr.x+=pr.dx*dtS2;pr.z+=pr.dz*dtS2;
-    var pni=nearestIndex(pr.x,pr.z);if(CL[pni])pr.y=CL[pni].y+0.6;
-    if(pr.life<=0){projectiles.splice(pi,1);continue;}
-    // hit racers
-    for(var ri=0;ri<GS.racers.length;ri++){
-     if(ri===pr.owner)continue;var rr=GS.racers[ri];
-     var pdx=rr.x-pr.x,pdz=rr.z-pr.z;
-     if(pdx*pdx+pdz*pdz<5){spinoutRacer(rr);projectiles.splice(pi,1);break;}
-    }
+   while(physicsAccumulator>=FIXED_TIMESTEP){
+    updatePlayer(GS.racers[0],FIXED_TIMESTEP);
+    for(var i=1;i<GS.racers.length;i++)updateBot(GS.racers[i],FIXED_TIMESTEP);
+    physicsAccumulator-=FIXED_TIMESTEP;
    }
-   // respawn item boxes
-   for(var ib=0;ib<itemBoxes.length;ib++){if(!itemBoxes[ib].active){itemBoxes[ib].timer-=dt;if(itemBoxes[ib].timer<=0)itemBoxes[ib].active=true;}}
-   // periodically prune dead hazards and inactive dropped coins
-   if(hazards.length>20){for(var _h=hazards.length-1;_h>=0;_h--){if(!hazards[_h].active)hazards.splice(_h,1);}}
-   if(coins.length>200){for(var _c=coins.length-1;_c>=0;_c--){if(!coins[_c].active)coins.splice(_c,1);}}
-   updateParticles(dt);
-   updateFloatTexts(dt);
-
-   // shake decay
-   if(GS.shake.decay>0){GS.shake.decay-=dt;if(GS.shake.decay<=0){GS.shake.x=0;GS.shake.y=0;GS.shake.decay=0;}}
-   // FOV lerp
-   if(GS.fovTimer>0){GS.fovTimer-=dt;if(GS.fovTimer<=0)GS.fovTarget=65;}
+   while(physicsAccumulator>=FIXED_TIMESTEP){
+    var dtS2=FIXED_TIMESTEP/1000;
+    for(var pi=projectiles.length-1;pi>=0;pi--){
+     var pr=projectiles[pi];pr.life-=FIXED_TIMESTEP;pr.x+=pr.dx*dtS2;pr.z+=pr.dz*dtS2;
+     var pni=nearestIndex(pr.x,pr.z,pr.lastIdx);pr.lastIdx=pni;if(CL[pni])pr.y=CL[pni].y+0.6;
+     if(pr.life<=0){projectiles.splice(pi,1);continue;}
+     for(var ri=0;ri<GS.racers.length;ri++){
+      if(ri===pr.owner)continue;var rr=GS.racers[ri];
+      var pdx=rr.x-pr.x,pdz=rr.z-pr.z;
+      if(pdx*pdx+pdz*pdz<5){spinoutRacer(rr);projectiles.splice(pi,1);break;}
+     }
+    }
+    for(var ib=0;ib<itemBoxes.length;ib++){if(!itemBoxes[ib].active){itemBoxes[ib].timer-=FIXED_TIMESTEP;if(itemBoxes[ib].timer<=0)itemBoxes[ib].active=true;}}
+    if(hazards.length>20){for(var _h=hazards.length-1;_h>=0;_h--){if(!hazards[_h].active)hazards.splice(_h,1);}}
+    if(coins.length>200){for(var _c=coins.length-1;_c>=0;_c--){if(!coins[_c].active)coins.splice(_c,1);}}
+    updateParticles(FIXED_TIMESTEP);
+    updateFloatTexts(FIXED_TIMESTEP);
+    if(GS.shake.decay>0){GS.shake.decay-=FIXED_TIMESTEP;if(GS.shake.decay<=0){GS.shake.x=0;GS.shake.y=0;GS.shake.decay=0;}}
+    if(GS.fovTimer>0){GS.fovTimer-=FIXED_TIMESTEP;if(GS.fovTimer<=0)GS.fovTarget=65;}
+   }
    GS.fov+=(GS.fovTarget-GS.fov)*Math.min(1,dt*0.006);
 
    // Announcer: overtake/passed detection
