@@ -2458,7 +2458,9 @@ function makeRacer(chIdx,isPlayer,startSlot){
  var c=CL[0];
  // place near start line, offset to side by slot
  var off=(startSlot-1.5)*3;
+ var ph=charPhysics(chIdx);
  return {chIdx:chIdx,isPlayer:isPlayer,
+  maxSpeedBase:ph.maxSpeed,accelBase:ph.accel,turnBase:ph.turn,driftMul:ph.driftMul,
   x:c.x+c.px*off,y:c.y+0.0,z:c.z+c.pz*off,heading:Math.atan2(c.dx,c.dz),
   speed:0,idx:0,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
@@ -2621,7 +2623,7 @@ function show(id){
  });
 }
 function goMenu(){GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();}
-function goCharSel(){GS.scr='char';buildCharGrid();show('char-screen');}
+function goCharSel(){GS.scr='char';buildCharGrid();show('char-screen');startCharPreviewSpin();}
 function goTrackSel(){GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';}
 function goSettings(){GS.scr='settings';updateSettingsDisplay();show('settings-screen');}
 function goTutorial(){GS.scr='tutorial';show('tutorial-screen');}
@@ -2648,6 +2650,67 @@ var CHAR_INFO=[
  {flavor:'Explosive launch — rockets out of every hairpin and item box.',stats:[71,93,66,73]},
  {flavor:'Drift royalty — the longest boosts when you nail the slide.',stats:[73,67,71,95]}
 ];
+/* Map display stats -> real driving physics so each racer truly differs */
+function charPhysics(i){
+ var st=(CHAR_INFO[i]||{stats:[74,74,74,74]}).stats;
+ return {maxSpeed:38+st[0]*0.11, accel:26+st[1]*0.11, turn:1.9+st[2]*0.0045, driftMul:0.85+st[3]*0.0035};
+}
+/* Render the real in-game 3D kart model into an offscreen canvas via the main GL context */
+function ensureKartMeshes(){ if(gl&&!kartBody){ try{buildRaceMeshes();}catch(e){} } }
+function renderKartModel(chIdx,W,H,angle){
+ if(!gl||!kartBody)return null;
+ try{
+  var fake={chIdx:chIdx,x:0,y:0,z:0,heading:angle,wheelRoll:0,speed:0,isPlayer:false,boostTimer:0,driftActive:false,spinTimer:0,invTimer:0};
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(0,0,W,H);
+  gl.enable(gl.SCISSOR_TEST);gl.scissor(0,0,W,H);
+  gl.clearColor(0,0,0,0);gl.enable(gl.DEPTH_TEST);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(prog);
+  var proj=M.perspective(33*Math.PI/180,W/H,0.1,100);
+  var eye=[3.7,2.35,4.7];
+  var view=M.lookAt(eye,[0,0.55,0],[0,1,0]);
+  gl.uniformMatrix4fv(L.uProj,false,proj);
+  gl.uniformMatrix4fv(L.uView,false,view);
+  gl.uniform3fv(L.uLightDir,V.norm([0.5,1.0,0.65]));
+  if(L.uFogColor)gl.uniform3fv(L.uFogColor,[0.05,0.06,0.09]);
+  if(L.uFogNear)gl.uniform1f(L.uFogNear,900.0);
+  if(L.uFogFar)gl.uniform1f(L.uFogFar,1000.0);
+  drawKart(fake);
+  gl.disable(gl.SCISSOR_TEST);
+  var pix=new Uint8Array(W*H*4);
+  gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,pix);
+  var tmp=document.createElement('canvas');tmp.width=W;tmp.height=H;var tc=tmp.getContext('2d');
+  var img=tc.createImageData(W,H);
+  for(var y=0;y<H;y++){var s=(H-1-y)*W*4,d=y*W*4;for(var x=0;x<W*4;x++)img.data[d+x]=pix[s+x];}
+  tc.putImageData(img,0,0);
+  return tmp;
+ }catch(e){return null;}
+}
+/* Draw the kart model + backdrop onto the visible preview canvas (no DOM/stat updates) */
+function redrawCharModel(i){
+ var cv=document.getElementById('charCanvas');if(!cv)return;
+ var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+ var bg=ctx.createRadialGradient(W/2,H*0.40,20,W/2,H*0.55,W*0.78);
+ bg.addColorStop(0,'#1b2334');bg.addColorStop(1,'#0a0d15');
+ ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(W/2,H*0.80,W*0.30,15,0,0,Math.PI*2);ctx.fill();
+ ensureKartMeshes();
+ var model=renderKartModel(i,W,H,GS.previewAngle||0.7);
+ if(model)ctx.drawImage(model,0,0);
+ else{var sk=getCharColor(i);drawKartPreview(ctx,W,H,sk.col,sk.dark);}
+}
+var _charSpinTimer=null;
+function startCharPreviewSpin(){
+ stopCharPreviewSpin();
+ if(GS.previewAngle==null)GS.previewAngle=0.7;
+ _charSpinTimer=setInterval(function(){
+  if(GS.scr!=='char'){stopCharPreviewSpin();return;}
+  GS.previewAngle+=0.025;
+  redrawCharModel(GS.selChar);
+ },45);
+}
+function stopCharPreviewSpin(){if(_charSpinTimer){clearInterval(_charSpinTimer);_charSpinTimer=null;}}
 function drawKartPreview(ctx,W,H,col,dark){
  ctx.clearRect(0,0,W,H);
  var bg=ctx.createRadialGradient(W/2,H*0.42,20,W/2,H*0.55,W*0.75);
@@ -2693,8 +2756,7 @@ function drawKartPreview(ctx,W,H,col,dark){
 }
 function renderCharPreview(i){
  var cv=document.getElementById('charCanvas');if(!cv)return;
- var skin=getCharColor(i);
- drawKartPreview(cv.getContext('2d'),cv.width,cv.height,skin.col,skin.dark);
+ redrawCharModel(i);
  var info=CHAR_INFO[i]||{flavor:'',stats:[70,70,70,70]};
  document.getElementById('cpvName').textContent=CHARS[i].name;
  document.getElementById('cpvDesc').textContent=info.flavor;
@@ -2924,7 +2986,7 @@ function updatePlayer(p,dt){
  if(p.stallTimer>0){p.stallTimer-=dt;p.speed*=Math.pow(0.1,dtS);
   var ni3=nearestIndex(p.x,p.z,p.idx);p.y=CL[ni3].y;advanceProgress(p,ni3);return;}
 
- var maxSpeed=46, accel=34, MAXTURN=2.2;
+ var maxSpeed=p.maxSpeedBase, accel=p.accelBase, MAXTURN=p.turnBase;
 
  // coin speed bonus
  maxSpeed+=Math.min(p.coinCount,10)*0.4;
@@ -2981,7 +3043,7 @@ function updatePlayer(p,dt){
     p.driftCombo++;
     p.driftComboTimer=2000;
     var comboMult=1+p.driftCombo*0.15;
-    var basePower=stage2===1?12:22;
+    var basePower=(stage2===1?12:22)*p.driftMul;
     p.boostTimer=stage2===1?600:1200;
     p.boostPower=basePower*comboMult;
     var beepFreq=(stage2===1?660:990)+p.driftCombo*44;
@@ -3117,7 +3179,7 @@ function updateBot(b,dt){
   var ni2=nearestIndex(b.x,b.z,b.idx);b.y=CL[ni2].y;advanceProgress(b,ni2);return;}
  if(b.invTimer>0)b.invTimer-=dt;
  var speedMul=DIFFS[GS.diff];
- var maxSpeed=46*speedMul*(0.93+(b.slot%3)*0.02);
+ var maxSpeed=b.maxSpeedBase*speedMul*(0.93+(b.slot%3)*0.02);
 
  // TIER 4: Rubber-banding
  var playerPlace=GS.racers[0].place||1, botPlace=b.place||2;
@@ -3147,9 +3209,10 @@ function updateBot(b,dt){
  var diff=desired-b.heading;
  while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
  var turn=diff*4*dtS;
- b.heading+=Math.max(-2.6*dtS,Math.min(2.6*dtS,turn));
+ var btc=(b.turnBase+0.4)*dtS;
+ b.heading+=Math.max(-btc,Math.min(btc,turn));
  if(b.boostTimer>0){b.boostTimer-=dt;maxSpeed+=b.boostPower;}
- b.speed+=30*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
+ b.speed+=(b.accelBase*0.9)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
  if(b.speed<0)b.speed=0;
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
