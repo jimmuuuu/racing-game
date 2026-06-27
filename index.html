@@ -776,7 +776,10 @@ function buildRaceMeshes(){
  var MARGIN=150;
  minX-=MARGIN;maxX+=MARGIN;minZ-=MARGIN;maxZ+=MARGIN;
  var baseY=minY-10;
- var GN=110;                                  // grid cells per axis (finer = smoother hills, less poke-through)
+ // grid cells per axis (finer = smoother hills, less poke-through). Scale the
+ // count with track extent so cell size stays ~7 units regardless of how big
+ // the circuit is — keeps the flush road corridor crisp on large tracks.
+ var GN=Math.max(110,Math.min(190,Math.ceil(Math.max(maxX-minX,maxZ-minZ)/7)));
  var gwx=(maxX-minX)/GN, gwz=(maxZ-minZ)/GN;
  var Hgt=new Float32Array((GN+1)*(GN+1));
  // lake basins: carve smooth depressions into the terrain away from the road,
