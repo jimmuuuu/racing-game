@@ -69,62 +69,79 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 #buildver{position:fixed;bottom:4px;left:4px;color:rgba(255,255,255,.55);font-size:11px;z-index:98;pointer-events:none;font-family:monospace}
 
 /* ===================== UI 2.0 — POLISH LAYER ===================== */
-/* Animated neon backdrop shared by all menu screens */
-.screen{position:relative;background:linear-gradient(135deg,#0a0014 0%,#11042b 35%,#1a0a36 65%,#08010f 100%);overflow-x:hidden}
-.screen::before{content:'';position:absolute;inset:-40%;z-index:0;pointer-events:none;
- background:radial-gradient(circle at 25% 25%,rgba(255,0,140,.30),transparent 45%),radial-gradient(circle at 78% 70%,rgba(0,190,255,.28),transparent 45%),radial-gradient(circle at 60% 15%,rgba(150,60,255,.22),transparent 50%);
- animation:auroraDrift 16s ease-in-out infinite alternate;filter:blur(8px)}
-.screen::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5;
- background-image:linear-gradient(rgba(120,200,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(120,200,255,.07) 1px,transparent 1px);
- background-size:44px 44px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%);
- animation:gridScroll 20s linear infinite}
-@keyframes auroraDrift{0%{transform:translate(-4%,-2%) scale(1)}50%{transform:translate(3%,2%) scale(1.08)}100%{transform:translate(2%,-3%) scale(1.04)}}
-@keyframes gridScroll{0%{background-position:0 0,0 0}100%{background-position:44px 44px,44px 44px}}
+/* Refined dark theme — single teal accent, low chroma */
+html,body{background:#070910}
+.screen{position:relative;overflow-x:hidden;color:#e8edf4;background:radial-gradient(ellipse 120% 85% at 50% -15%,#161d2b 0%,#0b0e16 55%,#070910 100%)}
+.screen::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.4;
+ background-image:linear-gradient(rgba(120,150,200,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,150,200,.05) 1px,transparent 1px);
+ background-size:46px 46px;mask-image:radial-gradient(ellipse at 50% 35%,#000 25%,transparent 80%);-webkit-mask-image:radial-gradient(ellipse at 50% 35%,#000 25%,transparent 80%)}
 .screen>*{position:relative;z-index:1}
-/* Staggered entrance for the active screen's children */
-.screen.active>*{animation:riseIn .55s cubic-bezier(.2,.7,.2,1) backwards}
-.screen.active>*:nth-child(1){animation-delay:.02s}.screen.active>*:nth-child(2){animation-delay:.09s}
-.screen.active>*:nth-child(3){animation-delay:.16s}.screen.active>*:nth-child(4){animation-delay:.23s}
-.screen.active>*:nth-child(5){animation-delay:.30s}.screen.active>*:nth-child(6){animation-delay:.37s}
-@keyframes riseIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
-/* Title — animated neon pulse */
-.title{animation:titlePulse 3.2s ease-in-out infinite}
-@keyframes titlePulse{0%,100%{text-shadow:0 0 18px #f0f,0 0 36px #0ff,3px 3px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000}50%{text-shadow:0 0 30px #f0f,0 0 60px #0ff,0 0 90px rgba(255,0,255,.5),3px 3px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000}}
-.subtitle{text-shadow:0 0 12px rgba(255,255,0,.5);font-weight:700;letter-spacing:1px}
-/* Buttons — glassy with animated shine sweep */
-.btn{position:relative;overflow:hidden;min-width:210px;border-radius:14px;backdrop-filter:blur(2px);transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,filter .18s ease}
-.btn::after{content:'';position:absolute;top:0;left:-130%;width:60%;height:100%;background:linear-gradient(110deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);transition:left .6s ease}
-.btn:hover{transform:translateY(-3px) scale(1.03);filter:brightness(1.1)}
-.btn:hover::after{left:140%}
-.btn:focus-visible{outline:2px solid #0ff;outline-offset:3px}
-/* Cards — glass + lift */
-.char-card,.track-card{background:rgba(255,255,255,.05);backdrop-filter:blur(3px);transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .22s ease,box-shadow .22s ease,background .22s ease}
-.char-card:hover,.track-card:hover{transform:translateY(-4px) scale(1.03)}
-.char-card.sel,.track-card.sel{transform:translateY(-2px) scale(1.04)}
-.dbtn{transition:transform .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease}
-.dbtn:hover{transform:translateY(-2px);border-color:#0f0}
+.screen.active>*{animation:riseIn .5s cubic-bezier(.2,.7,.2,1) backwards}
+.screen.active>*:nth-child(2){animation-delay:.06s}.screen.active>*:nth-child(3){animation-delay:.12s}
+.screen.active>*:nth-child(4){animation-delay:.18s}.screen.active>*:nth-child(5){animation-delay:.24s}
+.screen.active>*:nth-child(6){animation-delay:.30s}.screen.active>*:nth-child(7){animation-delay:.36s}
+@keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+/* Title — clean, subtle teal glow (no rainbow) */
+.title{color:#f3f6fb;text-shadow:0 2px 20px rgba(47,224,201,.28),0 1px 0 rgba(0,0,0,.6);letter-spacing:1px}
+.subtitle{color:#8a93a6;text-shadow:none;font-weight:600;letter-spacing:2px;text-transform:uppercase;font-size:clamp(11px,2vw,15px)}
+/* Buttons — unified neutral glass, teal on hover */
+.btn{background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));color:#e8edf4;border:1px solid rgba(255,255,255,.12);
+ min-width:220px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.35);position:relative;overflow:hidden;text-transform:uppercase;letter-spacing:1px;font-weight:700;
+ transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
+.btn:hover{transform:translateY(-2px);border-color:rgba(47,224,201,.6);background:linear-gradient(180deg,rgba(47,224,201,.14),rgba(47,224,201,.04));box-shadow:0 8px 26px rgba(0,0,0,.45),0 0 0 1px rgba(47,224,201,.25) inset}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible{outline:2px solid #2fe0c9;outline-offset:3px}
+.btn.cta{background:linear-gradient(180deg,#2fe0c9,#15b9a3);color:#04201b;border-color:transparent;font-weight:800;box-shadow:0 8px 24px rgba(47,224,201,.3)}
+.btn.cta:hover{background:linear-gradient(180deg,#46ecd6,#1cc7b0);box-shadow:0 10px 30px rgba(47,224,201,.45)}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.16);color:#aab2c2;box-shadow:none;min-width:120px}
+.btn.ghost:hover{color:#fff;border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.05)}
+/* Master-detail selection layout */
+.panel-head{display:flex;flex-direction:column;align-items:center;gap:5px;margin-bottom:14px}
+.step-tag{font-size:11px;letter-spacing:3px;color:#2fe0c9;text-transform:uppercase;font-weight:700}
+.select-layout{display:flex;gap:16px;width:100%;max-width:880px;justify-content:center;align-items:stretch;flex-wrap:wrap}
+.select-list{display:flex;flex-direction:column;gap:8px;width:248px;flex:0 0 auto}
+@media(max-width:560px){.select-list{width:100%;flex-direction:row;flex-wrap:wrap;justify-content:center}}
+.sel-item{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:12px;cursor:pointer;color:#cfd6e2;
+ background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);transition:border-color .16s,background .16s,transform .16s}
+.sel-item:hover{background:rgba(255,255,255,.07);transform:translateX(3px)}
+.sel-item.active{border-color:#2fe0c9;background:rgba(47,224,201,.1);color:#fff;box-shadow:0 0 0 1px rgba(47,224,201,.3) inset}
+.sel-item .chip{width:26px;height:26px;border-radius:7px;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.sel-item .lbl{font-size:13px;font-weight:600;line-height:1.15;text-align:left}
+.preview-card{flex:1 1 320px;max-width:430px;min-width:280px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:16px;display:flex;flex-direction:column;align-items:center;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.preview-card canvas{width:100%;height:auto;border-radius:12px;background:#0a0d15;display:block}
+.pv-name{font-family:'Arial Black','Impact',sans-serif;font-size:clamp(18px,3.4vw,26px);color:#fff;margin:12px 0 2px;text-align:center;letter-spacing:.5px}
+.pv-desc{font-size:12px;color:#8a93a6;text-align:center;line-height:1.5;margin-bottom:10px;min-height:34px}
+.pv-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:4px}
+.pv-tag{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#2fe0c9;border:1px solid rgba(47,224,201,.4);border-radius:20px;padding:3px 10px;font-weight:700}
+.pv-stats{width:100%;display:flex;flex-direction:column;gap:7px;margin-top:2px}
+.stat{display:flex;align-items:center;gap:10px}
+.stat .sl{width:66px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#828b9c;text-align:right;flex:0 0 auto}
+.stat .sbar{flex:1;height:7px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}
+.stat .sfill{height:100%;border-radius:6px;background:linear-gradient(90deg,#2fe0c9,#3a8fff);transition:width .3s ease}
+.nav-row{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+.diff-row{gap:8px}
+.dbtn{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:#cfd6e2;transition:border-color .15s,color .15s,background .15s}
+.dbtn:hover{border-color:rgba(47,224,201,.5)}
+.dbtn.sel{border-color:#2fe0c9;color:#04201b;background:#2fe0c9;box-shadow:0 0 14px rgba(47,224,201,.4)}
 
 /* ===================== LOADING SCREEN ===================== */
-#loader{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;
- background:radial-gradient(circle at 50% 35%,#1a0a36,#08010f 70%);transition:opacity .6s ease,visibility .6s ease}
+#loader{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;
+ background:radial-gradient(ellipse 120% 85% at 50% 30%,#141b29,#070910 65%);transition:opacity .55s ease,visibility .55s ease}
 #loader.done{opacity:0;visibility:hidden}
-#loader .lgrid{position:absolute;inset:0;opacity:.35;
- background-image:linear-gradient(rgba(120,200,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(120,200,255,.08) 1px,transparent 1px);
- background-size:50px 50px;mask-image:radial-gradient(ellipse at center,#000 25%,transparent 70%);-webkit-mask-image:radial-gradient(ellipse at center,#000 25%,transparent 70%);
- animation:gridScroll 18s linear infinite}
-#loader .lglow{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(255,0,140,.25),transparent 55%),radial-gradient(circle at 50% 60%,rgba(0,190,255,.2),transparent 60%);animation:auroraDrift 12s ease-in-out infinite alternate;filter:blur(10px)}
-#loader .lcontent{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:min(86vw,460px);text-align:center}
-#loader .ltitle{font-family:'Arial Black','Impact',sans-serif;font-weight:900;font-size:clamp(30px,8vw,64px);letter-spacing:2px;color:#fff;line-height:.95;
- text-shadow:0 0 20px #f0f,0 0 42px #0ff,3px 3px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;animation:titlePulse 3s ease-in-out infinite}
-#loader .ltitle span{display:block;background:linear-gradient(90deg,#ff006e,#00b4d8,#ff006e);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:none;animation:hueShift 4s linear infinite}
-@keyframes hueShift{to{background-position:200% center}}
-#loader .lsub{margin-top:6px;color:#ff0;font-size:clamp(11px,2.6vw,16px);letter-spacing:3px;font-weight:700;text-shadow:0 0 10px rgba(255,255,0,.4)}
-#loader .lring{margin:26px 0 20px;width:54px;height:54px;border-radius:50%;border:4px solid rgba(255,255,255,.12);border-top-color:#0ff;border-right-color:#f0f;animation:lspin .8s linear infinite;box-shadow:0 0 24px rgba(0,255,255,.35)}
+#loader .lgrid{position:absolute;inset:0;opacity:.3;
+ background-image:linear-gradient(rgba(120,150,200,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(120,150,200,.06) 1px,transparent 1px);
+ background-size:50px 50px;mask-image:radial-gradient(ellipse at center,#000 25%,transparent 72%);-webkit-mask-image:radial-gradient(ellipse at center,#000 25%,transparent 72%)}
+#loader .lglow{position:absolute;inset:0;background:radial-gradient(circle at 50% 42%,rgba(47,224,201,.14),transparent 55%);filter:blur(8px)}
+#loader .lcontent{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:min(86vw,440px);text-align:center}
+#loader .ltitle{font-family:'Arial Black','Impact',sans-serif;font-weight:900;font-size:clamp(28px,7.5vw,58px);letter-spacing:1px;color:#f3f6fb;line-height:.96;text-shadow:0 2px 22px rgba(47,224,201,.3)}
+#loader .ltitle span{display:block;color:#2fe0c9;text-shadow:0 0 24px rgba(47,224,201,.5)}
+#loader .lsub{margin-top:8px;color:#828b9c;font-size:clamp(10px,2.4vw,14px);letter-spacing:4px;font-weight:700;text-transform:uppercase}
+#loader .lring{margin:28px 0 22px;width:48px;height:48px;border-radius:50%;border:3px solid rgba(255,255,255,.1);border-top-color:#2fe0c9;animation:lspin .8s linear infinite}
 @keyframes lspin{to{transform:rotate(360deg)}}
-#loader .ltrack{width:100%;height:12px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);overflow:hidden;box-shadow:inset 0 0 8px rgba(0,0,0,.5)}
-#loader .lfill{height:100%;width:0%;border-radius:8px;background:linear-gradient(90deg,#ff006e,#8338ec,#00b4d8);box-shadow:0 0 16px rgba(255,0,140,.7);transition:width .2s ease}
-#loader .lstatus{display:flex;justify-content:space-between;width:100%;margin-top:10px;font-family:monospace;font-size:clamp(10px,2.4vw,13px);color:#9fd6ff}
-#loader .lstatus #loaderPct{color:#0ff;font-weight:700}
+#loader .ltrack{width:100%;height:8px;border-radius:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);overflow:hidden}
+#loader .lfill{height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,#2fe0c9,#3a8fff);box-shadow:0 0 14px rgba(47,224,201,.5);transition:width .2s ease}
+#loader .lstatus{display:flex;justify-content:space-between;width:100%;margin-top:10px;font-family:monospace;font-size:clamp(10px,2.3vw,13px);color:#828b9c}
+#loader .lstatus #loaderPct{color:#2fe0c9;font-weight:700}
 #tdrift{width:68px;height:68px;right:54px;bottom:110px;background:rgba(160,0,220,.32)}
 #titem{width:68px;height:68px;right:134px;bottom:110px;background:rgba(220,180,0,.32)}
 #hitem{display:inline-block;background:linear-gradient(180deg,rgba(20,20,30,.85),rgba(0,0,0,.75));color:#fff;padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;margin-left:6px;min-width:44px;text-align:center}
@@ -149,23 +166,51 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
  <div id="menu-screen" class="screen active">
   <div class="title">BRAINROT RACING</div>
   <div class="subtitle">TRUE 3D Skibidi Kart Action</div>
-  <button class="btn" onclick="GS.timeTrial=false;goCharSel()">START RACE</button>
-  <button class="btn" style="background:linear-gradient(135deg,#00b4d8,#0077b6)" onclick="GS.timeTrial=true;goCharSel()">TIME TRIAL</button>
-  <button class="btn" style="background:linear-gradient(135deg,#f9c74f,#f8961e);font-size:clamp(12px,2vw,16px)" onclick="goLeaderboard()">LEADERBOARD</button>
-  <button class="btn" style="background:linear-gradient(135deg,#6a4c93,#a74ba7);font-size:clamp(12px,2vw,16px)" onclick="goSettings()">SETTINGS</button>
-  <button class="btn" style="background:linear-gradient(135deg,#ff6b9d,#feca57);font-size:clamp(12px,2vw,16px)" onclick="goTutorial()">HOW TO PLAY</button>
+  <button class="btn cta" onclick="GS.timeTrial=false;goCharSel()">START RACE</button>
+  <button class="btn" onclick="GS.timeTrial=true;goCharSel()">TIME TRIAL</button>
+  <button class="btn" onclick="goLeaderboard()">LEADERBOARD</button>
+  <button class="btn" onclick="goSettings()">SETTINGS</button>
+  <button class="btn" onclick="goTutorial()">HOW TO PLAY</button>
  </div>
  <div id="char-screen" class="screen">
-  <div class="title" style="font-size:clamp(20px,3.5vw,36px)">CHOOSE RACER</div>
-  <div class="char-grid" id="cgrid"></div>
-  <button class="btn" onclick="goTrackSel()">NEXT</button>
+  <div class="panel-head">
+   <div class="title" style="font-size:clamp(20px,3.5vw,34px)">SELECT YOUR RACER</div>
+   <div class="step-tag">Step 1 · Choose a kart</div>
+  </div>
+  <div class="select-layout">
+   <div class="select-list" id="cgrid"></div>
+   <div class="preview-card">
+    <canvas id="charCanvas" width="400" height="240"></canvas>
+    <div class="pv-name" id="cpvName">—</div>
+    <div class="pv-desc" id="cpvDesc"></div>
+    <div class="pv-stats" id="cpvStats"></div>
+   </div>
+  </div>
+  <div class="nav-row">
+   <button class="btn ghost" onclick="goMenu()">BACK</button>
+   <button class="btn cta" onclick="goTrackSel()">NEXT</button>
+  </div>
  </div>
  <div id="track-screen" class="screen">
-  <div class="title" style="font-size:clamp(20px,3.5vw,36px)">CHOOSE TRACK</div>
-  <div class="track-grid" id="tgrid"></div>
-  <div class="subtitle" style="margin:8px 0 0;font-size:clamp(13px,2.2vw,18px)">DIFFICULTY</div>
-  <div class="diff-row" id="drow"></div>
-  <button class="btn" onclick="startRace()">RACE!</button>
+  <div class="panel-head">
+   <div class="title" style="font-size:clamp(20px,3.5vw,34px)">SELECT TRACK</div>
+   <div class="step-tag">Step 2 · Choose a circuit</div>
+  </div>
+  <div class="select-layout">
+   <div class="select-list" id="tgrid"></div>
+   <div class="preview-card">
+    <canvas id="trackCanvas" width="400" height="240"></canvas>
+    <div class="pv-name" id="tpvName">—</div>
+    <div class="pv-desc" id="tpvDesc"></div>
+    <div class="pv-tags" id="tpvTags"></div>
+    <div class="step-tag" style="margin-top:12px;color:#828b9c">Difficulty</div>
+    <div class="diff-row" id="drow" style="margin-top:6px"></div>
+   </div>
+  </div>
+  <div class="nav-row">
+   <button class="btn ghost" onclick="goCharSel()">BACK</button>
+   <button class="btn cta" onclick="startRace()">START RACE</button>
+  </div>
  </div>
  <div id="results-screen" class="screen">
   <div id="winhdr"></div>
@@ -2592,22 +2637,127 @@ function updateSettingsDisplay(){
 function toggleMute(){audioMuted=!audioMuted;if(masterGain)masterGain.gain.value=audioMuted?0:1;updateSettingsDisplay();}
 function toggleControls(){GS.controlMode=GS.controlMode==='KEYBOARD'?'GAMEPAD':'KEYBOARD';updateSettingsDisplay();}
 function toggleCameraMode(){GS.cameraMode=GS.cameraMode==='CHASE'?'ORBIT':'CHASE';updateSettingsDisplay();}
+/* ---- Preview helpers ---- */
+function _rgb(a){return 'rgb('+Math.round(a[0]*255)+','+Math.round(a[1]*255)+','+Math.round(a[2]*255)+')';}
+function _shade(a,f){return 'rgb('+Math.round(Math.max(0,Math.min(1,a[0]+f))*255)+','+Math.round(Math.max(0,Math.min(1,a[1]+f))*255)+','+Math.round(Math.max(0,Math.min(1,a[2]+f))*255)+')';}
+/* Per-character flavor + display stats (cosmetic preview only) */
+var CHAR_INFO=[
+ {flavor:'Heavy hitter — a top-speed monster that bulldozes the straights.',stats:[92,54,52,64]},
+ {flavor:'Slippery and precise — best handling on the grid, loves tight lines.',stats:[68,78,93,72]},
+ {flavor:'The all-rounder — no weaknesses, dependable on every circuit.',stats:[75,75,74,74]},
+ {flavor:'Explosive launch — rockets out of every hairpin and item box.',stats:[71,93,66,73]},
+ {flavor:'Drift royalty — the longest boosts when you nail the slide.',stats:[73,67,71,95]}
+];
+function drawKartPreview(ctx,W,H,col,dark){
+ ctx.clearRect(0,0,W,H);
+ var bg=ctx.createRadialGradient(W/2,H*0.42,20,W/2,H*0.55,W*0.75);
+ bg.addColorStop(0,'#1a2030');bg.addColorStop(1,'#0a0d15');
+ ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ var gy=H*0.80;
+ // ground shadow
+ ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(W/2,gy+18,W*0.34,16,0,0,Math.PI*2);ctx.fill();
+ var cMain=_rgb(col),cDark=_rgb(dark),cLite=_shade(col,0.22);
+ var rearX=W*0.32,frontX=W*0.70,wr=H*0.16,fr=H*0.135;
+ // body
+ ctx.fillStyle=cMain;ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=2;
+ ctx.beginPath();
+ ctx.moveTo(rearX-wr*0.6,gy-wr*0.4);
+ ctx.lineTo(rearX-wr*1.0,gy-wr*1.5);
+ ctx.lineTo(frontX-fr*0.2,gy-fr*1.7);
+ ctx.quadraticCurveTo(frontX+fr*1.3,gy-fr*1.5,frontX+fr*1.4,gy-fr*0.5);
+ ctx.lineTo(frontX+fr*1.1,gy-fr*0.2);
+ ctx.lineTo(rearX,gy-wr*0.2);
+ ctx.closePath();ctx.fill();ctx.stroke();
+ // top highlight stripe
+ ctx.fillStyle=cLite;
+ ctx.beginPath();
+ ctx.moveTo(rearX-wr*0.9,gy-wr*1.45);
+ ctx.lineTo(frontX-fr*0.2,gy-fr*1.62);
+ ctx.lineTo(frontX-fr*0.2,gy-fr*1.35);
+ ctx.lineTo(rearX-wr*0.7,gy-wr*1.2);
+ ctx.closePath();ctx.fill();
+ // rear spoiler
+ ctx.fillStyle=cDark;ctx.fillRect(rearX-wr*1.35,gy-wr*2.0,wr*0.55,wr*1.0);ctx.fillRect(rearX-wr*1.5,gy-wr*2.05,wr*0.9,wr*0.28);
+ // cockpit / seat
+ ctx.fillStyle=cDark;ctx.beginPath();ctx.ellipse((rearX+frontX)/2-wr*0.2,gy-wr*1.25,wr*0.7,wr*0.5,0,0,Math.PI*2);ctx.fill();
+ // driver helmet
+ ctx.fillStyle=cLite;ctx.beginPath();ctx.arc((rearX+frontX)/2-wr*0.1,gy-wr*1.7,wr*0.5,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc((rearX+frontX)/2+wr*0.05,gy-wr*1.75,wr*0.18,0,Math.PI*2);ctx.fill();
+ // wheels
+ function wheel(x,r){
+  ctx.fillStyle='#15171d';ctx.beginPath();ctx.arc(x,gy,r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#2a2e38';ctx.beginPath();ctx.arc(x,gy,r*0.55,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=cMain;ctx.beginPath();ctx.arc(x,gy,r*0.25,0,Math.PI*2);ctx.fill();
+ }
+ wheel(rearX,wr);wheel(frontX,fr);
+}
+function renderCharPreview(i){
+ var cv=document.getElementById('charCanvas');if(!cv)return;
+ var skin=getCharColor(i);
+ drawKartPreview(cv.getContext('2d'),cv.width,cv.height,skin.col,skin.dark);
+ var info=CHAR_INFO[i]||{flavor:'',stats:[70,70,70,70]};
+ document.getElementById('cpvName').textContent=CHARS[i].name;
+ document.getElementById('cpvDesc').textContent=info.flavor;
+ var labels=['Speed','Accel','Handling','Drift'],html='';
+ for(var s=0;s<4;s++)html+='<div class="stat"><div class="sl">'+labels[s]+'</div><div class="sbar"><div class="sfill" style="width:'+info.stats[s]+'%"></div></div></div>';
+ document.getElementById('cpvStats').innerHTML=html;
+}
+function renderTrackPreview(i){
+ var cv=document.getElementById('trackCanvas');if(!cv)return;var ctx=cv.getContext('2d');
+ var W=cv.width,H=cv.height,t=TRACKS[i],pts=t.pts;
+ // sky->grass backdrop
+ var g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,_rgb(t.sky));g.addColorStop(0.55,_shade(t.grass,0.05));g.addColorStop(1,_shade(t.grass,-0.10));
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ // bounds + fit
+ var minx=1e9,maxx=-1e9,minz=1e9,maxz=-1e9,miny=1e9,maxy=-1e9;
+ for(var k=0;k<pts.length;k++){var p=pts[k];if(p[0]<minx)minx=p[0];if(p[0]>maxx)maxx=p[0];if(p[2]<minz)minz=p[2];if(p[2]>maxz)maxz=p[2];if(p[1]<miny)miny=p[1];if(p[1]>maxy)maxy=p[1];}
+ var pad=34,sx=(W-2*pad)/(maxx-minx),sz=(H-2*pad)/(maxz-minz),s=Math.min(sx,sz);
+ var ox=pad+((W-2*pad)-(maxx-minx)*s)/2-minx*s, oz=pad+((H-2*pad)-(maxz-minz)*s)/2-minz*s;
+ function PX(p){return [ox+p[0]*s,oz+p[2]*s];}
+ ctx.lineJoin='round';ctx.lineCap='round';
+ function trace(){ctx.beginPath();for(var k=0;k<pts.length;k++){var q=PX(pts[k]);if(k===0)ctx.moveTo(q[0],q[1]);else ctx.lineTo(q[0],q[1]);}ctx.closePath();}
+ // track casing shadow
+ ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=26;trace();ctx.stroke();
+ // rumble border
+ ctx.strokeStyle=_rgb(t.rumble);ctx.lineWidth=22;trace();ctx.stroke();
+ // road surface
+ ctx.strokeStyle=_rgb(t.road);ctx.lineWidth=15;trace();ctx.stroke();
+ // centre dashes
+ ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.setLineDash([5,9]);trace();ctx.stroke();ctx.setLineDash([]);
+ // start/finish marker
+ var s0=PX(pts[0]),s1=PX(pts[Math.min(3,pts.length-1)]);
+ var ang=Math.atan2(s1[1]-s0[1],s1[0]-s0[0])+Math.PI/2;
+ ctx.save();ctx.translate(s0[0],s0[1]);ctx.rotate(ang);
+ ctx.fillStyle='#fff';ctx.fillRect(-13,-2.5,26,5);ctx.fillStyle='#111';
+ for(var c=0;c<5;c++)if(c%2)ctx.fillRect(-13+c*5.2,-2.5,5.2,5);
+ ctx.restore();
+ // meta tags
+ var len=0;for(var k=0;k<pts.length;k++){var a=pts[k],b=pts[(k+1)%pts.length];len+=Math.hypot(b[0]-a[0],b[2]-a[2]);}
+ var tags=[(len/1000).toFixed(1)+' km'];
+ if(maxy-miny>5)tags.push('Elevation');
+ var bright=t.sky[0]+t.sky[1]+t.sky[2];
+ tags.push(bright<0.6?'Night':'Daytime');
+ if(t.grass[0]>0.7&&t.grass[1]>0.6)tags.push('Coastal');
+ document.getElementById('tpvName').textContent=t.name;
+ document.getElementById('tpvDesc').textContent=t.desc;
+ var th='';for(var x=0;x<tags.length;x++)th+='<span class="pv-tag">'+tags[x]+'</span>';
+ document.getElementById('tpvTags').innerHTML=th;
+}
 function buildCharGrid(){
  var g=document.getElementById('cgrid');g.innerHTML='';
  CHARS.forEach(function(c,i){
-  var d=document.createElement('div');d.className='char-card'+(i===GS.selChar?' sel':'');
-  var skin=getCharColor(i);
-  var col='rgb('+Math.round(skin.col[0]*255)+','+Math.round(skin.col[1]*255)+','+Math.round(skin.col[2]*255)+')';
-  d.innerHTML='<div class="swatch" style="background:'+col+'"></div><div class="char-name">'+c.name+'</div>';
+  var d=document.createElement('div');d.className='sel-item'+(i===GS.selChar?' active':'');
+  d.innerHTML='<div class="chip" style="background:'+_rgb(getCharColor(i).col)+'"></div><div class="lbl">'+c.name+'</div>';
   d.onclick=function(){GS.selChar=i;buildCharGrid();beep(440+i*80,0.1);};
   g.appendChild(d);
  });
+ renderCharPreview(GS.selChar);
 }
 function buildTrackGrid(){
  var g=document.getElementById('tgrid');g.innerHTML='';
  TRACKS.forEach(function(t,i){
-  var d=document.createElement('div');d.className='track-card'+(i===GS.selTrack?' sel':'');
-  d.innerHTML='<div class="tname">'+t.name+'</div><div class="tdesc">'+t.desc+'</div>';
+  var d=document.createElement('div');d.className='sel-item'+(i===GS.selTrack?' active':'');
+  d.innerHTML='<div class="chip" style="background:'+_rgb(t.grass)+';box-shadow:inset 0 0 0 3px '+_rgb(t.road)+'"></div><div class="lbl">'+t.name+'</div>';
   d.onclick=function(){GS.selTrack=i;buildTrackGrid();beep(330,0.1);};
   g.appendChild(d);
  });
@@ -2617,6 +2767,7 @@ function buildTrackGrid(){
   b.onclick=function(){GS.diff=k;buildTrackGrid();};
   dr.appendChild(b);
  });
+ renderTrackPreview(GS.selTrack);
 }
 
 function startRace(){
