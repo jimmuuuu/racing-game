@@ -2512,11 +2512,11 @@ function show(id){
   document.getElementById(s).classList.toggle('active',s===id);
  });
 }
-function goMenu(){initAudio();GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();}
-function goCharSel(){initAudio();GS.scr='char';buildCharGrid();show('char-screen');}
-function goTrackSel(){initAudio();GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';}
-function goSettings(){initAudio();GS.scr='settings';updateSettingsDisplay();show('settings-screen');}
-function goTutorial(){initAudio();GS.scr='tutorial';show('tutorial-screen');}
+function goMenu(){GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();}
+function goCharSel(){GS.scr='char';buildCharGrid();show('char-screen');}
+function goTrackSel(){GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';}
+function goSettings(){GS.scr='settings';updateSettingsDisplay();show('settings-screen');}
+function goTutorial(){GS.scr='tutorial';show('tutorial-screen');}
 function updateSettingsDisplay(){
  var audioState=audioMuted?'OFF':'ON';
  document.getElementById('sb-audio').textContent=audioState;
@@ -2557,7 +2557,6 @@ function buildTrackGrid(){
 }
 
 function startRace(){
- initAudio();
  if(!gl){fail('WebGL unavailable.');return;}
  GS.scr='race';GS.started=false;GS.raceTime=0;GS.finishOrder=[];
  show(null);
@@ -2663,7 +2662,7 @@ function saveToLeaderboard(){
  if(lb[key].length>10)lb[key]=lb[key].slice(0,10);
  saveLB(lb);
 }
-function goLeaderboard(){initAudio();GS.scr='lb';lbTrackIdx=0;showLeaderboard();show('leaderboard-screen');}
+function goLeaderboard(){GS.scr='lb';lbTrackIdx=0;showLeaderboard();show('leaderboard-screen');}
 function showLeaderboard(){
  var tname=TRACKS[lbTrackIdx].name;
  document.getElementById('lb-trackname').textContent=tname+' ('+GS.diff+')';
