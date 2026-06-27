@@ -2305,7 +2305,7 @@ function nearestIndex(x,z,hint){
  var searchHint=hint;if(searchHint===undefined||searchHint<0||searchHint>=n)searchHint=null;
  if(searchHint!==null){
   var best=searchHint,bd=1e9;
-  var windowSize=30;
+  var windowSize=15;
   var lo=(searchHint-windowSize+n)%n;
   for(var k=0;k<windowSize*2;k++){
    var i=(lo+k)%n;var dx=CL[i].x-x,dz=CL[i].z-z;var d=dx*dx+dz*dz;
@@ -2369,9 +2369,27 @@ function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOs
 
 /* ===================== PARTICLES ===================== */
 var MAXPART=200,particles=[];
+var MEME_TEXTS=['RIZZ','GYATT','SIGMA','SKIBIDI','OHIO','MEWING','BUSSIN','GLOW UP','SLAY','NO CAP'];
+var destructibleProps=[];
 function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
  for(var i=0;i<particles.length;i++){if(particles[i].life<=0){var p=particles[i];p.x=x;p.y=y;p.z=z;p.vx=vx;p.vy=vy;p.vz=vz;p.r=r;p.g=g;p.b=b;p.a=1;p.life=life;p.maxLife=life;return;}}
  if(particles.length<MAXPART)particles.push({x:x,y:y,z:z,vx:vx,vy:vy,vz:vz,r:r,g:g,b:b,a:1,life:life,maxLife:life});
+}
+function spawnMemeText(text,x,y,color,size){
+ var rnd=MEME_TEXTS[Math.floor(Math.random()*MEME_TEXTS.length)];
+ spawnFloatText(text||rnd,x,y,color,size);
+}
+function spawnPropBurst(x,y,z,propType){
+ var count=8+Math.floor(Math.random()*4);
+ var colors={cone:[[0.95,0.4,0.1]],tyre:[[0.1,0.1,0.1],[0.3,0.3,0.3]]};
+ var cols=colors[propType]||[[0.5,0.5,0.5]];
+ for(var i=0;i<count;i++){
+  var ang=i/count*Math.PI*2+Math.random()*0.3;
+  var spd=6+Math.random()*8;
+  var vx=Math.cos(ang)*spd,vz=Math.sin(ang)*spd,vy=3+Math.random()*4;
+  var col=cols[Math.floor(Math.random()*cols.length)];
+  spawnP(x,y,z,vx,vy,vz,col[0],col[1],col[2],800);
+ }
 }
 function updateParticles(dt){var s=dt/1000;for(var i=0;i<particles.length;i++){var p=particles[i];if(p.life<=0)continue;p.life-=dt;p.x+=p.vx*s;p.y+=p.vy*s;p.z+=p.vz*s;p.vy-=6*s;p.a=Math.max(0,p.life/p.maxLife);}}
 var partPosBuf=null,partColBuf=null,partPosArr=new Float32Array(MAXPART*3),partColArr=new Float32Array(MAXPART*4);
@@ -2475,9 +2493,11 @@ function spinoutRacer(r){
   spawnP(r.x+(Math.random()-0.5)*3,r.y+0.5+(Math.random()-0.5)*0.5,r.z+(Math.random()-0.5)*3,
    (Math.random()-0.5)*10,Math.random()*10-2,(Math.random()-0.5)*10,col[0],col[1],col[2],800);
  }
- // announcer
- if(r.isPlayer){var ct=CRASH_TEXTS[Math.floor(Math.random()*CRASH_TEXTS.length)];spawnFloatText(ct,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#f44',38);}
- // drop coins
+ if(r.isPlayer){
+  var ct=CRASH_TEXTS[Math.floor(Math.random()*CRASH_TEXTS.length)];spawnFloatText(ct,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#f44',38);
+  spawnMemeText('-500 AURA 💀',fxCanvas?fxCanvas.width/2+Math.random()*100-50:400,fxCanvas?fxCanvas.height*0.4+50:200,'#ff4444',28);
+ }
+ var drop=Math.min(r.coinCount,3);r.coinCount-=drop;
  var drop=Math.min(r.coinCount,3);r.coinCount-=drop;
  for(var d=0;d<drop;d++){
   var ang=Math.random()*Math.PI*2;
@@ -2753,6 +2773,8 @@ function updatePlayer(p,dt){
     var beepFreq=(stage2===1?660:990)+p.driftCombo*44;
     beep(beepFreq,0.15);
     for(var bp=0;bp<8;bp++)spawnP(p.x,p.y+0.4,p.z,(Math.random()-0.5)*5,Math.random()*6,(Math.random()-0.5)*5,1,0.4+Math.random()*0.4,0,500);
+    var boostTxt=stage2===1?'GYATT BOOST':'MAX SIGMA 👑';
+    spawnMemeText(boostTxt,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.35:150,'#0f0',36);
    } else {
     p.driftCombo=0;
    }
@@ -2810,7 +2832,7 @@ function updatePlayer(p,dt){
  for(var ci=coins.length-1;ci>=0;ci--){
   if(!coins[ci].active)continue;
   var cdx=coins[ci].x-p.x,cdz=coins[ci].z-p.z;
-  if(cdx*cdx+cdz*cdz<4){coins[ci].active=false;if(p.coinCount<10)p.coinCount++;sndPickup();
+  if(cdx*cdx+cdz*cdz<4){coins[ci].active=false;if(p.coinCount<10)p.coinCount++;sndPickup();spawnMemeText('+100 RIZZ',fxCanvas?fxCanvas.width/2+Math.random()*80-40:400,fxCanvas?fxCanvas.height*0.3:180,'#ffd700',32);
    for(var gp=0;gp<5;gp++)spawnP(p.x+(Math.random()-0.5),p.y+1,p.z+(Math.random()-0.5),(Math.random()-0.5)*2,3+Math.random()*3,(Math.random()-0.5)*2,1,0.85,0,500);}
  }
 
@@ -2837,6 +2859,18 @@ function updatePlayer(p,dt){
   if(!hazards[hi].active)continue;
   var hdx=hazards[hi].x-p.x,hdz=hazards[hi].z-p.z;
   if(hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(p);GS.shake.x=(Math.random()-0.5)*0.8;GS.shake.y=(Math.random()-0.5)*0.6;GS.shake.decay=350;}
+ }
+ // destructible scenery collision (cones, tyres)
+ for(var sci=0;sci<scenery.length;sci++){
+  var sceneItem=scenery[sci];
+  if(!sceneItem||sceneItem._destroyed||(sceneItem.type!=='cone'&&sceneItem.type!=='tyre'))continue;
+  var scdx=sceneItem.x-p.x,scdz=sceneItem.z-p.z;
+  var scDist=scdx*scdx+scdz*scdz;
+  if(scDist<6.5){
+   sceneItem._destroyed=true;
+   spawnPropBurst(sceneItem.x,sceneItem.y,sceneItem.z,sceneItem.type);
+   p.speed*=0.7;
+  }
  }
  // boost pad pass-over
  for(var bpc=0;bpc<boostPads.length;bpc++){
@@ -2917,6 +2951,17 @@ function updateBot(b,dt){
   if(!hazards[hi].active)continue;
   var hdx=hazards[hi].x-b.x,hdz=hazards[hi].z-b.z;
   if(hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(b);}
+ }
+ // destructible scenery collision for bots
+ for(var sci2=0;sci2<scenery.length;sci2++){
+  var sceneItem2=scenery[sci2];
+  if(!sceneItem2||sceneItem2._destroyed||(sceneItem2.type!=='cone'&&sceneItem2.type!=='tyre'))continue;
+  var scdx2=sceneItem2.x-b.x,scdz2=sceneItem2.z-b.z;
+  if(scdx2*scdx2+scdz2*scdz2<6.5){
+   sceneItem2._destroyed=true;
+   spawnPropBurst(sceneItem2.x,sceneItem2.y,sceneItem2.z,sceneItem2.type);
+   b.speed*=0.7;
+  }
  }
  // boost pads + moving hazards for bots
  for(var bpc2=0;bpc2<boostPads.length;bpc2++){
@@ -3147,26 +3192,30 @@ function render(){
 
  var p=GS.racers[0];
  var maxSpeedRef=46+Math.min(p.coinCount,10)*0.4;
- // chase camera target behind & above kart, looking ahead
+ var speedRatio=Math.min(1,p.speed/maxSpeedRef);
+ var isBoosting=p.boostTimer>0;
+ var isDrifting=p.driftActive;
+ var adaptiveFOVBoost=(speedRatio*8)+(isBoosting?12:0)+(isDrifting?6:0);
+ var dynamicFOV=65+adaptiveFOVBoost;
+ GS.currentFOV=dynamicFOV;
+
  var behind=14, height=7, ahead=8;
- // boost camera: closer and lower
- if(p.boostTimer>0){behind=11;height=5.5;}
+ if(isBoosting){behind=11;height=5.5;}
  var tx=p.x-Math.sin(p.heading)*behind;
  var tz=p.z-Math.cos(p.heading)*behind;
  var ty=p.y+height;
- // speed bob
- var speedRatio=Math.min(1,p.speed/maxSpeedRef);
- ty+=Math.sin(GS.raceTime*0.006)*speedRatio*0.15;
- // lerp (dt-scaled, faster when boosting)
- var lfBase=p.boostTimer>0?10:6;
+ var speedBob=Math.sin(GS.raceTime*0.006)*speedRatio*0.15;
+ ty+=speedBob;
+ var lfBase=isBoosting?10:6;
  var lf=1-Math.exp(-lfBase*frameDt/1000);
  cam.x+=(tx-cam.x)*lf;cam.y+=(ty-cam.y)*lf;cam.z+=(tz-cam.z)*lf;
- var lookX=p.x+Math.sin(p.heading)*ahead+GS.shake.x*(GS.shake.decay>0?GS.shake.decay/400:0);
- var lookY=p.y+1.5+GS.shake.y*(GS.shake.decay>0?GS.shake.decay/400:0);
+ var shakeIntensity=GS.shake.decay>0?GS.shake.decay/400:0;
+ var lookX=p.x+Math.sin(p.heading)*ahead+GS.shake.x*shakeIntensity;
+ var lookY=p.y+1.5+GS.shake.y*shakeIntensity;
  var lookZ=p.z+Math.cos(p.heading)*ahead;
  var look=[lookX,lookY,lookZ];
  var aspect=canvas.width/canvas.height||1;
- var proj=M.perspective(GS.fov*Math.PI/180,aspect,0.5,800);
+ var proj=M.perspective(dynamicFOV*Math.PI/180,aspect,0.5,800);
  var view=M.lookAt([cam.x,cam.y,cam.z],look,[0,1,0]);
 
  // sky first (depth write disabled effectively by w-trick + drawn before)
@@ -3256,6 +3305,7 @@ function render(){
  // ground props (bushes, rocks, flowers, logs, fences, grass) — cull by distance
  for(var sc=0;sc<scenery.length;sc++){
   var o=scenery[sc];
+  if(o._destroyed)continue; // skip destroyed props
   if(o.type==='patch')continue; // drawn earlier on the ground
   var sdx=o.x-p.x,sdz=o.z-p.z;
   var cullR=(o.type==='bridge')?260:160;
@@ -3482,20 +3532,29 @@ function render(){
   var fw=fxCanvas.width,fh=fxCanvas.height;
   fxCtx.clearRect(0,0,fw,fh);
 
-  // Enhanced speed lines: more dramatic at high speed
-  if(speedRatio>0.6){
-   var intensity=(speedRatio-0.6)/0.4;
-   var lineCount=12+Math.floor(intensity*8);
-   fxCtx.strokeStyle='rgba(255,255,255,'+(0.08+0.15*intensity)+')';
-   fxCtx.lineWidth=1.5+intensity*1.5;
+  if(speedRatio>0.6||p.boostTimer>0||p.driftActive){
+   var blurIntensity=speedRatio+(p.boostTimer>0?0.3:0)+(p.driftActive?0.2:0);
+   blurIntensity=Math.min(1.2,blurIntensity);
+   var lineCount=14+Math.floor(blurIntensity*12);
+   var baseAlpha=0.08+blurIntensity*0.2;
+   fxCtx.strokeStyle='rgba(255,255,255,'+baseAlpha+')';
+   fxCtx.lineWidth=1.2+blurIntensity*2;
    for(var sl=0;sl<lineCount;sl++){
-    var ang2=sl/lineCount*Math.PI*2+GS.raceTime*0.0003;
-    var edge=Math.max(fw,fh)*0.6;
+    var ang2=sl/lineCount*Math.PI*2+GS.raceTime*0.0004;
+    var edge=Math.max(fw,fh)*0.7;
     var sx=fw/2+Math.cos(ang2)*edge,sy=fh/2+Math.sin(ang2)*edge;
-    var tailLen=40+Math.random()*80*intensity;
+    var tailLen=50+Math.random()*100*blurIntensity;
     var ex=fw/2+Math.cos(ang2)*(edge-tailLen);
     var ey=fh/2+Math.sin(ang2)*(edge-tailLen);
     fxCtx.beginPath();fxCtx.moveTo(sx,sy);fxCtx.lineTo(ex,ey);fxCtx.stroke();
+   }
+   if(p.boostTimer>0||p.driftCharge>800){
+    var radialGrad=fxCtx.createRadialGradient(fw/2,fh/2,fw*0.1,fw/2,fh/2,Math.max(fw,fh)*0.7);
+    radialGrad.addColorStop(0,'rgba(255,255,150,'+(blurIntensity*0.12)+')');
+    radialGrad.addColorStop(0.5,'rgba(100,200,255,'+(blurIntensity*0.06)+')');
+    radialGrad.addColorStop(1,'rgba(255,100,200,0)');
+    fxCtx.fillStyle=radialGrad;
+    fxCtx.fillRect(0,0,fw,fh);
    }
   }
   // boost flash (enhanced)
