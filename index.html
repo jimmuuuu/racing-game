@@ -765,6 +765,7 @@ SkyMesh.prototype.upload=function(){
 
 /* ===================== STATIC MESHES (built once per race) ===================== */
 var trackMesh=null,rumbleMesh=null,rumbleMesh2=null,groundMesh=null,treeMesh=null,kartBody=null,kartLower=null,kartWheel=null,kartRoof=null,kartSpoiler=null,kartWheelRim=null,kartBumper=null,kartExhaust=null,kartNose=null,kartSeat=null,kartCage=null,kartHub=null,roadStripeMesh=null,startLineMesh=null,startLineMesh2=null,skyMesh=null,shoulderMesh=null,roadCenterMesh=null;
+var gridBoxMesh=null,gridNumberMeshes=[],gridBoardMesh=null;
 var goatHead=null,goatEyeWhite=null,goatEyePupil=null,goatHorns=null,goatEars=null,goatBody=null,goatFrame=null,goatFrameBolts=null,goatRope=null,goatSteering=null,goatSeat=null,goatWheel=null,goatWheelHub=null,goatTread=null,goatBolts=null;
 var ttBody=null,ttHead=null,ttEyes=null,ttPupils=null,ttBrows=null,ttSmile=null,ttBat=null,ttArmR=null;
 var goatEngine=null,goatEngineBrass=null,goatExhaust=null,goatSeatLeather=null,goatGrain=null,goatNoseFace=null;
@@ -1932,24 +1933,51 @@ if(false&&isFig8&&fig8overK>=0){
  charSteering.cyl(0,0.5,0.3, 0.025,0.16,1,8); // column
  charSteering.upload();
 
- // start/finish line — checkerboard pattern
+ // F1-style start/finish line — thin white line across the track
  startLineMesh=new Mesh();
  startLineMesh2=new Mesh();
  var sl=CL[0],slW=ROADW+1;
- var CHECKS=8,ROWS=2;
- for(var cr=0;cr<ROWS;cr++){
-  for(var cc=0;cc<CHECKS;cc++){
-   var t0=cc/CHECKS,t1=(cc+1)/CHECKS;
-   var f0=cr/ROWS,f1=(cr+1)/ROWS;
-   var p00=[(1-t0)*(sl.x-sl.px*slW)+t0*(sl.x+sl.px*slW)+sl.dx*1.8*f0,sl.y+0.05,(1-t0)*(sl.z-sl.pz*slW)+t0*(sl.z+sl.pz*slW)+sl.dz*1.8*f0];
-   var p10=[(1-t1)*(sl.x-sl.px*slW)+t1*(sl.x+sl.px*slW)+sl.dx*1.8*f0,sl.y+0.05,(1-t1)*(sl.z-sl.pz*slW)+t1*(sl.z+sl.pz*slW)+sl.dz*1.8*f0];
-   var p01=[(1-t0)*(sl.x-sl.px*slW)+t0*(sl.x+sl.px*slW)+sl.dx*1.8*f1,sl.y+0.05,(1-t0)*(sl.z-sl.pz*slW)+t0*(sl.z+sl.pz*slW)+sl.dz*1.8*f1];
-   var p11=[(1-t1)*(sl.x-sl.px*slW)+t1*(sl.x+sl.px*slW)+sl.dx*1.8*f1,sl.y+0.05,(1-t1)*(sl.z-sl.pz*slW)+t1*(sl.z+sl.pz*slW)+sl.dz*1.8*f1];
-   var mesh=((cr+cc)%2===0)?startLineMesh:startLineMesh2;
-   mesh.tri(p00,p01,p11);mesh.tri(p00,p11,p10);
+ var lineW=0.6;
+ var lL=[sl.x-sl.px*slW,sl.y+0.05,sl.z-sl.pz*slW];
+ var lR=[sl.x+sl.px*slW,sl.y+0.05,sl.z+sl.pz*slW];
+ var lLf=[lL[0]+sl.dx*lineW,lL[1],lL[2]+sl.dz*lineW];
+ var lRf=[lR[0]+sl.dx*lineW,lR[1],lR[2]+sl.dz*lineW];
+ startLineMesh.tri(lL,lLf,lRf);startLineMesh.tri(lL,lRf,lR);
+ startLineMesh.upload();
+
+ // F1-style grid boxes — staggered 2-column layout behind the start line
+ gridBoxMesh=new Mesh();
+ var GRID_SLOTS=4;
+ var GRID_ROW_SPACING=8;
+ var GRID_BOX_W=3.2,GRID_BOX_L=5.0;
+ var GRID_LINE_T=0.14;
+ for(var gs=0;gs<GRID_SLOTS;gs++){
+  var rowBack=-(gs*GRID_ROW_SPACING+4);
+  var sideOff=(gs%2===0)?-3.2:3.2;
+  var cx=sl.x+sl.px*sideOff+sl.dx*rowBack;
+  var cy=sl.y+0.04;
+  var cz=sl.z+sl.pz*sideOff+sl.dz*rowBack;
+  var hw=GRID_BOX_W/2,hl=GRID_BOX_L/2;
+  function gridRect(ox,oz,w,l){
+   var ax=cx+sl.px*ox+sl.dx*oz,az=cz+sl.pz*ox+sl.dz*oz;
+   var c00=[ax-sl.px*w/2-sl.dx*l/2,cy,az-sl.pz*w/2-sl.dz*l/2];
+   var c10=[ax+sl.px*w/2-sl.dx*l/2,cy,az+sl.pz*w/2-sl.dz*l/2];
+   var c01=[ax-sl.px*w/2+sl.dx*l/2,cy,az-sl.pz*w/2+sl.dz*l/2];
+   var c11=[ax+sl.px*w/2+sl.dx*l/2,cy,az+sl.pz*w/2+sl.dz*l/2];
+   gridBoxMesh.tri(c00,c01,c11);gridBoxMesh.tri(c00,c11,c10);
   }
+  gridRect(0,-hl,GRID_BOX_W,GRID_LINE_T);
+  gridRect(0,hl,GRID_BOX_W,GRID_LINE_T);
+  gridRect(-hw,0,GRID_LINE_T,GRID_BOX_L);
+  gridRect(hw,0,GRID_LINE_T,GRID_BOX_L);
  }
- startLineMesh.upload();startLineMesh2.upload();
+ gridBoxMesh.upload();
+
+ // grid position number boards on the right side of the track
+ gridBoardMesh=new Mesh();
+ gridBoardMesh.box(0,0,0,0.15,1.8,0.8);
+ gridBoardMesh.upload();
+ startLineMesh2.upload();
  // road dashed center line + edge lines
  roadStripeMesh=new Mesh();
  var STRIPEW=0.22;
@@ -2708,12 +2736,12 @@ function progressOf(r){ return r.lap*trackLength + (CL[r.idx]?CL[r.idx].dist:0);
 
 function makeRacer(chIdx,isPlayer,startSlot){
  var c=CL[0];
- // place near start line, offset to side by slot
- var off=(startSlot-1.5)*3;
+ var rowBack=-(startSlot*8+4);
+ var sideOff=(startSlot%2===0)?-3.2:3.2;
  var ph=charPhysics(chIdx);
  return {chIdx:chIdx,isPlayer:isPlayer,
   maxSpeedBase:ph.maxSpeed,accelBase:ph.accel,turnBase:ph.turn,driftMul:ph.driftMul,
-  x:c.x+c.px*off,y:c.y+0.0,z:c.z+c.pz*off,heading:Math.atan2(c.dx,c.dz),
+  x:c.x+c.px*sideOff+c.dx*rowBack,y:c.y+0.0,z:c.z+c.pz*sideOff+c.dz*rowBack,heading:Math.atan2(c.dx,c.dz),
   speed:0,idx:0,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
   stallTimer:0,slipTimer:0,spinTimer:0,invTimer:0,coinCount:0,item:null,
@@ -3871,8 +3899,22 @@ function render(){
  if(edgeLineMesh) drawMesh(edgeLineMesh,I,[0.95,0.95,1.0],0.85,12);
  if(roadStripeMesh) drawMesh(roadStripeMesh,I,[0.95,0.95,1.0],0.8);
  if(startLineMesh){
-  drawMesh(startLineMesh,I,[1,1,1],0.85);
-  if(startLineMesh2) drawMesh(startLineMesh2,I,[0.1,0.1,0.1],0.85);
+  drawMesh(startLineMesh,I,[1,1,1],0.9);
+  if(gridBoxMesh) drawMesh(gridBoxMesh,I,[1,1,1],0.85);
+ }
+ if(gridBoardMesh){
+  var sl0=CL[0];
+  for(var gbi=0;gbi<4;gbi++){
+   var gbBack=-(gbi*8+4);
+   var gbSide=ROADW+2.5;
+   var gbx=sl0.x+sl0.px*gbSide+sl0.dx*gbBack;
+   var gbz=sl0.z+sl0.pz*gbSide+sl0.dz*gbBack;
+   var gbAng=Math.atan2(sl0.px,sl0.pz);
+   var gbm=M.mul(M.translate(gbx,sl0.y+1.8,gbz),M.rotY(gbAng));
+   drawMesh(gridBoardMesh,gbm,[0.12,0.12,0.14],0.5,18);
+   var numCol=gbi===0?[1,0.85,0.2]:[1,1,1];
+   drawMesh(gridBoardMesh,M.mul(M.translate(gbx,sl0.y+1.8,gbz),M.rotY(gbAng),M.scale(0.5,0.6,0.85)),numCol,0.8,8);
+  }
  }
  gl.disable(gl.POLYGON_OFFSET_FILL);
  // ground props (bushes, rocks, flowers, logs, fences, grass) — cull by distance
