@@ -266,7 +266,7 @@ html,body{background:#070910}
 </div>
 <canvas id="confetti-canvas"></canvas>
 <div id="hud">
- <div style="position:fixed;top:8px;right:8px;width:150px;height:150px;border:2px solid rgba(100,200,255,.4);border-radius:8px;background:rgba(0,0,20,.7);z-index:12;display:none" id="hminimap">
+ <div style="position:fixed;top:52px;right:8px;width:150px;height:150px;border:2px solid rgba(100,200,255,.4);border-radius:8px;background:rgba(0,0,20,.7);z-index:12;display:none" id="hminimap">
   <canvas id="mmcanvas" width="150" height="150" style="border-radius:6px;display:block"></canvas>
  </div>
  <div class="hud-row">
@@ -341,7 +341,10 @@ var CHARS=[
  {name:'Cappuccino Assassino',skins:[{col:[1,0.65,0.25],dark:[0.8,0.45,0.1]},{col:[0.5,0.2,0.8],dark:[0.35,0.1,0.6]}]},
  {name:'Brr Brr Patapim',skins:[{col:[0.85,0.25,1],dark:[0.6,0.1,0.8]},{col:[1,1,0.2],dark:[0.9,0.8,0.05]}]}
 ];
-var getCharColor=function(charIdx){var ch=CHARS[charIdx];var skinIdx=Math.floor((charIdx*13+GS.raceCount)%ch.skins.length);return ch.skins[skinIdx];};
+// Stable per-character identity color (used by the select chip, minimap dots and
+// name tags). Previously this varied with GS.raceCount, so a racer's UI color
+// changed every race even though the 3D kart model never did.
+var getCharColor=function(charIdx){var ch=CHARS[charIdx];return ch.skins[0];};
 var DIFFS={Easy:0.80,Medium:0.92,Hard:1.0};
 
 /* Track centerline generators (X,Z in world units; Y elevation). Closed loops.
@@ -417,15 +420,16 @@ function resize(){
  canvas.style.width=w+'px';canvas.style.height=h+'px';
  canvas.width=Math.floor(w*DPR);canvas.height=Math.floor(h*DPR);
  if(gl){gl.viewport(0,0,canvas.width,canvas.height);projMat=null;}
- var fxc=document.getElementById('fxcanvas');
- if(fxc){fxc.width=canvas.width;fxc.height=canvas.height;}
+ // The 2D overlay (#fxcanvas) is sized separately by initFxCanvas() so it
+ // matches CSS pixels exactly; keep all of its sizing in that one place.
+ if(typeof initFxCanvas==='function')initFxCanvas();
 }
 window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',resize);
 resize();
 
 canvas.addEventListener('webglcontextlost',function(e){e.preventDefault();running=false;},false);
-canvas.addEventListener('webglcontextrestored',function(){ if(gl){ initGL(); if(GS.scr==='race'){buildRaceMeshes();} running=true; requestAnimationFrame(loop);} },false);
+canvas.addEventListener('webglcontextrestored',function(){ if(gl){ initGL(); resize(); if(GS.scr==='race'){buildRaceMeshes();} running=true; requestAnimationFrame(loop);} },false);
 
 /* ----- shaders ----- */
 var VS=
@@ -2325,6 +2329,7 @@ var GS={scr:'menu',selChar:0,selTrack:0,diff:'Medium',racers:[],raceTime:0,start
  shake:{x:0,y:0,decay:0},fov:65,fovTarget:65,fovTimer:0,
  prevPositions:null,tauntCooldown:0,lastLap:-1,timeTrial:false,lapTimes:[],lapStart:0,bestLap:Infinity,debug:false,
  controlMode:'KEYBOARD',cameraMode:'CHASE',raceCount:0,minimap:true};
+try{GS.raceCount=parseInt(localStorage.getItem('brr_races')||0)||0;}catch(e){}
 var cam={x:0,y:0,z:0,tx:0,ty:0,tz:0};
 var running=false;
 
@@ -2363,12 +2368,17 @@ function initAudio(){
 }
 document.addEventListener('click',initAudio,{once:true});
 document.addEventListener('touchstart',initAudio,{once:true});
+// Single source of truth for mute so the HUD button and Settings stay in sync.
+function applyMute(){
+ if(masterGain)masterGain.gain.value=audioMuted?0:1;
+ var mb=document.getElementById('muteBtn');if(mb)mb.textContent=audioMuted?'🔇':'🔊';
+ var sb=document.getElementById('sb-audio');if(sb)sb.textContent=audioMuted?'OFF':'ON';
+ try{localStorage.setItem('brr_muted',audioMuted?'1':'0');}catch(e){}
+}
+function setMuted(m){audioMuted=m;applyMute();}
 document.getElementById('muteBtn').addEventListener('click',function(){
  initAudio();
- audioMuted=!audioMuted;
- if(masterGain)masterGain.gain.value=audioMuted?0:1;
- this.textContent=audioMuted?'🔇':'🔊';
- localStorage.setItem('brr_muted',audioMuted?'1':'0');
+ setMuted(!audioMuted);
 });
 
 function sndEngine(speed,maxSpeed){
@@ -2540,6 +2550,16 @@ var keys={};
 document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();keys[k]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].indexOf(k)>=0)e.preventDefault();});
 document.addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false;});
 var touch={l:false,r:false,g:false,b:false,drift:false,item:false,taunt:false};
+// Clear all held key/touch state. Used on race start and on focus loss so a
+// key released while the tab was unfocused doesn't stay "stuck down".
+function clearInput(){
+ for(var _k in keys)keys[_k]=false;
+ touch.l=touch.r=touch.g=touch.b=touch.drift=touch.item=touch.taunt=false;
+ var tbtns=document.querySelectorAll('#touch-controls .tbtn');
+ for(var _t=0;_t<tbtns.length;_t++)tbtns[_t].classList.remove('pressed');
+}
+window.addEventListener('blur',clearInput);
+document.addEventListener('visibilitychange',function(){if(document.hidden)clearInput();});
 function setupT(id,k){var el=document.getElementById(id);if(!el)return;
  el.addEventListener('touchstart',function(e){e.preventDefault();touch[k]=true;el.classList.add('pressed');},{passive:false});
  el.addEventListener('touchend',function(e){e.preventDefault();touch[k]=false;el.classList.remove('pressed');},{passive:false});
@@ -2547,6 +2567,24 @@ function setupT(id,k){var el=document.getElementById(id);if(!el)return;
 }
 setupT('tl','l');setupT('tr','r');setupT('tg','g');setupT('tb','b');setupT('tdrift','drift');setupT('titem','item');
 function isMobile(){return 'ontouchstart' in window||navigator.maxTouchPoints>0}
+// Read the first connected gamepad and map it to the game's control booleans.
+// Standard mapping: RT/A = accelerate, LT/B = brake, left stick / d-pad = steer,
+// bumpers = drift, X = use item, Y = taunt. Returns null if no pad is present.
+var _gpTaunt=false;
+function readGamepad(){
+ if(!navigator.getGamepads)return null;
+ var pads=navigator.getGamepads(),gp=null;
+ for(var i=0;i<pads.length;i++){if(pads[i]){gp=pads[i];break;}}
+ if(!gp)return null;
+ var ax=gp.axes||[],bt=gp.buttons||[];
+ function bp(i){return !!(bt[i]&&(bt[i].pressed||bt[i].value>0.3));}
+ var lx=ax[0]||0;
+ var res={gas:bp(7)||bp(0),brk:bp(6)||bp(1),lft:lx<-0.35||bp(14),rgt:lx>0.35||bp(15),drift:bp(5)||bp(4),item:bp(2)};
+ var tn=bp(3);
+ if(tn&&!_gpTaunt&&GS.scr==='race')doTaunt();
+ _gpTaunt=tn;
+ return res;
+}
 
 /* ===================== AUDIO (optional beeps) ===================== */
 function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(sfxGain);o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d);}catch(e){} }
@@ -2699,9 +2737,9 @@ function show(id){
   document.getElementById(s).classList.toggle('active',s===id);
  });
 }
-function goMenu(){GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();}
-function goCharSel(){GS.scr='char';buildCharGrid();show('char-screen');startCharPreviewSpin();}
-function goTrackSel(){GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';}
+function goMenu(){GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();stopConfetti();}
+function goCharSel(){GS.scr='char';buildCharGrid();show('char-screen');startCharPreviewSpin();stopConfetti();}
+function goTrackSel(){GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopConfetti();}
 function goSettings(){GS.scr='settings';updateSettingsDisplay();show('settings-screen');}
 function goTutorial(){GS.scr='tutorial';show('tutorial-screen');}
 function updateSettingsDisplay(){
@@ -2713,7 +2751,7 @@ function updateSettingsDisplay(){
  var winCount=localStorage.getItem('brr_wins')||0;
  document.getElementById('sb-wins').textContent=winCount;
 }
-function toggleMute(){audioMuted=!audioMuted;if(masterGain)masterGain.gain.value=audioMuted?0:1;updateSettingsDisplay();}
+function toggleMute(){initAudio();setMuted(!audioMuted);updateSettingsDisplay();}
 function toggleControls(){GS.controlMode=GS.controlMode==='KEYBOARD'?'GAMEPAD':'KEYBOARD';updateSettingsDisplay();}
 function toggleCameraMode(){GS.cameraMode=GS.cameraMode==='CHASE'?'ORBIT':'CHASE';updateSettingsDisplay();}
 /* ---- Preview helpers ---- */
@@ -2911,7 +2949,12 @@ function buildTrackGrid(){
 
 function startRace(){
  if(!gl){fail('WebGL unavailable.');return;}
+ stopConfetti();
  GS.scr='race';GS.started=false;GS.raceTime=0;GS.finishOrder=[];
+ // reset transient input + physics timing so a held key or leftover
+ // accumulated time can't trigger a phantom rocket-start or physics spike
+ clearInput();
+ physicsAccumulator=0;
  show(null);
  document.getElementById('hud').style.display='block';
  if(isMobile())document.getElementById('touch-controls').style.display='block';
@@ -2963,7 +3006,8 @@ function showResults(){
  beep(playerPlace===1?880:330,0.4);
  if(playerPlace<=2)startConfetti();
  GS.raceCount++;
- if(playerPlace===1){
+ try{localStorage.setItem('brr_races',GS.raceCount);}catch(e){}
+ if(playerPlace===1&&!GS.timeTrial){
   var wins=parseInt(localStorage.getItem('brr_wins')||0)+1;
   localStorage.setItem('brr_wins',wins);
  }
@@ -2983,6 +3027,11 @@ function startConfetti(){
   w:4+Math.random()*6,h:8+Math.random()*10,
   col:'hsl('+Math.floor(Math.random()*360)+',90%,60%)',life:200+Math.random()*200});
  requestAnimationFrame(drawConfetti);
+}
+function stopConfetti(){
+ confettiActive=false;confettiParts=[];
+ var cc=document.getElementById('confetti-canvas');
+ if(cc){var ctx=cc.getContext('2d');if(ctx)ctx.clearRect(0,0,cc.width,cc.height);}
 }
 function drawConfetti(){
  if(!confettiActive)return;
@@ -3015,7 +3064,7 @@ function saveToLeaderboard(){
  if(lb[key].length>10)lb[key]=lb[key].slice(0,10);
  saveLB(lb);
 }
-function goLeaderboard(){GS.scr='lb';lbTrackIdx=0;showLeaderboard();show('leaderboard-screen');}
+function goLeaderboard(){GS.scr='lb';lbTrackIdx=GS.selTrack;showLeaderboard();show('leaderboard-screen');}
 function showLeaderboard(){
  var tname=TRACKS[lbTrackIdx].name;
  document.getElementById('lb-trackname').textContent=tname+' ('+GS.diff+')';
@@ -3051,17 +3100,21 @@ function updatePlayer(p,dt){
  var rgt=keys['arrowright']||keys['d']||touch.r;
  var driftKey=keys['shift']||keys[' ']||touch.drift;
  var itemKey=keys['e']||keys['enter']||touch.item;
+ if(GS.controlMode==='GAMEPAD'){
+  var gp=readGamepad();
+  if(gp){gas=gas||gp.gas;brk=brk||gp.brk;lft=lft||gp.lft;rgt=rgt||gp.rgt;driftKey=driftKey||gp.drift;itemKey=itemKey||gp.item;}
+ }
 
  // spinout
  if(p.spinTimer>0){p.spinTimer-=dt;p.speed*=Math.pow(0.3,dtS);p.spinAngle+=12*dtS;
   if(p.spinTimer<=0){p.spinTimer=0;p.invTimer=2000;p.spinAngle=0;}
-  var ni2=nearestIndex(p.x,p.z,p.idx);p.y=CL[ni2].y;advanceProgress(p,ni2);return;}
+  var ni2=nearestIndex(p.x,p.z,p.idx);p.y=groundYAt(p.x,p.z,ni2);advanceProgress(p,ni2);return;}
  if(p.invTimer>0)p.invTimer-=dt;
  if(p.driftComboTimer>0){p.driftComboTimer-=dt;if(p.driftComboTimer<=0)p.driftCombo=0;}
 
  // stall from bad rocket start
  if(p.stallTimer>0){p.stallTimer-=dt;p.speed*=Math.pow(0.1,dtS);
-  var ni3=nearestIndex(p.x,p.z,p.idx);p.y=CL[ni3].y;advanceProgress(p,ni3);return;}
+  var ni3=nearestIndex(p.x,p.z,p.idx);p.y=groundYAt(p.x,p.z,ni3);advanceProgress(p,ni3);return;}
 
  var maxSpeed=p.maxSpeedBase, accel=p.accelBase, MAXTURN=p.turnBase;
 
@@ -3197,7 +3250,7 @@ function updatePlayer(p,dt){
  for(var bi=0;bi<itemBoxes.length;bi++){
   var box=itemBoxes[bi];if(!box.active)continue;
   var bdx=box.x-p.x,bdz=box.z-p.z;
-  if(bdx*bdx+bdz*bdz<5){box.active=false;box.timer=5000;
+  if(bdx*bdx+bdz*bdz<5&&!p.item){box.active=false;box.timer=5000;
    var pos=p.place||1;
    var itemIdx=0;
    if(pos===4)itemIdx=Math.floor(Math.random()*4)+4; // last place: best items (4-7)
@@ -3220,12 +3273,12 @@ function updatePlayer(p,dt){
  // destructible scenery collision (cones, tyres)
  for(var sci=0;sci<scenery.length;sci++){
   var sceneItem=scenery[sci];
-  if(!sceneItem||sceneItem._destroyed||(sceneItem.type!=='cone'&&sceneItem.type!=='tyre'))continue;
+  if(!sceneItem||sceneItem._destroyed||(sceneItem.atm!=='cone'&&sceneItem.atm!=='tyre'))continue;
   var scdx=sceneItem.x-p.x,scdz=sceneItem.z-p.z;
   var scDist=scdx*scdx+scdz*scdz;
   if(scDist<6.5){
    sceneItem._destroyed=true;
-   spawnPropBurst(sceneItem.x,sceneItem.y,sceneItem.z,sceneItem.type);
+   spawnPropBurst(sceneItem.x,sceneItem.y,sceneItem.z,sceneItem.atm);
    p.speed*=0.7;
   }
  }
@@ -3257,7 +3310,7 @@ function updateBot(b,dt){
  var dtS=dt/1000;
  if(b.spinTimer>0){b.spinTimer-=dt;b.speed*=Math.pow(0.3,dtS);b.spinAngle+=12*dtS;
   if(b.spinTimer<=0){b.spinTimer=0;b.invTimer=2000;b.spinAngle=0;}
-  var ni2=nearestIndex(b.x,b.z,b.idx);b.y=CL[ni2].y;advanceProgress(b,ni2);return;}
+  var ni2=nearestIndex(b.x,b.z,b.idx);b.y=groundYAt(b.x,b.z,ni2);advanceProgress(b,ni2);return;}
  if(b.invTimer>0)b.invTimer-=dt;
  var speedMul=DIFFS[GS.diff];
  var maxSpeed=b.maxSpeedBase*speedMul*(0.93+(b.slot%3)*0.02);
@@ -3297,12 +3350,14 @@ function updateBot(b,dt){
  if(b.speed<0)b.speed=0;
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
- // wall barrier for bots
- var bc=CL[ni];
+ // wall barrier for bots — use the post-move centerline index (matches the
+ // player); using the pre-move index let bots clip through walls on curves
+ var bni=nearestIndex(b.x,b.z,ni);
+ var bc=CL[bni];
  var bdx=b.x-bc.x,bdz=b.z-bc.z;
  var blat=bdx*bc.px+bdz*bc.pz;var babs=Math.abs(blat);
  if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.5)*bs;b.z=bc.z+bc.pz*(ROADW+3.5)*bs;b.speed*=0.6;}
- b.y=groundYAt(b.x,b.z,ni);
+ b.y=groundYAt(b.x,b.z,bni);
  b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R; // spin wheels by distance travelled
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
@@ -3313,11 +3368,11 @@ function updateBot(b,dt){
  // destructible scenery collision for bots
  for(var sci2=0;sci2<scenery.length;sci2++){
   var sceneItem2=scenery[sci2];
-  if(!sceneItem2||sceneItem2._destroyed||(sceneItem2.type!=='cone'&&sceneItem2.type!=='tyre'))continue;
+  if(!sceneItem2||sceneItem2._destroyed||(sceneItem2.atm!=='cone'&&sceneItem2.atm!=='tyre'))continue;
   var scdx2=sceneItem2.x-b.x,scdz2=sceneItem2.z-b.z;
   if(scdx2*scdx2+scdz2*scdz2<6.5){
    sceneItem2._destroyed=true;
-   spawnPropBurst(sceneItem2.x,sceneItem2.y,sceneItem2.z,sceneItem2.type);
+   spawnPropBurst(sceneItem2.x,sceneItem2.y,sceneItem2.z,sceneItem2.atm);
    b.speed*=0.7;
   }
  }
@@ -3358,7 +3413,7 @@ function updateBot(b,dt){
     var bahead=Math.sin(b.heading)*bdx2+Math.cos(b.heading)*bdz2;
     if((bdd<35&&bahead>-5)||(b.place>br.place&&bdd<40)){
      var isFwd=b.item==='Sahur Smack';
-     projectiles.push({x:b.x,y:b.y+0.6,z:b.z,dx:Math.sin(b.heading)*(isFwd?60:-70),dz:Math.cos(b.heading)*(isFwd?60:-70),life:3000,owner:-1});
+     projectiles.push({x:b.x,y:b.y+0.6,z:b.z,dx:Math.sin(b.heading)*(isFwd?60:-70),dz:Math.cos(b.heading)*(isFwd?60:-70),life:3000,owner:GS.racers.indexOf(b)});
      b.item=null;break;
     }
    }
@@ -3366,7 +3421,7 @@ function updateBot(b,dt){
   else if(b.item==='Zoomium Shield'){b.invTimer=2500;b.item=null;}
   else if(b.item==='Chaos Bomb'){for(var rcb=0;rcb<GS.racers.length;rcb++){if(GS.racers[rcb]===b)continue;var rbx=GS.racers[rcb].x-b.x,rbz=GS.racers[rcb].z-b.z,rbd=Math.sqrt(rbx*rbx+rbz*rbz);if(rbd<40){spinoutRacer(GS.racers[rcb]);}}b.item=null;}
  }
- advanceProgress(b,nearestIndex(b.x,b.z,b.idx));
+ advanceProgress(b,nearestIndex(b.x,b.z,bni));
 }
 function advanceProgress(r,ni){
  var n=CL.length;
@@ -3403,30 +3458,25 @@ function loop(now){
  if(dt<0)dt=0;
  if(dt>MAX_FRAME_DELTA)dt=MAX_FRAME_DELTA;
  frameDt=dt;
- physicsAccumulator+=dt;
  if(GS.scr==='race'){
   // countdown
   if(!GS.started){
    GS.cdTimer+=dt;
-   // rocket start: track gas during countdown phases
-   var gas=keys['arrowup']||keys['w']||touch.g;
-   if(GS.cdVal===3&&gas)GS.racers[0].rocketEarly=true;
-   if(GS.cdVal===2&&gas&&!GS.racers[0].rocketEarly)GS.racers[0].rocketGas=true;
    if(GS.cdTimer>=1000){
     GS.cdTimer=0;GS.cdVal--;
     var cd=document.getElementById('countdown');
     if(GS.cdVal>0){cd.textContent=GS.cdVal;sndCount(false);}
     else if(GS.cdVal===0){cd.textContent='GO!';sndCount(true);}
-    else{cd.style.display='none';GS.started=true;
-     var pl=GS.racers[0];
-     if(pl.rocketEarly){pl.speed=0;pl.stallTimer=500;beep(150,0.3);}
-     else if(pl.rocketGas){pl.boostTimer=1200;pl.boostPower=18;beep(990,0.25);
-      cd.style.display='block';cd.textContent='GO!';cd.style.color='#0f0';setTimeout(function(){cd.style.display='none';cd.style.color='#fff';},400);
-      for(var rp=0;rp<10;rp++)spawnP(pl.x,pl.y+0.5,pl.z,(Math.random()-0.5)*6,Math.random()*6,(Math.random()-0.5)*6,1,0.6,0,500);
-     }
+    else{
+     // Start with a clean fixed-step accumulator so race physics begins
+     // immediately and smoothly (no initial teleport burst).
+     physicsAccumulator=0;
+     cd.style.display='none';
+     GS.started=true;
     }
    }
   } else {
+   physicsAccumulator+=dt;
    GS.raceTime+=dt;
    while(physicsAccumulator>=FIXED_TIMESTEP){
     updatePlayer(GS.racers[0],FIXED_TIMESTEP);
@@ -3562,6 +3612,15 @@ function render(){
  var ty=p.y+height;
  var speedBob=Math.sin(GS.raceTime*0.006)*speedRatio*0.15;
  ty+=speedBob;
+ // ORBIT camera: slowly circle the kart instead of trailing directly behind it
+ if(GS.cameraMode==='ORBIT'){
+  var orbitA=p.heading+GS.raceTime*0.0005;
+  var orbR=16;
+  tx=p.x-Math.sin(orbitA)*orbR;
+  tz=p.z-Math.cos(orbitA)*orbR;
+  ty=p.y+8.5;
+  ahead=0; // look straight at the kart so it stays centred while orbiting
+ }
  var lfBase=isBoosting?10:6;
  var lf=1-Math.exp(-lfBase*frameDt/1000);
  cam.x+=(tx-cam.x)*lf;cam.y+=(ty-cam.y)*lf;cam.z+=(tz-cam.z)*lf;
@@ -3792,7 +3851,7 @@ function render(){
  // ===== trackside atmosphere (cones, tyres, balloons, flags) =====
  var atmTime=GS.raceTime*0.002;
  for(var sc2=0;sc2<scenery.length;sc2++){
-  var ao=scenery[sc2];if(!ao.atm)continue;
+  var ao=scenery[sc2];if(!ao.atm||ao._destroyed)continue;
   var adx2=ao.x-p.x,adz2=ao.z-p.z;if(adx2*adx2+adz2*adz2>140*140)continue;
   var am2=M.mul(M.translate(ao.x,ao.y,ao.z),M.rotY(ao.rot),M.scale(ao.sc,ao.sc,ao.sc));
   if(ao.atm==='cone'){drawMesh(coneMesh,am2,[0.95,0.4,0.1],0.55,10);drawMesh(coneStripe,am2,[1,1,1],0.6,10);}
