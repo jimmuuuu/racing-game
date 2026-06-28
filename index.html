@@ -989,19 +989,17 @@ function buildRaceMeshes(){
     var w=1/(d2+60);sumW+=w;sumY+=w*c.y;
    }
    var wavg=sumW>0?sumY/sumW:baseY;
-  // Figure-eight crossover: near the waist the upper (deck) and lower (underpass)
-  // roads stack. Bind the terrain to the LOWER road there so the deck bridges
-  // cleanly above it — this only LOWERS terrain toward the underpass level and
-  // blends back to the real hills by fig8R, so there is no ravine and the rest
-  // of the course keeps its genuine rolling elevation.
-  if(isFig8){
-   var f8dx=gx-fig8cx,f8dz=gz-fig8cz,f8d=Math.sqrt(f8dx*f8dx+f8dz*f8dz);
-   if(f8d<fig8R){
-    var f8f=f8d/fig8R; f8f=f8f*f8f*(3-2*f8f);   // smoothstep: 0 at centre, 1 at edge
-    if(nearY>fig8under)nearY=fig8under+(nearY-fig8under)*f8f;
-    if(wavg >fig8under)wavg =fig8under+(wavg -fig8under)*f8f;
+   // Figure-eight crossover: near the waist the upper (deck) and lower
+   // (underpass) roads stack. Bind the terrain to the LOWER road there so the
+   // crossing area cannot form a wall or poke through the road.
+   if(isFig8){
+    var f8dx=gx-fig8cx,f8dz=gz-fig8cz,f8d=Math.sqrt(f8dx*f8dx+f8dz*f8dz);
+    if(f8d<fig8R){
+     var f8f=f8d/fig8R; f8f=f8f*f8f*(3-2*f8f);   // smoothstep: 0 at centre, 1 at edge
+     if(nearY>fig8under)nearY=fig8under+(nearY-fig8under)*f8f;
+     if(wavg >fig8under)wavg =fig8under+(wavg -fig8under)*f8f;
+    }
    }
-  }
    var dist=Math.sqrt(minD);
    // Flush corridor: out to ROADW+3 (past the rumble strips at ROADW+1.8) the
    // terrain snaps to the nearest centerline elevation so grass meets the road
@@ -1009,9 +1007,13 @@ function buildRaceMeshes(){
    // smooth weighted-average so hills roll naturally.
    var rb=Math.max(0,Math.min(1,(dist-(ROADW+3))/(ROADW*3)));
    var hy=nearY+(wavg-nearY)*rb;
-   // tiny base depression (hides z-fighting, keeps grass just under the road)
-   // plus a transition-zone term so terrain stays below the road on steep hills
-   hy-=0.5+Math.abs(wavg-nearY)*0.4*rb;
+   // Keep grass safely below the track/kerbs. The old near-road surface was
+   // nearly flush; on slopes and crossovers heightfield triangles could peek
+   // through the asphalt as green shards. Strong clearance under the road fades
+   // smoothly into the surrounding grass.
+   var roadClear=Math.max(0,Math.min(1,1-dist/(ROADW+7)));
+   roadClear=roadClear*roadClear*(3-2*roadClear);
+   hy-=0.85+roadClear*1.35+Math.abs(wavg-nearY)*0.45*rb;
    // far edge -> ease down to the base plane so terrain skirts the horizon
    var fb=Math.max(0,Math.min(1,(dist-MARGIN*0.5)/(MARGIN*0.5)));
    hy=hy+(baseY-hy)*fb;
