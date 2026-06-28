@@ -400,6 +400,7 @@ var TRACKS=[
 
 var ROADW=10; // road half width
 var WHEEL_R=0.355; // kart wheel radius — karts ride this high so tires sit ON the track
+var OVERSPEED_DECAY=22; // units/sec the player sheds when above normal top speed (e.g. after a boost ends)
 
 /* ===================== WEBGL SETUP ===================== */
 var canvas=document.getElementById('glcanvas'),gl=null;
@@ -3019,7 +3020,11 @@ function updatePlayer(p,dt){
  var WALLW=ROADW+3.5;
  if(offRoad){ if(p.speed>maxSpeed*0.45)p.speed=maxSpeed*0.45; p.speed-=10*dtS; }
  // (wall barrier is enforced AFTER the position update below, matching the bots)
- if(p.speed<0)p.speed=0;if(p.speed>maxSpeed)p.speed=maxSpeed;
+ if(p.speed<0)p.speed=0;
+ // When a boost ends, maxSpeed drops instantly. Rather than snapping the speed
+ // straight down (which felt like the kart lurched backwards), bleed the extra
+ // boost speed off smoothly so the player eases back to the normal top speed.
+ if(p.speed>maxSpeed)p.speed=Math.max(maxSpeed,p.speed-OVERSPEED_DECAY*dtS);
 
  // drift
  var steerAmt=MAXTURN*(0.4+0.6*Math.min(1,p.speed/14));
