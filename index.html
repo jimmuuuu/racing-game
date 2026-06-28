@@ -2284,6 +2284,13 @@ window.addEventListener('resize',initFxCanvas);
 /* ===================== AUDIO SYSTEM (Web Audio API) ===================== */
 var audioCtx=null,masterGain=null,sfxGain=null,musicGain=null,audioMuted=false,engineOsc=null,engineGain=null,engineFilter=null,musicInterval=null,musicStep=0;
 var _driftThrottle=0;
+function applyMuteState(muted){
+ audioMuted=!!muted;
+ if(masterGain)masterGain.gain.value=audioMuted?0:1;
+ var mb=document.getElementById('muteBtn');
+ if(mb)mb.textContent=audioMuted?'🔇':'🔊';
+ try{localStorage.setItem('brr_muted',audioMuted?'1':'0');}catch(e){}
+}
 function initAudio(){
  try{
   if(audioCtx){if(audioCtx.state==='suspended')audioCtx.resume();return;}
@@ -2291,7 +2298,7 @@ function initAudio(){
   masterGain=audioCtx.createGain();masterGain.connect(audioCtx.destination);
   sfxGain=audioCtx.createGain();sfxGain.gain.value=0.5;sfxGain.connect(masterGain);
   musicGain=audioCtx.createGain();musicGain.gain.value=0.25;musicGain.connect(masterGain);
-  var m=localStorage.getItem('brr_muted');if(m==='1'){audioMuted=true;masterGain.gain.value=0;document.getElementById('muteBtn').textContent='🔇';}
+  var m=localStorage.getItem('brr_muted');applyMuteState(m==='1');
   if(audioCtx.state==='suspended')audioCtx.resume();
  }catch(e){}
 }
@@ -2299,10 +2306,7 @@ document.addEventListener('click',initAudio,{once:true});
 document.addEventListener('touchstart',initAudio,{once:true});
 document.getElementById('muteBtn').addEventListener('click',function(){
  initAudio();
- audioMuted=!audioMuted;
- if(masterGain)masterGain.gain.value=audioMuted?0:1;
- this.textContent=audioMuted?'🔇':'🔊';
- localStorage.setItem('brr_muted',audioMuted?'1':'0');
+ applyMuteState(!audioMuted);
 });
 
 function sndEngine(speed,maxSpeed){
@@ -2636,7 +2640,7 @@ function updateSettingsDisplay(){
  var winCount=localStorage.getItem('brr_wins')||0;
  document.getElementById('sb-wins').textContent=winCount;
 }
-function toggleMute(){audioMuted=!audioMuted;if(masterGain)masterGain.gain.value=audioMuted?0:1;updateSettingsDisplay();}
+function toggleMute(){initAudio();applyMuteState(!audioMuted);updateSettingsDisplay();}
 function toggleControls(){GS.controlMode=GS.controlMode==='KEYBOARD'?'GAMEPAD':'KEYBOARD';updateSettingsDisplay();}
 function toggleCameraMode(){GS.cameraMode=GS.cameraMode==='CHASE'?'ORBIT':'CHASE';updateSettingsDisplay();}
 /* ---- Preview helpers ---- */
@@ -2835,6 +2839,7 @@ function buildTrackGrid(){
 function startRace(){
  if(!gl){fail('WebGL unavailable.');return;}
  GS.scr='race';GS.started=false;GS.raceTime=0;GS.finishOrder=[];
+ physicsAccumulator=0;
  show(null);
  document.getElementById('hud').style.display='block';
  if(isMobile())document.getElementById('touch-controls').style.display='block';
@@ -3095,10 +3100,10 @@ function updatePlayer(p,dt){
    for(var ib=0;ib<10;ib++)spawnP(p.x+(Math.random()-0.5)*2,p.y+0.5+Math.random(),p.z+(Math.random()-0.5)*2,
     (Math.random()-0.5)*5,Math.random()*6-1,(Math.random()-0.5)*5,0.2,0.8+Math.random()*0.2,1,700);}
   else if(it==='Banana Splat'){hazards.push({x:p.x-Math.sin(p.heading)*3,y:p.y+0.15,z:p.z-Math.cos(p.heading)*3,type:'banana',active:true});sndCrash();}
-  else if(it==='Sahur Smack'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:Math.sin(p.heading)*60,dz:Math.cos(p.heading)*60,life:3000,owner:0});sndBoost();}
+  else if(it==='Sahur Smack'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:Math.sin(p.heading)*60,dz:Math.cos(p.heading)*60,life:3000,owner:0,ownerRacer:p});sndBoost();}
   else if(it==='Zoomium Shield'){p.invTimer=3000;spawnFloatText('SHIELD!',fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#0f0',40);
    for(var sh=0;sh<12;sh++)spawnP(p.x+Math.cos(sh/12*Math.PI*2)*2,p.y+0.5,p.z+Math.sin(sh/12*Math.PI*2)*2,(Math.cos(sh/12*Math.PI*2))*4,Math.random()*2,(Math.sin(sh/12*Math.PI*2))*4,0,1,0.5,800);}
-  else if(it==='Reverse Rocket'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:-Math.sin(p.heading)*70,dz:-Math.cos(p.heading)*70,life:2500,owner:0});sndBoost();}
+  else if(it==='Reverse Rocket'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:-Math.sin(p.heading)*70,dz:-Math.cos(p.heading)*70,life:2500,owner:0,ownerRacer:p});sndBoost();}
   else if(it==='Slick Slime'){for(var sl=0;sl<3;sl++){hazards.push({x:p.x+Math.cos(Math.PI*2*sl/3)*2,y:p.y+0.1,z:p.z+Math.sin(Math.PI*2*sl/3)*2,type:'slime',active:true});}sndCrash();}
   else if(it==='Speed Star'){p.boostTimer=800;p.boostPower=25;sndBoost();for(var ss=0;ss<15;ss++)spawnP(p.x+(Math.random()-0.5)*3,p.y+Math.random()*0.5,p.z+(Math.random()-0.5)*3,(Math.random()-0.5)*6,Math.random()*8,(Math.random()-0.5)*6,1,0.9,0.2,500);}
   else if(it==='Chaos Bomb'){for(var cb=0;cb<GS.racers.length;cb++){if(cb===0)continue;var r=GS.racers[cb];var cbx=r.x-p.x,cbz=r.z-p.z,cbd=Math.sqrt(cbx*cbx+cbz*cbz);if(cbd<40){spinoutRacer(r);}}}
@@ -3216,12 +3221,13 @@ function updateBot(b,dt){
  if(b.speed<0)b.speed=0;
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
- // wall barrier for bots
- var bc=CL[ni];
+ // wall barrier for bots: clamp against the nearest post-move segment.
+ var bni=nearestIndex(b.x,b.z,ni);
+ var bc=CL[bni];
  var bdx=b.x-bc.x,bdz=b.z-bc.z;
  var blat=bdx*bc.px+bdz*bc.pz;var babs=Math.abs(blat);
  if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.5)*bs;b.z=bc.z+bc.pz*(ROADW+3.5)*bs;b.speed*=0.6;}
- b.y=groundYAt(b.x,b.z,ni);
+ b.y=groundYAt(b.x,b.z,bni);
  b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R; // spin wheels by distance travelled
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
@@ -3277,7 +3283,7 @@ function updateBot(b,dt){
     var bahead=Math.sin(b.heading)*bdx2+Math.cos(b.heading)*bdz2;
     if((bdd<35&&bahead>-5)||(b.place>br.place&&bdd<40)){
      var isFwd=b.item==='Sahur Smack';
-     projectiles.push({x:b.x,y:b.y+0.6,z:b.z,dx:Math.sin(b.heading)*(isFwd?60:-70),dz:Math.cos(b.heading)*(isFwd?60:-70),life:3000,owner:-1});
+     projectiles.push({x:b.x,y:b.y+0.6,z:b.z,dx:Math.sin(b.heading)*(isFwd?60:-70),dz:Math.cos(b.heading)*(isFwd?60:-70),life:3000,ownerRacer:b});
      b.item=null;break;
     }
    }
@@ -3285,7 +3291,7 @@ function updateBot(b,dt){
   else if(b.item==='Zoomium Shield'){b.invTimer=2500;b.item=null;}
   else if(b.item==='Chaos Bomb'){for(var rcb=0;rcb<GS.racers.length;rcb++){if(GS.racers[rcb]===b)continue;var rbx=GS.racers[rcb].x-b.x,rbz=GS.racers[rcb].z-b.z,rbd=Math.sqrt(rbx*rbx+rbz*rbz);if(rbd<40){spinoutRacer(GS.racers[rcb]);}}b.item=null;}
  }
- advanceProgress(b,nearestIndex(b.x,b.z,b.idx));
+ advanceProgress(b,nearestIndex(b.x,b.z,bni));
 }
 function advanceProgress(r,ni){
  var n=CL.length;
@@ -3322,7 +3328,6 @@ function loop(now){
  if(dt<0)dt=0;
  if(dt>MAX_FRAME_DELTA)dt=MAX_FRAME_DELTA;
  frameDt=dt;
- physicsAccumulator+=dt;
  if(GS.scr==='race'){
   // countdown
   if(!GS.started){
@@ -3347,6 +3352,7 @@ function loop(now){
    }
   } else {
    GS.raceTime+=dt;
+   physicsAccumulator+=dt;
    while(physicsAccumulator>=FIXED_TIMESTEP){
     updatePlayer(GS.racers[0],FIXED_TIMESTEP);
     for(var i=1;i<GS.racers.length;i++)updateBot(GS.racers[i],FIXED_TIMESTEP);
@@ -3356,7 +3362,7 @@ function loop(now){
      var pni=nearestIndex(pr.x,pr.z,pr.lastIdx);pr.lastIdx=pni;if(CL[pni])pr.y=CL[pni].y+0.6;
      if(pr.life<=0){projectiles.splice(pi,1);continue;}
      for(var ri=0;ri<GS.racers.length;ri++){
-      if(ri===pr.owner)continue;var rr=GS.racers[ri];
+      var rr=GS.racers[ri];if(ri===pr.owner||rr===pr.ownerRacer)continue;
       var pdx=rr.x-pr.x,pdz=rr.z-pr.z;
       if(pdx*pdx+pdz*pdz<5){spinoutRacer(rr);projectiles.splice(pi,1);break;}
      }
