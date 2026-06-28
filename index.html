@@ -383,18 +383,28 @@ function polyTrack(verts,R,arcSteps,straightDensity,yFn){
  while(out.length>3&&Math.hypot(out[0][0]-out[out.length-1][0],out[0][2]-out[out.length-1][2])<3)out.pop();
  return out;
 }
-function figureEightTrack(cx,cz,sx,sz,steps){
- steps=steps||40;
+function figureEightTrack(cx,cz,sx,sz,steps,phase){
+ steps=steps||44;
+ // Phase-shift the parameter so the START LINE (i=0) sits in the MIDDLE of a
+ // loop (the right-loop tip) instead of on the self-intersection. The crossing
+ // is intrinsic to the lemniscate at t=0 and t=PI; with phase=PI/2 those land
+ // at ~25% and ~75% of the lap — well away from the start.
+ phase=(phase==null)?Math.PI/2:phase;
+ // Elevation: a genuine rolling hill (high at the start/right loop, low through
+ // the left loop) PLUS a localized lift on the OVER crossing so it bridges the
+ // UNDER crossing. The lift is a narrow raised-cosine bump centred on t=0 so the
+ // deck only floats right at the crossover and the road returns to the hill a
+ // short distance away (no long floating ramp, and the terrain stays smooth).
+ var HILL_BASE=18, HILL_AMP=18, BRIDGE_CLEAR=15, BR=0.40;
  var pts=[];
  for(var i=0;i<steps;i++){
-  var t=i/steps*Math.PI*2;
+  var t=phase + i/steps*Math.PI*2;
   var x=cx+Math.sin(t)*sx;
   var z=cz+Math.sin(t)*Math.cos(t)*sz;
-  // Keep this map flat. A raised crossing looks cool in theory, but because
-  // the terrain heightfield is generated from nearby road samples it creates
-  // huge green cliffs around the overlapping figure-eight center.
-  var y=0;
-  pts.push([x,y,z]);
+  var hill=HILL_BASE+HILL_AMP*Math.sin(t);            // start (t=PI/2) is the summit
+  var a0=Math.atan2(Math.sin(t),Math.cos(t));         // angular distance to the over-crossing (t=0)
+  var lift=(Math.abs(a0)<BR)?BRIDGE_CLEAR*0.5*(1+Math.cos(Math.PI*a0/BR)):0;
+  pts.push([x,hill+lift,z]);
  }
  return pts;
 }
@@ -405,10 +415,10 @@ function mountainDescentY(f){
  return 14+72*(u*u*(3-2*u));
 }
 var TRACKS=[
- {name:'Skibidi Crossroads',desc:'Flat figure-eight circuit with a clean crossover and no terrain cliffs',
+ {name:'Skibidi Crossroads',desc:'Hilltop start, a plunging downhill, then duck under the bridge where the figure-eight crosses over itself',
   theme:'figure8',
   sky:[0.18,0.58,0.96],skyBot:[0.68,0.88,1.0],grass:[0.20,0.62,0.24],road:[0.46,0.46,0.48],roadDark:[0.34,0.34,0.36],rumble:[0.95,0.12,0.10],tree:[0.18,0.58,0.22],fog:[0.56,0.76,0.92],
-  lakeDefs:[{f:0.18,side:1,off:92,r:18},{f:0.68,side:-1,off:86,r:20}],
+  lakeDefs:[{f:0.12,side:1,off:96,r:18},{f:0.55,side:-1,off:96,r:22}],
   pts:figureEightTrack(260,230,360,250,44)},
  {name:'Rizz Beach Boardwalk',desc:'Ocean-side beach sprint past waves, pier houses and a sunny seaside village',
   theme:'beach',
@@ -776,6 +786,7 @@ var standMesh=null,standRoof=null,fanBody=null,fanHead=null,crowdFans=[],stands=
 var windmillBase=null,windmillBlade=null,cabinBody=null,cabinRoof=null,towerBody=null,towerRoof=null,lighthouseBody=null,lighthouseTop=null;
 var coneMesh=null,coneStripe=null,tyreMesh=null,balloonMesh=null,balloonString=null,archPost=null,archBanner=null,flagPole=null,flagCloth=null,billboardMesh=null,billboardLegs=null,statueMesh=null;
 var lampPostMesh=null,lampGlobe=null,arrowSign=null,arrowPost=null,hotAirBalloon=null,hotAirBasket=null,skyBalloons=[],bridgeMesh=null,bridgeRail=null,campfireLogs=null,campfireFlame=null,finishGate=null,finishGateTop=null,cloudMesh=null,skyClouds=[];
+var fig8Bridge=null; // figure-8 overpass deck underside + support pillars (built per race)
 
 function buildCenterline(track){
  var pts=track.pts,n=pts.length;
@@ -829,6 +840,22 @@ function buildRaceMeshes(){
  var track=TRACKS[GS.selTrack];
  buildCenterline(track);
  var n=CL.length;
+ // ===== FIGURE-8 CROSSOVER INFO (shared by terrain + bridge geometry) =====
+ // The two stacked roads meet at the waist (the centroid of the lemniscate).
+ // fig8under = the lower (underpass) road height there; fig8overK = the CL index
+ // of the raised deck sample (used to build the bridge that spans the underpass).
+ var isFig8=(track.theme==='figure8');
+ var fig8cx=0,fig8cz=0,fig8under=0,fig8overK=-1,fig8R=96;
+ if(isFig8){
+  for(var fk=0;fk<n;fk++){fig8cx+=CL[fk].x;fig8cz+=CL[fk].z;}
+  fig8cx/=n;fig8cz/=n;
+  var loY=1e9,hiY=-1e9;
+  for(var fk2=0;fk2<n;fk2++){var dxx=CL[fk2].x-fig8cx,dzz=CL[fk2].z-fig8cz;
+   if(dxx*dxx+dzz*dzz<70*70){
+    if(CL[fk2].y<loY)loY=CL[fk2].y;
+    if(CL[fk2].y>hiY){hiY=CL[fk2].y;fig8overK=fk2;}}}
+  fig8under=(loY<1e9)?loY:0;
+ }
  // road ribbon
  trackMesh=new Mesh();
  rumbleMesh=new Mesh();
@@ -962,10 +989,19 @@ function buildRaceMeshes(){
     var w=1/(d2+60);sumW+=w;sumY+=w*c.y;
    }
    var wavg=sumW>0?sumY/sumW:baseY;
-  // The figure-eight bridge crosses over nearby low road. Do not let the
-  // elevated bridge samples drag the whole grass heightfield upward/downward
-  // into the giant ravine seen around the crossover.
-  if(track.theme==='figure8'&&nearY>3.5){nearY=1.0;wavg=Math.min(wavg,1.6);}
+  // Figure-eight crossover: near the waist the upper (deck) and lower (underpass)
+  // roads stack. Bind the terrain to the LOWER road there so the deck bridges
+  // cleanly above it — this only LOWERS terrain toward the underpass level and
+  // blends back to the real hills by fig8R, so there is no ravine and the rest
+  // of the course keeps its genuine rolling elevation.
+  if(isFig8){
+   var f8dx=gx-fig8cx,f8dz=gz-fig8cz,f8d=Math.sqrt(f8dx*f8dx+f8dz*f8dz);
+   if(f8d<fig8R){
+    var f8f=f8d/fig8R; f8f=f8f*f8f*(3-2*f8f);   // smoothstep: 0 at centre, 1 at edge
+    if(nearY>fig8under)nearY=fig8under+(nearY-fig8under)*f8f;
+    if(wavg >fig8under)wavg =fig8under+(wavg -fig8under)*f8f;
+   }
+  }
    var dist=Math.sqrt(minD);
    // Flush corridor: out to ROADW+3 (past the rumble strips at ROADW+1.8) the
    // terrain snaps to the nearest centerline elevation so grass meets the road
@@ -1000,6 +1036,35 @@ function buildRaceMeshes(){
  groundMesh.tri([-G,baseY,-G],[-G,baseY,G],[G,baseY,G]);
  groundMesh.tri([-G,baseY,-G],[G,baseY,G],[G,baseY,-G]);
  groundMesh.upload();
+ // ===== FIGURE-8 BRIDGE: solid deck underside + support pillars =====
+ // The drivable deck is the road ribbon itself (raised at the crossover). Give it
+ // a real underside slab and pillars down to the underpass floor so it reads as a
+ // proper bridge from below instead of a thin floating strip.
+ fig8Bridge=null;
+ if(isFig8&&fig8overK>=0){
+  fig8Bridge=new Mesh();
+  var DN=8,bHalfW=ROADW+1.2,bSkirt=1.5,bGroundY=fig8under-0.6;
+  for(var bs=-DN;bs<DN;bs++){
+   var ba=CL[(fig8overK+bs+n)%n],bb=CL[(fig8overK+bs+1+n)%n];
+   var ay=ba.y-0.12,by=bb.y-0.12;
+   var aL=[ba.x-ba.px*bHalfW,ay,ba.z-ba.pz*bHalfW],aR=[ba.x+ba.px*bHalfW,ay,ba.z+ba.pz*bHalfW];
+   var bL=[bb.x-bb.px*bHalfW,by,bb.z-bb.pz*bHalfW],bR=[bb.x+bb.px*bHalfW,by,bb.z+bb.pz*bHalfW];
+   var aLb=[aL[0],ay-bSkirt,aL[2]],aRb=[aR[0],ay-bSkirt,aR[2]];
+   var bLb=[bL[0],by-bSkirt,bL[2]],bRb=[bR[0],by-bSkirt,bR[2]];
+   fig8Bridge.quad(aLb,aRb,bRb,bLb);   // underside
+   fig8Bridge.quad(aL,aLb,bLb,bL);     // left skirt
+   fig8Bridge.quad(aR,bR,bRb,aRb);     // right skirt
+  }
+  for(var bp=-DN;bp<=DN;bp+=DN){
+   var bc=CL[(fig8overK+bp+n)%n];
+   for(var bsd=-1;bsd<=1;bsd+=2){
+    var bpx=bc.x+bc.px*(bHalfW-0.7)*bsd,bpz=bc.z+bc.pz*(bHalfW-0.7)*bsd;
+    var bTop=bc.y-bSkirt-0.05,bH=bTop-bGroundY;
+    if(bH>1.0)fig8Bridge.box(bpx,(bTop+bGroundY)/2,bpz,0.85,bH/2,0.85);
+   }
+  }
+  fig8Bridge.upload();
+ }
  // ===== STYLIZED SCENERY (Mario-Kart/Pixar look) =====
  // chunky tapered trunk (shared across all tree species), unit mesh ~ height 4
  treeTrunkMesh=new Mesh();
@@ -2172,9 +2237,19 @@ function buildRaceMeshes(){
    landmarks.push({type:cb%2?'billboard':'tower',x:cp.x,y:cp.y,z:cp.z,rot:cp.rot,sc:1.2+(cb%3)*0.35});
   }
  }else if(track.theme==='figure8'){
-  var cgate=pointNear(0.00,1,0,0);
-  arches.push({x:cgate.c.x,y:cgate.c.y,z:cgate.c.z,px:cgate.c.px,pz:cgate.c.pz,finish:false,idx:cgate.idx,tunnel:true,overpass:true});
-  var fanBase=pointNear(0.25,1,42,0);
+  // Overpass gallery spans the UNDER road at the crossover (you drive through it,
+  // beneath the bridge deck). It is no longer at the start line.
+  if(fig8overK>=0){
+   // the under road shares the crossover (x,z) with the deck; find the lowest
+   // CL sample near the waist for the gallery placement.
+   var uK=-1,uY=1e9;
+   for(var gk=0;gk<n;gk++){var gdx=CL[gk].x-fig8cx,gdz=CL[gk].z-fig8cz;
+    if(gdx*gdx+gdz*gdz<55*55&&CL[gk].y<uY){uY=CL[gk].y;uK=gk;}}
+   if(uK>=0){var uc=CL[uK];
+    arches.push({x:uc.x,y:uc.y,z:uc.z,px:uc.px,pz:uc.pz,finish:false,idx:uK,tunnel:true,overpass:true});}
+  }
+  // hero billboard out in the middle of the low (left) loop
+  var fanBase=pointNear(0.55,-1,46,0);
   landmarks.push({type:'billboard',x:fanBase.x,y:fanBase.y,z:fanBase.z,rot:fanBase.rot,sc:1.7});
  }
  // ===== GRANDSTANDS + CHEERING CROWD flanking the start/finish line =====
@@ -2183,8 +2258,8 @@ function buildRaceMeshes(){
  (function(){
   var teamCols=[[0.9,0.25,0.3],[0.95,0.8,0.2],[0.3,0.5,0.9],[0.3,0.8,0.45],[0.85,0.5,0.85],[0.95,0.95,0.95]];
   for(var ss=0;ss<2;ss++){var sgn=ss===0?1:-1;
-   // place a couple of stands just behind the finish-line on each side
-   for(var sb=0;sb<2;sb++){
+   // a row of stands lining the start/finish straight on each side
+   for(var sb=0;sb<3;sb++){
     var sc0=CL[(sb*6)%n];
     var stx=sc0.x+sc0.px*(ROADW+5)*sgn, stz=sc0.z+sc0.pz*(ROADW+5)*sgn;
     var srot=Math.atan2((sc0.x-stx),(sc0.z-stz)); // face the track
@@ -2199,6 +2274,25 @@ function buildRaceMeshes(){
        phase:Math.random()*6.28,
        col:teamCols[(row+col)%teamCols.length]});
     }}
+   }
+  }
+ })();
+ // ===== START-LINE DRESSING: bunting flags + balloon clusters flanking the grid =====
+ (function(){
+  var buntCols=[[0.95,0.25,0.3],[0.95,0.8,0.2],[0.25,0.55,0.95],[0.3,0.8,0.45],[0.85,0.5,0.85]];
+  for(var sgnI=0;sgnI<2;sgnI++){var sg=sgnI===0?1:-1;
+   for(var fl=0;fl<7;fl++){
+    var fc=CL[(2+fl*2)%n];
+    var fx=fc.x+fc.px*(ROADW+2.0)*sg, fz=fc.z+fc.pz*(ROADW+2.0)*sg;
+    scenery.push({type:'atm',atm:'flag',x:fx,y:sampleH(fx,fz),z:fz,
+     rot:Math.atan2(fc.x-fx,fc.z-fz),sc:1.1,col:buntCols[fl%buntCols.length]});
+   }
+   // balloon clusters bracketing the line
+   for(var bc2=0;bc2<2;bc2++){
+    var bcc=CL[(bc2*5)%n];
+    var bx=bcc.x+bcc.px*(ROADW+6)*sg, bz=bcc.z+bcc.pz*(ROADW+6)*sg;
+    scenery.push({type:'atm',atm:'balloon',x:bx,y:sampleH(bx,bz),z:bz,
+     rot:0,sc:1.2,col:buntCols[(bc2+sgnI)%buntCols.length]});
    }
   }
  })();
@@ -2235,6 +2329,9 @@ function buildRaceMeshes(){
   skyMesh.cols.push(capC[0],capC[1],capC[2],capC[0],capC[1],capC[2],capC[0],capC[1],capC[2]);skyMesh.count+=3;
  }
  skyMesh.upload();
+ // Debug hook (used by automated smoke tests) to sample the terrain heightfield
+ // and inspect crossover info; harmless in normal play.
+ try{window.__trackDbg={sampleH:sampleH,fig8:isFig8?{cx:fig8cx,cz:fig8cz,under:fig8under,R:fig8R}:null,bounds:{minX:minX,maxX:maxX,minZ:minZ,maxZ:maxZ}};}catch(e){}
 }
 
 /* ===================== DRAW ===================== */
@@ -3915,6 +4012,12 @@ function render(){
   drawMesh(fanHead,fm,[0.95,0.8,0.65],0.6,12);
  }
  gl.enable(gl.CULL_FACE);
+ // ===== figure-8 bridge deck underside + pillars =====
+ if(fig8Bridge){
+  gl.disable(gl.CULL_FACE);
+  drawMesh(fig8Bridge,I,[0.50,0.50,0.54],0.5,10);
+  gl.enable(gl.CULL_FACE);
+ }
  // ===== checkpoint arches / finish gate spanning the road =====
  for(var A9=0;A9<arches.length;A9++){
   var ah=arches[A9];
@@ -3926,15 +4029,34 @@ function render(){
   var bw=Math.hypot(rpx-lpx,rpz-lpz)/2;
   var bang=Math.atan2(ah.px,ah.pz);
   if(ah.finish){
-   // grand finish gate: chunky towers + checkered crossbeam + fluttering flags
+   // grand start/finish gantry: podium-based towers, a checkered crossbeam,
+   // a sponsor banner board and fluttering flags on top.
+   var gAccent=[0.16,0.84,0.76];
+   // chunky podium bases the towers stand on
+   drawMesh(finishGate,M.mul(M.translate(lpx,ah.y,lpz),M.scale(1.7,0.35,1.7)),gAccent,0.5,16);
+   drawMesh(finishGate,M.mul(M.translate(rpx,ah.y,rpz),M.scale(1.7,0.35,1.7)),gAccent,0.5,16);
+   // towers
    drawMesh(finishGate,M.translate(lpx,ah.y,lpz),[0.95,0.95,0.98],0.55,16);
    drawMesh(finishGate,M.translate(rpx,ah.y,rpz),[0.95,0.95,0.98],0.55,16);
+   // crossbeam
    var topM=M.mul(M.translate(ah.x,ah.y+4.4,ah.z),M.rotY(bang),M.scale(bw,1,1));
    drawMesh(finishGateTop,topM,[0.12,0.12,0.14],0.6,18);
+   // sponsor banner board sitting above the beam
+   var bannerM=M.mul(M.mul(M.translate(ah.x,ah.y+5.7,ah.z),M.rotY(bang)),M.scale(bw*1.02,1.5,0.45));
+   drawMesh(archBanner,bannerM,gAccent,0.55,10);
    // checker accents along the beam
    for(var ck2=0;ck2<6;ck2++){var t=(ck2/5-0.5);
     var cmx=ah.x+ah.px*t*bw*2,cmz=ah.z+ah.pz*t*bw*2;
     drawMesh(finishGateTop,M.mul(M.translate(cmx,ah.y+4.9,cmz),M.rotY(bang),M.scale(bw*0.16,0.5,1.1)),(ck2%2?[1,1,1]:[0.1,0.1,0.1]),0.7,14);}
+   // fluttering flags atop both towers
+   var gFlutter=Math.sin(GS.raceTime*0.006)*0.45;
+   var gFlagCols=[[0.95,0.25,0.3],[0.2,0.55,0.95]];
+   var gTowers=[[lpx,lpz],[rpx,rpz]];
+   for(var fg=0;fg<2;fg++){
+    var gfm=M.mul(M.translate(gTowers[fg][0],ah.y+4.0,gTowers[fg][1]),M.rotY(bang+gFlutter));
+    drawMesh(flagPole,gfm,[0.85,0.85,0.9],0.5,8);
+    drawMesh(flagCloth,gfm,gFlagCols[fg],0.6,8);
+   }
   }else if(ah.tunnel){
    // Rock tunnel / overpass gallery spanning the road. This uses existing
    // meshes so each track can get a custom landmark without adding assets.
