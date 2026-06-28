@@ -390,10 +390,10 @@ function figureEightTrack(cx,cz,sx,sz,steps){
   var t=i/steps*Math.PI*2;
   var x=cx+Math.sin(t)*sx;
   var z=cz+Math.sin(t)*Math.cos(t)*sz;
-  // Gentle bridge at the center crossing. Keep this modest so the terrain
-  // does not carve a giant ravine around the figure-eight overlap.
-  var overpass=7*(1+Math.cos(t))*0.5;
-  var y=overpass+1.2*Math.sin(t*4);
+  // Keep this map flat. A raised crossing looks cool in theory, but because
+  // the terrain heightfield is generated from nearby road samples it creates
+  // huge green cliffs around the overlapping figure-eight center.
+  var y=0;
   pts.push([x,y,z]);
  }
  return pts;
@@ -405,7 +405,7 @@ function mountainDescentY(f){
  return 14+72*(u*u*(3-2*u));
 }
 var TRACKS=[
- {name:'Skibidi Crossroads',desc:'Figure-eight circuit with a raised overpass at the center crossover',
+ {name:'Skibidi Crossroads',desc:'Flat figure-eight circuit with a clean crossover and no terrain cliffs',
   theme:'figure8',
   sky:[0.18,0.58,0.96],skyBot:[0.68,0.88,1.0],grass:[0.20,0.62,0.24],road:[0.46,0.46,0.48],roadDark:[0.34,0.34,0.36],rumble:[0.95,0.12,0.10],tree:[0.18,0.58,0.22],fog:[0.56,0.76,0.92],
   lakeDefs:[{f:0.18,side:1,off:92,r:18},{f:0.68,side:-1,off:86,r:20}],
