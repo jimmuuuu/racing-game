@@ -718,7 +718,8 @@ SkyMesh.prototype.upload=function(){
 /* ===================== STATIC MESHES (built once per race) ===================== */
 var trackMesh=null,rumbleMesh=null,rumbleMesh2=null,groundMesh=null,treeMesh=null,kartBody=null,kartLower=null,kartWheel=null,kartRoof=null,kartSpoiler=null,kartWheelRim=null,kartBumper=null,kartExhaust=null,kartNose=null,kartSeat=null,kartCage=null,kartHub=null,roadStripeMesh=null,startLineMesh=null,startLineMesh2=null,skyMesh=null,shoulderMesh=null,roadCenterMesh=null;
 var goatHead=null,goatEyeWhite=null,goatEyePupil=null,goatHorns=null,goatEars=null,goatBody=null,goatFrame=null,goatFrameBolts=null,goatRope=null,goatSteering=null,goatSeat=null,goatWheel=null,goatWheelHub=null,goatTread=null,goatBolts=null;
-var ttBody=null,ttHead=null,ttEyes=null,ttPupils=null,ttBrows=null,ttSmile=null;
+var ttBody=null,ttHead=null,ttEyes=null,ttPupils=null,ttBrows=null,ttSmile=null,ttBat=null,ttArmR=null;
+var goatEngine=null,goatEngineBrass=null,goatExhaust=null,goatSeatLeather=null,goatGrain=null,goatNoseFace=null;
 var sharkNose=null,sharkMouth=null,sharkEyeWhite=null,sharkPupil=null,sharkBody=null,sharkDorsal=null,sharkSideFins=null,sharkTail=null,sharkStripe=null,sharkSneaker=null,sharkSole=null;
 var crocHead=null,crocEyeWhite=null,crocPupil=null,crocTeeth=null,crocBody=null,crocWings=null,crocPropHub=null,crocPropBlade=null,crocRearHub=null,crocTail=null,crocStripe=null;
 var cupBody=null,cupRim=null,cupHandle=null,cupFoam=null,cupEyeWhite=null,cupPupil=null,cupMustache=null,cupBeans=null,cupPipes=null,cupBolts=null;
@@ -1442,6 +1443,59 @@ function buildRaceMeshes(){
   ttSmile.sphere(Math.sin(smAng)*0.12, 1.34+Math.cos(smAng)*0.04-0.04, -0.08, 0.025, 3,4);
  }
  ttSmile.upload();
+ // ===== TUNG TUNG SAHUR — UPGRADED KART DETAILING =====
+ // Wooden bat held in the right hand (tapered handle -> barrel + rounded cap + knob).
+ // Built centred at origin pointing +Y; the draw step places & tilts it at the hand.
+ ttBat=new Mesh();
+ ttBat.cyl(0,-0.14,0, 0.026,0.12,1,8);   // handle
+ ttBat.sphere(0,-0.27,0, 0.034,6,7);     // pommel knob
+ ttBat.cyl(0,0.02,0, 0.038,0.08,1,8);    // grip transition
+ ttBat.cyl(0,0.2,0, 0.058,0.14,1,10);    // barrel
+ ttBat.cone(0,0.34,0, 0.058,0.4,10);     // tapered barrel tip
+ ttBat.sphere(0,0.4,0, 0.05,7,8);        // rounded end cap
+ ttBat.upload();
+ // Right arm re-routed upward to hold the bat over the shoulder (replaces the
+ // generic right arm only for the bat pose; left hand stays on the wheel).
+ ttArmR=new Mesh();
+ ttArmR.cyl(0.16,0.78,-0.1, 0.055,0.2,1,6);          // upper arm
+ ttArmR.cyl(0.2,0.92,0.04, 0.05,0.16,2,6);           // forearm reaching to bat
+ ttArmR.sphere(0.22,0.96,0.02, 0.07,6,6);            // hand/grip
+ ttArmR.upload();
+ // Exposed cartoon engine block behind the seat (steel core + brass fittings).
+ goatEngine=new Mesh();
+ goatEngine.extrude(0,0.5,-0.62, roundRectProfile(0.26,0.2,0.06,3), -0.1,0.1, 1,1); // block
+ goatEngine.cyl(-0.13,0.66,-0.62, 0.06,0.1,1,10);   // cylinder head L
+ goatEngine.cyl(0.13,0.66,-0.62, 0.06,0.1,1,10);    // cylinder head R
+ goatEngine.box(0,0.4,-0.62, 0.24,0.05,0.18);        // sump pan
+ goatEngine.upload();
+ goatEngineBrass=new Mesh();
+ goatEngineBrass.sphere(-0.13,0.78,-0.62, 0.05,6,7); // brass cylinder caps
+ goatEngineBrass.sphere(0.13,0.78,-0.62, 0.05,6,7);
+ goatEngineBrass.torus(-0.13,0.66,-0.62, 0.07,0.018,12,5); // brass cooling fins
+ goatEngineBrass.torus(0.13,0.66,-0.62, 0.07,0.018,12,5);
+ goatEngineBrass.cyl(0,0.58,-0.5, 0.025,0.16,2,6);  // brass intake runner
+ goatEngineBrass.sphere(0,0.58,-0.36, 0.05,6,7);     // brass carb bell
+ goatEngineBrass.upload();
+ // Twin rear exhausts — walnut pipes angled up with brass tips.
+ goatExhaust=new Mesh();
+ goatExhaust.cyl(-0.18,0.5,-0.86, 0.045,0.22,2,8);  // pipe L (along Z)
+ goatExhaust.cyl(0.18,0.5,-0.86, 0.045,0.22,2,8);   // pipe R
+ goatExhaust.cyl(-0.18,0.58,-1.06, 0.05,0.06,2,8);  // tip L
+ goatExhaust.cyl(0.18,0.58,-1.06, 0.05,0.06,2,8);   // tip R
+ goatExhaust.upload();
+ // Leather seat cushion (dark brown) over the wooden seat base.
+ goatSeatLeather=new Mesh();
+ goatSeatLeather.extrude(0,0.34,-0.32, roundRectProfile(0.22,0.07,0.06,3), -0.14,0.14, 1,1); // base cushion
+ goatSeatLeather.extrude(0,0.55,-0.46, roundRectProfile(0.2,0.16,0.06,3), -0.04,0.04, 1,1);  // backrest
+ goatSeatLeather.upload();
+ // Carved wood grain ridges along the side frames (fine raised strips).
+ goatGrain=new Mesh();
+ for(var gg=0;gg<5;gg++){
+  var gz=-0.6+gg*0.28;
+  goatGrain.cyl(-0.605,0.35,gz, 0.006,0.22,2,4);
+  goatGrain.cyl(0.605,0.35,gz, 0.006,0.22,2,4);
+ }
+ goatGrain.upload();
  // ===== PREMIUM SHARED WHEEL (tire + sculpted rim + bolts) =====
  // tire carcass: high-seg cylinder core with rounded torus shoulders so the
  // sidewall reads as soft rubber, not a flat disc
@@ -2132,22 +2186,34 @@ function drawGoatKart(racer){
  drawMesh(goatHorns,base,[0.55,0.38,0.2],0.5,20);  // horn: semi-gloss
  drawMesh(goatEars,base,[0.85,0.7,0.65],0.45,8);
  drawMesh(goatBody,base,[0.95,0.92,0.85],0.5,6);   // fur: very matte
- drawMesh(goatFrame,base,[0.65,0.42,0.18],0.45,14); // wood
- drawMesh(goatFrameBolts,base,[0.45,0.46,0.5],0.6,72); // iron
+ drawMesh(goatFrame,base,[0.62,0.42,0.2],0.42,16);  // oak: warm matte wood
+ drawMesh(goatGrain,base,[0.5,0.32,0.14],0.4,10);   // carved grain ridges
+ drawMesh(goatFrameBolts,base,[0.78,0.58,0.25],0.6,80); // brass bolts
  drawMesh(goatRope,base,[0.82,0.72,0.52],0.5,6);   // rope: matte
- drawMesh(goatSteering,base,[0.15,0.15,0.18],0.4,56); // iron
- drawMesh(goatSeat,base,[0.7,0.48,0.22],0.45,12);  // wood
- drawMesh(ttBody,base,[0.72,0.45,0.2],0.45,16);    // carved wood
+ // exposed engine + brass fittings behind the seat
+ drawMesh(goatEngine,base,[0.5,0.52,0.57],0.45,70);    // steel block
+ drawMesh(goatEngineBrass,base,[0.8,0.6,0.26],0.55,90);// brass
+ // twin walnut exhausts with brass-toned heat (glow when boosting)
+ drawMesh(goatExhaust,base,[0.4,0.24,0.12],0.45,30);   // polished walnut
+ // leather seat cushion
+ drawMesh(goatSeatLeather,base,[0.26,0.15,0.08],0.45,18); // dark leather
+ drawMesh(goatSeat,base,[0.7,0.48,0.22],0.45,12);  // wood seat base
+ drawMesh(goatSteering,base,[0.5,0.32,0.16],0.45,28); // wooden steering wheel
+ drawMesh(ttBody,base,[0.72,0.45,0.2],0.45,16);    // carved wood driver
  drawMesh(ttHead,base,[0.68,0.42,0.18],0.48,16);
  drawMesh(ttEyes,base,[1,1,0.97],0.7,48);
  drawMesh(ttPupils,base,[0.1,0.08,0.05],0.3,80);
  drawMesh(ttBrows,base,[0.35,0.22,0.1],0.4,12);
  drawMesh(ttSmile,base,[0.3,0.18,0.08],0.35,10);
- // premium wheels — brass-toned alloy rims to match the wooden cart
- drawWheels(base,[[-0.62,0.0,0.5],[0.62,0.0,0.5],[-0.62,0.0,-0.55],[0.62,0.0,-0.55]],[0.7,0.55,0.3],racer.wheelRoll);
+ // wooden bat held in the right hand (tilted up over the shoulder)
+ var batM=M.mul(M.mul(M.mul(base,M.translate(0.2,0.74,0.16)),M.rotX(0.95)),M.rotZ(-0.18));
+ drawMesh(ttBat,batM,[0.43,0.27,0.13],0.45,34);    // polished walnut bat
+ // premium wheels — wooden walnut rims, brass bolts
+ drawWheels(base,[[-0.62,0.0,0.5],[0.62,0.0,0.5],[-0.62,0.0,-0.55],[0.62,0.0,-0.55]],[0.45,0.3,0.16],racer.wheelRoll);
  // boost glow
  if(racer.isPlayer&&racer.boostTimer>0){
   drawMesh(goatBody,base,[1,0.95,0.7],0.2);
+  drawMesh(goatExhaust,base,[1,0.6,0.2],0.2);       // exhaust heat glow
  }
  gl.enable(gl.CULL_FACE);
 }
@@ -2491,6 +2557,17 @@ var destructibleProps=[];
 function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
  for(var i=0;i<particles.length;i++){if(particles[i].life<=0){var p=particles[i];p.x=x;p.y=y;p.z=z;p.vx=vx;p.vy=vy;p.vz=vz;p.r=r;p.g=g;p.b=b;p.a=1;p.life=life;p.maxLife=life;return;}}
  if(particles.length<MAXPART)particles.push({x:x,y:y,z:z,vx:vx,vy:vy,vz:vz,r:r,g:g,b:b,a:1,life:life,maxLife:life});
+}
+/* Kart effect sockets (local kart space, +Z forward) shared by every racer:
+   twin exhaust tips for boost/nitro/smoke, rear wheel contact for dust. */
+var KART_SOCKETS={
+ exhaustL:[-0.18,0.6,-1.06], exhaustR:[0.18,0.6,-1.06],
+ dustL:[-0.62,0.0,-0.55], dustR:[0.62,0.0,-0.55]
+};
+/* Transform a local kart-space point to world space using the racer's pose. */
+function kartSocket(r,p){
+ var s=Math.sin(r.heading),c=Math.cos(r.heading);
+ return [r.x+c*p[0]+s*p[2], r.y+WHEEL_R+p[1], r.z-s*p[0]+c*p[2]];
 }
 function spawnPropBurst(x,y,z,propType){
  var count=8+Math.floor(Math.random()*4);
@@ -2995,9 +3072,13 @@ function updatePlayer(p,dt){
  if(p.boostTimer>0){p.boostTimer-=dt;maxSpeed+=p.boostPower;
   p._boostSpawn=(p._boostSpawn||0)+dt;
   if(p._boostSpawn>50){p._boostSpawn=0;
-   spawnP(p.x-Math.sin(p.heading)*1.3,p.y+0.35,p.z-Math.cos(p.heading)*1.3,
-    -Math.sin(p.heading)*8+(Math.random()-0.5)*3,Math.random()*3,-Math.cos(p.heading)*8+(Math.random()-0.5)*3,
-    1,0.5+Math.random()*0.4,0,250);
+   // nitro flames jet from the twin exhaust sockets
+   var exs=[KART_SOCKETS.exhaustL,KART_SOCKETS.exhaustR];
+   for(var es=0;es<2;es++){var w=kartSocket(p,exs[es]);
+    spawnP(w[0],w[1],w[2],
+     -Math.sin(p.heading)*8+(Math.random()-0.5)*3,Math.random()*3,-Math.cos(p.heading)*8+(Math.random()-0.5)*3,
+     1,0.5+Math.random()*0.4,0,250);
+   }
   }
  }
 
