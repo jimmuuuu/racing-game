@@ -435,8 +435,8 @@ var TRACKS=[
 var ROADW=10; // road half width
 var WHEEL_R=0.355; // kart wheel radius — karts ride this high so tires sit ON the track
 var OVERSPEED_DECAY=22; // units/sec the player sheds when above normal top speed (e.g. after a boost ends)
-var PLAYER_BASE_MAX_SPEED_SCALE=0.86; // keeps player top speed close to the bot pack
-var PLAYER_BASE_ACCEL_SCALE=0.72; // smoother launch/build-up instead of instant runaway speed
+var PLAYER_BASE_MAX_SPEED_SCALE=0.76; // keeps player top speed close to the bot pack
+var PLAYER_BASE_ACCEL_SCALE=0.50; // smoother launch/build-up instead of instant runaway speed
 
 /* ===================== WEBGL SETUP ===================== */
 var canvas=document.getElementById('glcanvas'),gl=null;
@@ -2793,7 +2793,7 @@ function hazPos(h){
 // award a speed boost to a racer (used by boost pads)
 function padBoost(r){
  if(r.boostTimer>500)return; // already boosting strongly — don't stack
- r.boostTimer=Math.max(r.boostTimer,700);r.boostPower=Math.max(r.boostPower,8);
+ r.boostTimer=Math.max(r.boostTimer,700);r.boostPower=Math.max(r.boostPower,5);
  if(r.isPlayer){sndBoost();GS.fovTarget=74;GS.fovTimer=400;}
 }
 
@@ -2857,7 +2857,7 @@ var CHAR_INFO=[
 /* Map display stats -> real driving physics so each racer truly differs */
 function charPhysics(i){
  var st=(CHAR_INFO[i]||{stats:[74,74,74,74]}).stats;
- return {maxSpeed:38+st[0]*0.11, accel:26+st[1]*0.11, turn:1.9+st[2]*0.0045, driftMul:0.85+st[3]*0.0035};
+ return {maxSpeed:27+st[0]*0.07, accel:16+st[1]*0.07, turn:1.9+st[2]*0.0045, driftMul:0.85+st[3]*0.0035};
 }
 /* Render the real in-game 3D kart model into an offscreen canvas via the main GL context */
 function ensureKartMeshes(){ if(gl&&!kartBody){ try{buildRaceMeshes();}catch(e){} } }
@@ -3270,7 +3270,7 @@ function updatePlayer(p,dt){
     p.driftCombo++;
     p.driftComboTimer=2000;
     var comboMult=1+p.driftCombo*0.15;
-    var basePower=(stage2===1?12:22)*p.driftMul;
+    var basePower=(stage2===1?7:12)*p.driftMul;
     p.boostTimer=stage2===1?600:1200;
     p.boostPower=basePower*comboMult;
     var beepFreq=(stage2===1?660:990)+p.driftCombo*44;
@@ -3300,7 +3300,7 @@ function updatePlayer(p,dt){
 
  // jump boost (hill crest detection)
  if(p.prevY>p.prevPrevY+0.01&&p.y<p.prevY-0.01&&driftKey){
-  p.boostTimer=400;p.boostPower=8;beep(550,0.1);
+  p.boostTimer=400;p.boostPower=5;beep(550,0.1);
  }
 
  // slipstream
@@ -3310,24 +3310,24 @@ function updatePlayer(p,dt){
   var sdx=bot.x-p.x,sdz=bot.z-p.z,sd=Math.sqrt(sdx*sdx+sdz*sdz);
   if(sd<18&&sd>2){
    var ahead=Math.sin(p.heading)*sdx+Math.cos(p.heading)*sdz;
-   if(ahead>0){p.slipTimer+=dt*2;if(p.slipTimer>2000){p.boostTimer=600;p.boostPower=10;p.slipTimer=0;beep(500,0.12);}}
+   if(ahead>0){p.slipTimer+=dt*2;if(p.slipTimer>2000){p.boostTimer=600;p.boostPower=6;p.slipTimer=0;beep(500,0.12);}}
   }
  }
 
  // item use (8 unique items)
  if(itemKey&&p.item){
   var it=p.item;p.item=null;
-  if(it==='Skibidi Boost'){p.boostTimer=1500;p.boostPower=18;sndBoost();
+  if(it==='Skibidi Boost'){p.boostTimer=1500;p.boostPower=9;sndBoost();
    GS.fovTarget=75;GS.fovTimer=500;GS.shake.x=(Math.random()-0.5)*0.5;GS.shake.y=(Math.random()-0.5)*0.4;GS.shake.decay=250;
    for(var ib=0;ib<10;ib++)spawnP(p.x+(Math.random()-0.5)*2,p.y+0.5+Math.random(),p.z+(Math.random()-0.5)*2,
     (Math.random()-0.5)*5,Math.random()*6-1,(Math.random()-0.5)*5,0.2,0.8+Math.random()*0.2,1,700);}
   else if(it==='Banana Splat'){hazards.push({x:p.x-Math.sin(p.heading)*3,y:p.y+0.15,z:p.z-Math.cos(p.heading)*3,type:'banana',active:true});sndCrash();}
-  else if(it==='Sahur Smack'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:Math.sin(p.heading)*60,dz:Math.cos(p.heading)*60,life:3000,owner:0,ownerRacer:p});sndBoost();}
+  else if(it==='Sahur Smack'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:Math.sin(p.heading)*42,dz:Math.cos(p.heading)*42,life:3000,owner:0,ownerRacer:p});sndBoost();}
   else if(it==='Zoomium Shield'){p.invTimer=3000;spawnFloatText('SHIELD!',fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#0f0',40);
    for(var sh=0;sh<12;sh++)spawnP(p.x+Math.cos(sh/12*Math.PI*2)*2,p.y+0.5,p.z+Math.sin(sh/12*Math.PI*2)*2,(Math.cos(sh/12*Math.PI*2))*4,Math.random()*2,(Math.sin(sh/12*Math.PI*2))*4,0,1,0.5,800);}
-  else if(it==='Reverse Rocket'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:-Math.sin(p.heading)*70,dz:-Math.cos(p.heading)*70,life:2500,owner:0,ownerRacer:p});sndBoost();}
+  else if(it==='Reverse Rocket'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:-Math.sin(p.heading)*46,dz:-Math.cos(p.heading)*46,life:2500,owner:0,ownerRacer:p});sndBoost();}
   else if(it==='Slick Slime'){for(var sl=0;sl<3;sl++){hazards.push({x:p.x+Math.cos(Math.PI*2*sl/3)*2,y:p.y+0.1,z:p.z+Math.sin(Math.PI*2*sl/3)*2,type:'slime',active:true});}sndCrash();}
-  else if(it==='Speed Star'){p.boostTimer=800;p.boostPower=25;sndBoost();for(var ss=0;ss<15;ss++)spawnP(p.x+(Math.random()-0.5)*3,p.y+Math.random()*0.5,p.z+(Math.random()-0.5)*3,(Math.random()-0.5)*6,Math.random()*8,(Math.random()-0.5)*6,1,0.9,0.2,500);}
+  else if(it==='Speed Star'){p.boostTimer=800;p.boostPower=12;sndBoost();for(var ss=0;ss<15;ss++)spawnP(p.x+(Math.random()-0.5)*3,p.y+Math.random()*0.5,p.z+(Math.random()-0.5)*3,(Math.random()-0.5)*6,Math.random()*8,(Math.random()-0.5)*6,1,0.9,0.2,500);}
   else if(it==='Chaos Bomb'){for(var cb=0;cb<GS.racers.length;cb++){if(cb===0)continue;var r=GS.racers[cb];var cbx=r.x-p.x,cbz=r.z-p.z,cbd=Math.sqrt(cbx*cbx+cbz*cbz);if(cbd<40){spinoutRacer(r);}}}
  }
 
@@ -3439,7 +3439,7 @@ function updateBot(b,dt){
  var btc=(b.turnBase+0.4)*dtS;
  b.heading+=Math.max(-btc,Math.min(btc,turn));
  if(b.boostTimer>0){b.boostTimer-=dt;maxSpeed+=b.boostPower;}
- b.speed+=(b.accelBase*0.9)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
+ b.speed+=(b.accelBase*0.72)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
  if(b.speed<0)b.speed=0;
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
@@ -3492,7 +3492,7 @@ function updateBot(b,dt){
  }
  // Bot item usage (smarter AI)
  if(b.item){
-  if(b.item==='Skibidi Boost'||b.item==='Speed Star'){b.boostTimer=1200;b.boostPower=b.item==='Speed Star'?24:16;b.item=null;
+  if(b.item==='Skibidi Boost'||b.item==='Speed Star'){b.boostTimer=1200;b.boostPower=b.item==='Speed Star'?11:8;b.item=null;
    for(var bbp=0;bbp<4;bbp++)spawnP(b.x,b.y+0.5,b.z,(Math.random()-0.5)*3,Math.random()*4,(Math.random()-0.5)*3,0,1,1,400);}
   else if(b.item==='Banana Splat'||b.item==='Slick Slime'){
    if(Math.random()<(b.place<=2?0.3:0.05)){
@@ -3506,7 +3506,7 @@ function updateBot(b,dt){
     var bahead=Math.sin(b.heading)*bdx2+Math.cos(b.heading)*bdz2;
     if((bdd<35&&bahead>-5)||(b.place>br.place&&bdd<40)){
      var isFwd=b.item==='Sahur Smack';
-     projectiles.push({x:b.x,y:b.y+0.6,z:b.z,dx:Math.sin(b.heading)*(isFwd?60:-70),dz:Math.cos(b.heading)*(isFwd?60:-70),life:3000,owner:GS.racers.indexOf(b),ownerRacer:b});
+     projectiles.push({x:b.x,y:b.y+0.6,z:b.z,dx:Math.sin(b.heading)*(isFwd?42:-46),dz:Math.cos(b.heading)*(isFwd?42:-46),life:3000,owner:GS.racers.indexOf(b),ownerRacer:b});
      b.item=null;break;
     }
    }
