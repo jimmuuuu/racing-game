@@ -4150,9 +4150,9 @@ function render(){
    var cdx2=cn.x-p.x,cdz2=cn.z-p.z;if(cdx2*cdx2+cdz2*cdz2>120*120)continue;
    var shimmer=0.85+Math.sin(cTime+ci)*0.15;
    var bobY=cn.y+Math.sin(cTime+ci*0.3)*0.25;
-   var cm=M.mul(M.translate(cn.x,bobY,cn.z),M.rotY(cTime*4+ci),M.rotX(cTime*2));
+   var cm=M.mul(M.mul(M.translate(cn.x,bobY,cn.z),M.rotY(cTime*4+ci)),M.rotX(cTime*2));
    // glowing halo behind the coin (slightly larger, bright, faces spin)
-   drawMesh(coinMesh,M.mul(M.translate(cn.x,bobY,cn.z),M.rotY(cTime*4+ci),M.rotX(cTime*2),M.scale(1.35,1.35,0.5)),[1.0,0.9,0.35],0.95,8);
+   drawMesh(coinMesh,M.mul(cm,M.scale(1.35,1.35,0.5)),[1.0,0.9,0.35],0.95,8);
    drawMesh(coinMesh,cm,[shimmer,shimmer*0.85,0.12],0.6,64);
    // bright specular highlight pass
    drawMesh(coinMesh,cm,[1,1,0.55],0.25,80);
@@ -4174,7 +4174,7 @@ function render(){
   for(var pi=0;pi<projectiles.length;pi++){
    var pr=projectiles[pi];
    var spin=GS.raceTime*0.01+pi;
-   var pm=M.mul(M.translate(pr.x,pr.y,pr.z),M.rotY(spin),M.rotX(spin*0.7),M.scale(0.4,0.4,0.4));
+   var pm=M.mul(M.mul(M.mul(M.translate(pr.x,pr.y,pr.z),M.rotY(spin)),M.rotX(spin*0.7)),M.scale(0.4,0.4,0.4));
    drawMesh(itemBoxMesh,pm,[1,0.15,0.15],0.7);
    // projectile glow trail
    drawMesh(itemBoxMesh,pm,[1,0.3,0.3],0.2);
