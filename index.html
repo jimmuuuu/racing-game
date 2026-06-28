@@ -1036,12 +1036,11 @@ function buildRaceMeshes(){
  groundMesh.tri([-G,baseY,-G],[-G,baseY,G],[G,baseY,G]);
  groundMesh.tri([-G,baseY,-G],[G,baseY,G],[G,baseY,-G]);
  groundMesh.upload();
- // ===== FIGURE-8 BRIDGE: solid deck underside + support pillars =====
- // The drivable deck is the road ribbon itself (raised at the crossover). Give it
- // a real underside slab and pillars down to the underpass floor so it reads as a
- // proper bridge from below instead of a thin floating strip.
+// ===== FIGURE-8 BRIDGE: disabled =====
+// The decorative underside/tunnel mesh could appear as a stray black block on
+// the road. Keep the track itself unchanged and do not render that extra prop.
  fig8Bridge=null;
- if(isFig8&&fig8overK>=0){
+if(false&&isFig8&&fig8overK>=0){
   fig8Bridge=new Mesh();
   var DN=8,bHalfW=ROADW+1.2,bSkirt=1.5,bGroundY=fig8under-0.6;
   for(var bs=-DN;bs<DN;bs++){
@@ -2237,17 +2236,6 @@ function buildRaceMeshes(){
    landmarks.push({type:cb%2?'billboard':'tower',x:cp.x,y:cp.y,z:cp.z,rot:cp.rot,sc:1.2+(cb%3)*0.35});
   }
  }else if(track.theme==='figure8'){
-  // Overpass gallery spans the UNDER road at the crossover (you drive through it,
-  // beneath the bridge deck). It is no longer at the start line.
-  if(fig8overK>=0){
-   // the under road shares the crossover (x,z) with the deck; find the lowest
-   // CL sample near the waist for the gallery placement.
-   var uK=-1,uY=1e9;
-   for(var gk=0;gk<n;gk++){var gdx=CL[gk].x-fig8cx,gdz=CL[gk].z-fig8cz;
-    if(gdx*gdx+gdz*gdz<55*55&&CL[gk].y<uY){uY=CL[gk].y;uK=gk;}}
-   if(uK>=0){var uc=CL[uK];
-    arches.push({x:uc.x,y:uc.y,z:uc.z,px:uc.px,pz:uc.pz,finish:false,idx:uK,tunnel:true,overpass:true});}
-  }
   // hero billboard out in the middle of the low (left) loop
   var fanBase=pointNear(0.55,-1,46,0);
   landmarks.push({type:'billboard',x:fanBase.x,y:fanBase.y,z:fanBase.z,rot:fanBase.rot,sc:1.7});
