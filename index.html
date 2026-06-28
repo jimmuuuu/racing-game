@@ -383,22 +383,52 @@ function polyTrack(verts,R,arcSteps,straightDensity,yFn){
  while(out.length>3&&Math.hypot(out[0][0]-out[out.length-1][0],out[0][2]-out[out.length-1][2])<3)out.pop();
  return out;
 }
+function figureEightTrack(cx,cz,sx,sz,steps){
+ steps=steps||40;
+ var pts=[];
+ for(var i=0;i<steps;i++){
+  var t=i/steps*Math.PI*2;
+  var x=cx+Math.sin(t)*sx;
+  var z=cz+Math.sin(t)*Math.cos(t)*sz;
+  // At the center crossing, one pass is an overpass and the opposite pass stays low.
+  var overpass=18*(1+Math.cos(t))*0.5;
+  var y=overpass+3*Math.sin(t*4);
+  pts.push([x,y,z]);
+ }
+ return pts;
+}
+function mountainDescentY(f){
+ // Long downhill run, then a shorter climb back to the summit for the next lap.
+ if(f<0.72)return 86-72*(f/0.72)+5*Math.sin(f*Math.PI*10);
+ var u=(f-0.72)/0.28;
+ return 14+72*(u*u*(3-2*u));
+}
 var TRACKS=[
- {name:'Skibidi Speedway',desc:'Sweeping countryside circuit — long straights & fast corners',
-  sky:[0.15,0.55,0.95],skyBot:[0.65,0.85,0.98],grass:[0.22,0.65,0.22],road:[0.48,0.48,0.48],roadDark:[0.38,0.38,0.38],rumble:[0.95,0.1,0.1],tree:[0.20,0.60,0.20],fog:[0.55,0.75,0.92],
-  pts:polyTrack([[0,0],[500,0],[600,200],[500,500],[100,500],[-50,200]],110,5,55)},
- {name:'Rizz Beach',desc:'Long coastal blast with a tight stadium section',
-  sky:[0.35,0.72,0.98],skyBot:[0.85,0.95,1.0],grass:[0.86,0.78,0.52],road:[0.46,0.46,0.48],roadDark:[0.36,0.36,0.38],rumble:[1.0,0.55,0.15],tree:[0.18,0.55,0.30],fog:[0.70,0.88,0.95],
-  pts:polyTrack([[0,0],[700,0],[760,160],[700,320],[0,320],[-60,160]],110,5,55)},
- {name:'Maple Heights',desc:'Flat-out speedway — two huge straights',
-  sky:[0.45,0.68,0.92],skyBot:[0.82,0.90,0.98],grass:[0.35,0.62,0.30],road:[0.44,0.44,0.46],roadDark:[0.34,0.34,0.36],rumble:[0.90,0.90,0.95],tree:[0.22,0.58,0.26],fog:[0.68,0.80,0.92],
-  pts:polyTrack([[0,0],[850,0],[850,320],[0,320]],110,5,50)},
- {name:'Neon City',desc:'Angular night street circuit — eight corners',
-  sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.12,0.22,0.12],road:[0.25,0.25,0.3],roadDark:[0.18,0.18,0.22],rumble:[0,1.0,1.0],tree:[0.3,0.3,0.35],fog:[0.10,0.06,0.18],
-  pts:polyTrack([[150,0],[420,0],[570,140],[570,360],[420,500],[150,500],[0,360],[0,140]],110,5,55)},
- {name:'Dragon Peak',desc:'Mountain pentagon with a big climb & plunge',
-  sky:[0.5,0.7,0.95],skyBot:[0.8,0.9,1.0],grass:[0.3,0.45,0.25],road:[0.4,0.4,0.45],roadDark:[0.30,0.30,0.35],rumble:[0.95,0.5,0.0],tree:[0.25,0.4,0.2],fog:[0.65,0.78,0.92],
-  pts:polyTrack([[0,0],[560,0],[720,320],[340,560],[-120,320]],110,5,55,function(f){return Math.max(0,38*Math.sin(f*Math.PI));})}
+ {name:'Skibidi Crossroads',desc:'Figure-eight circuit with a raised overpass at the center crossover',
+  theme:'figure8',
+  sky:[0.18,0.58,0.96],skyBot:[0.68,0.88,1.0],grass:[0.20,0.62,0.24],road:[0.46,0.46,0.48],roadDark:[0.34,0.34,0.36],rumble:[0.95,0.12,0.10],tree:[0.18,0.58,0.22],fog:[0.56,0.76,0.92],
+  lakeDefs:[{f:0.18,side:1,off:92,r:18},{f:0.68,side:-1,off:86,r:20}],
+  pts:figureEightTrack(260,230,360,250,44)},
+ {name:'Rizz Beach Boardwalk',desc:'Ocean-side beach sprint past waves, pier houses and a sunny seaside village',
+  theme:'beach',
+  sky:[0.30,0.74,1.0],skyBot:[0.86,0.96,1.0],grass:[0.88,0.78,0.50],road:[0.48,0.46,0.43],roadDark:[0.35,0.33,0.31],rumble:[1.0,0.58,0.16],tree:[0.14,0.60,0.34],fog:[0.72,0.90,0.98],
+  lakeDefs:[{f:0.10,side:-1,off:72,r:120},{f:0.36,side:-1,off:92,r:150},{f:0.72,side:-1,off:80,r:110}],
+  pts:polyTrack([[0,40],[260,0],[620,-10],[820,90],[760,220],[560,260],[760,410],[420,500],[60,450],[-130,300],[-100,130]],95,5,45,function(f){return 2.5*Math.sin(f*Math.PI*4);})},
+ {name:'Maple Ridge Run',desc:'Forest ridge road with rolling hills, a horseshoe climb and a downhill S-section',
+  theme:'forest',
+  sky:[0.45,0.68,0.92],skyBot:[0.82,0.90,0.98],grass:[0.34,0.61,0.28],road:[0.43,0.43,0.45],roadDark:[0.32,0.32,0.35],rumble:[0.90,0.90,0.95],tree:[0.22,0.58,0.26],fog:[0.67,0.80,0.92],
+  lakeDefs:[{f:0.22,side:1,off:82,r:18},{f:0.62,side:-1,off:90,r:24}],
+  pts:polyTrack([[0,0],[410,-120],[720,30],[690,250],[520,370],[740,560],[360,660],[70,510],[-190,570],[-280,300],[-120,130]],92,5,48,function(f){return 10+18*Math.sin(f*Math.PI*2-0.7)+7*Math.sin(f*Math.PI*6);})},
+ {name:'Neon Switchback City',desc:'Night street circuit with tight blocks, long tunnels of light and stacked switchbacks',
+  theme:'city',
+  sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.10,0.18,0.12],road:[0.24,0.24,0.30],roadDark:[0.17,0.17,0.22],rumble:[0,1.0,1.0],tree:[0.28,0.30,0.36],fog:[0.10,0.06,0.18],
+  lakeDefs:[{f:0.50,side:1,off:95,r:16}],
+  pts:polyTrack([[120,0],[430,0],[610,95],[610,210],[470,210],[470,330],[650,420],[470,560],[130,560],[-40,430],[-40,300],[150,300],[150,160],[-40,110]],74,4,38,function(f){return 7*Math.sin(f*Math.PI*4);})},
+ {name:'Dragon Peak Descent',desc:'Huge mountain downhill with cliff loops, a rock tunnel and a steep climb back to the summit',
+  theme:'mountain',
+  sky:[0.50,0.70,0.95],skyBot:[0.82,0.92,1.0],grass:[0.30,0.45,0.25],road:[0.39,0.39,0.43],roadDark:[0.28,0.28,0.33],rumble:[0.95,0.50,0.00],tree:[0.24,0.39,0.21],fog:[0.64,0.77,0.90],
+  lakeDefs:[{f:0.62,side:-1,off:94,r:20}],
+  pts:polyTrack([[0,0],[230,-110],[520,-40],[675,150],[510,305],[275,230],[430,430],[120,620],[-190,520],[-70,310],[-315,150],[-160,-70]],86,5,42,mountainDescentY)}
 ];
 
 var ROADW=10; // road half width
@@ -910,7 +940,7 @@ function buildRaceMeshes(){
  // lake basins: carve smooth depressions into the terrain away from the road,
  // then fill them with a stylized water surface (placed below).
  lakes=[];
- var lakeDefs=[{f:0.18,side:1,off:74,r:16},{f:0.56,side:-1,off:88,r:22}];
+ var lakeDefs=track.lakeDefs||[{f:0.18,side:1,off:74,r:16},{f:0.56,side:-1,off:88,r:22}];
  for(var lkI=0;lkI<lakeDefs.length;lkI++){
   var ld=lakeDefs[lkI];var lci=Math.floor(ld.f*n)%n;var lcc=CL[lci];
   var lx=lcc.x+lcc.px*ld.off*ld.side, lz=lcc.z+lcc.pz*ld.off*ld.side;
@@ -2085,9 +2115,60 @@ function buildRaceMeshes(){
   }
   // ring the village with a low fence
   for(var fk=0;fk<8;fk++){var fa=fk/8*Math.PI*2;
-   var fx=vc.x+vc.px*27*vside+vc.dirX*0+Math.cos(fa)*16, fz=vc.z+vc.pz*27*vside+Math.sin(fa)*16;
+   var fx=vc.x+vc.px*27*vside+Math.cos(fa)*16, fz=vc.z+vc.pz*27*vside+Math.sin(fa)*16;
    scenery.push({type:'fence',x:fx,y:sampleH(fx,fz),z:fz,sc:1.2,rot:fa+1.57,col:[0.6,0.45,0.3]});}
  })();
+ // ===== TRACK-SPECIFIC SET DRESSING =====
+ function pointNear(frac,side,off,along){
+  var idx=Math.floor(frac*n)%n,c=CL[idx];
+  var x=c.x+c.px*off*side+c.dx*(along||0),z=c.z+c.pz*off*side+c.dz*(along||0);
+  return {c:c,idx:idx,x:x,z:z,y:sampleH(x,z),rot:Math.atan2(c.x-x,c.z-z)};
+ }
+ var beachStallCols=[[0.9,0.35,0.3],[0.95,0.8,0.3],[0.35,0.65,0.85],[0.5,0.75,0.45]];
+ function addBeachHouse(frac,side,off,along,type,ci){
+  var pnt=pointNear(frac,side,off,along);
+  villages.push({type:type||'cabin',x:pnt.x,y:pnt.y,z:pnt.z,rot:pnt.rot,col:ci!=null?beachStallCols[ci%beachStallCols.length]:null});
+ }
+ if(track.theme==='beach'){
+  // Boardwalk village and beach houses facing the ocean side of the course.
+  for(var bh=0;bh<9;bh++){
+   var bf=0.08+bh*0.075;
+   addBeachHouse(bf,-1,34+(bh%3)*7,(bh%2?9:-7),bh%3===0?'stall':'cabin',bh);
+   var bpnt=pointNear(bf,-1,22,(bh%2?6:-6));
+   scenery.push({type:'fence',x:bpnt.x,y:bpnt.y,z:bpnt.z,sc:1.4,rot:bpnt.rot+Math.PI/2,col:[0.82,0.68,0.45]});
+  }
+  // Palm-lined beach edge, flags, balloons and a lighthouse hero landmark.
+  for(var palm=0;palm<18;palm++){
+   var pf=0.03+palm*0.052,pnt=pointNear(pf,-1,17+(palm%4)*5,0);
+   trees.push({x:pnt.x,y:pnt.y-0.3,z:pnt.z,sc:1.25+(palm%3)*0.18,rot:palm*0.9,lean:(palm%2?0.16:-0.12),variant:2,leaf:[0.10,0.55,0.30],bark:[0.55,0.36,0.18]});
+   if(palm%3===0)scenery.push({x:pnt.x+pnt.c.dx*5,y:pnt.y,z:pnt.z+pnt.c.dz*5,rot:pnt.rot,sc:1.1,atm:'flag',col:balloonCols[palm%balloonCols.length]});
+  }
+  var lh=pointNear(0.20,-1,78,8);landmarks.push({type:'lighthouse',x:lh.x,y:lh.y,z:lh.z,rot:lh.rot,sc:1.6});
+  var pier=pointNear(0.30,-1,54,0);scenery.push({type:'bridge',x:pier.x,y:pier.y+0.25,z:pier.z,rot:pier.rot+Math.PI/2,sc:1.6});
+ }else if(track.theme==='mountain'){
+  // Tunnel mouth through the mountain: dark arched galleries plus rock walls.
+  var t0=pointNear(0.40,1,0,0);
+  arches.push({x:t0.c.x,y:t0.c.y,z:t0.c.z,px:t0.c.px,pz:t0.c.pz,finish:false,idx:t0.idx,tunnel:true});
+  for(var mr=0;mr<22;mr++){
+   var mf=0.33+mr*0.008;
+   for(var ms=-1;ms<=1;ms+=2){
+    var rp=pointNear(mf,ms,ROADW+4+(mr%4)*2,0);
+    scenery.push({type:'rock',x:rp.x,y:rp.y-0.3,z:rp.z,sc:1.4+(mr%5)*0.35,rot:mr*0.7,col:[0.38,0.37,0.34]});
+   }
+  }
+  var summit=pointNear(0.02,1,52,0);landmarks.push({type:'tower',x:summit.x,y:summit.y,z:summit.z,rot:summit.rot,sc:1.8});
+  var valley=pointNear(0.62,-1,58,0);landmarks.push({type:'statue',x:valley.x,y:valley.y,z:valley.z,rot:valley.rot,sc:2.4});
+ }else if(track.theme==='city'){
+  for(var cb=0;cb<10;cb++){
+   var cp=pointNear(0.05+cb*0.085,cb%2?1:-1,34+(cb%3)*10,0);
+   landmarks.push({type:cb%2?'billboard':'tower',x:cp.x,y:cp.y,z:cp.z,rot:cp.rot,sc:1.2+(cb%3)*0.35});
+  }
+ }else if(track.theme==='figure8'){
+  var cgate=pointNear(0.00,1,0,0);
+  arches.push({x:cgate.c.x,y:cgate.c.y,z:cgate.c.z,px:cgate.c.px,pz:cgate.c.pz,finish:false,idx:cgate.idx,tunnel:true,overpass:true});
+  var fanBase=pointNear(0.25,1,42,0);
+  landmarks.push({type:'billboard',x:fanBase.x,y:fanBase.y,z:fanBase.z,rot:fanBase.rot,sc:1.7});
+ }
  // ===== GRANDSTANDS + CHEERING CROWD flanking the start/finish line =====
  crowdFans=[];stands=[];
  var standDefs=stands;
@@ -3841,6 +3922,25 @@ function render(){
    for(var ck2=0;ck2<6;ck2++){var t=(ck2/5-0.5);
     var cmx=ah.x+ah.px*t*bw*2,cmz=ah.z+ah.pz*t*bw*2;
     drawMesh(finishGateTop,M.mul(M.translate(cmx,ah.y+4.9,cmz),M.rotY(bang),M.scale(bw*0.16,0.5,1.1)),(ck2%2?[1,1,1]:[0.1,0.1,0.1]),0.7,14);}
+  }else if(ah.tunnel){
+   // Rock tunnel / overpass gallery spanning the road. This uses existing
+   // meshes so each track can get a custom landmark without adding assets.
+   gl.disable(gl.CULL_FACE);
+   var rockCol=ah.overpass?[0.32,0.34,0.36]:[0.28,0.27,0.25];
+   var lm=M.mul(M.translate(lpx,ah.y+1.4,lpz),M.scale(2.4,2.0,2.4));
+   var rm=M.mul(M.translate(rpx,ah.y+1.4,rpz),M.scale(2.4,2.0,2.4));
+   drawMesh(rockMesh,lm,rockCol,0.5,10);
+   drawMesh(rockMesh,rm,rockCol,0.5,10);
+   var topM=M.mul(M.mul(M.translate(ah.x,ah.y+4.6,ah.z),M.rotY(bang)),M.scale(bw,1.45,2.8));
+   drawMesh(archBanner,topM,ah.overpass?[0.18,0.20,0.23]:[0.08,0.075,0.07],0.48,8);
+   var tx=-ah.pz,tz=ah.px;
+   for(var td=-2;td<=2;td++){
+    var shade=0.12+Math.abs(td)*0.035;
+    var cx=ah.x+tx*td*3.2,cz=ah.z+tz*td*3.2;
+    var rib=M.mul(M.mul(M.translate(cx,ah.y+3.3,cz),M.rotY(bang)),M.scale(bw*0.92,0.7,0.35));
+    drawMesh(finishGateTop,rib,[shade,shade,shade],0.55,8);
+   }
+   gl.enable(gl.CULL_FACE);
   }else{
    drawMesh(archPost,M.translate(lpx,ah.y,lpz),[0.9,0.3,0.3],0.55,12);
    drawMesh(archPost,M.translate(rpx,ah.y,rpz),[0.9,0.3,0.3],0.55,12);
