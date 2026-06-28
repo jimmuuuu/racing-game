@@ -2791,7 +2791,7 @@ function hazPos(h){
 // award a speed boost to a racer (used by boost pads)
 function padBoost(r){
  if(r.boostTimer>500)return; // already boosting strongly — don't stack
- r.boostTimer=Math.max(r.boostTimer,700);r.boostPower=Math.max(r.boostPower,18);
+ r.boostTimer=Math.max(r.boostTimer,700);r.boostPower=Math.max(r.boostPower,8);
  if(r.isPlayer){sndBoost();GS.fovTarget=74;GS.fovTimer=400;}
 }
 
