@@ -787,6 +787,7 @@ var standMesh=null,standRoof=null,fanBody=null,fanHead=null,crowdFans=[],stands=
 var windmillBase=null,windmillBlade=null,cabinBody=null,cabinRoof=null,towerBody=null,towerRoof=null,lighthouseBody=null,lighthouseTop=null;
 var coneMesh=null,coneStripe=null,tyreMesh=null,balloonMesh=null,balloonString=null,archPost=null,archBanner=null,flagPole=null,flagCloth=null,billboardMesh=null,billboardLegs=null,statueMesh=null;
 var lampPostMesh=null,lampGlobe=null,arrowSign=null,arrowPost=null,hotAirBalloon=null,hotAirBasket=null,skyBalloons=[],bridgeMesh=null,bridgeRail=null,campfireLogs=null,campfireFlame=null,finishGate=null,finishGateTop=null,cloudMesh=null,skyClouds=[];
+var gantryPost=null,gantryBase=null,gantryBall=null,gantryPanel=null;
 var fig8Bridge=null; // figure-8 overpass deck underside + support pillars (built per race)
 
 function buildCenterline(track){
@@ -1321,6 +1322,19 @@ if(false&&isFig8&&fig8overK>=0){
  finishGateTop=new Mesh();
  finishGateTop.box(0,0,0,1,0.7,0.6);    // crossbeam (scaled to span)
  finishGateTop.upload();
+ // clean banner gantry parts (Mario-Kart-style): slim post, base flange, ball finial
+ gantryPost=new Mesh();
+ gantryPost.cyl(0,2.9,0,0.16,2.9,1,12);     // slim vertical pole (0 -> 5.8)
+ gantryPost.upload();
+ gantryBase=new Mesh();
+ gantryBase.cyl(0,0.18,0,0.42,0.18,1,12);   // round base flange
+ gantryBase.upload();
+ gantryBall=new Mesh();
+ gantryBall.sphere(0,0,0,0.34,10,12);        // ball finial on top of each post
+ gantryBall.upload();
+ gantryPanel=new Mesh();
+ gantryPanel.box(0,0,0,1,1,0.12);            // flat banner panel (scaled to span)
+ gantryPanel.upload();
  // ===== STYLIZED CLOUDS (puffy clusters drifting across the sky) =====
  cloudMesh=new Mesh();
  var cloudBlobs=[[0,0,0,2.4],[-2.2,-0.3,0.3,1.7],[2.1,-0.2,-0.2,1.8],[-0.9,0.6,-0.4,1.5],[1.1,0.5,0.4,1.6],[0.2,-0.5,1.0,1.4]];
@@ -1973,9 +1987,10 @@ if(false&&isFig8&&fig8overK>=0){
  }
  gridBoxMesh.upload();
 
- // grid position number boards on the right side of the track
+ // grid position signboards: slim pole + small angled board
  gridBoardMesh=new Mesh();
- gridBoardMesh.box(0,0,0,0.15,1.8,0.8);
+ gridBoardMesh.cyl(0,0.6,0,0.05,0.6,1,6);   // short pole (0 -> 1.2)
+ gridBoardMesh.box(0,1.45,0,0.42,0.34,0.06); // small board near the top
  gridBoardMesh.upload();
  startLineMesh2.upload();
  // road dashed center line + edge lines
@@ -3904,16 +3919,15 @@ function render(){
  }
  if(gridBoardMesh){
   var sl0=CL[0];
+  var gbAng=Math.atan2(sl0.px,sl0.pz);
   for(var gbi=0;gbi<4;gbi++){
    var gbBack=-(gbi*8+4);
-   var gbSide=ROADW+2.5;
+   var gbSide=ROADW+1.6;
    var gbx=sl0.x+sl0.px*gbSide+sl0.dx*gbBack;
    var gbz=sl0.z+sl0.pz*gbSide+sl0.dz*gbBack;
-   var gbAng=Math.atan2(sl0.px,sl0.pz);
-   var gbm=M.mul(M.translate(gbx,sl0.y+1.8,gbz),M.rotY(gbAng));
-   drawMesh(gridBoardMesh,gbm,[0.12,0.12,0.14],0.5,18);
-   var numCol=gbi===0?[1,0.85,0.2]:[1,1,1];
-   drawMesh(gridBoardMesh,M.mul(M.translate(gbx,sl0.y+1.8,gbz),M.rotY(gbAng),M.scale(0.5,0.6,0.85)),numCol,0.8,8);
+   var gbm=M.mul(M.translate(gbx,sl0.y,gbz),M.rotY(gbAng));
+   var boardCol=gbi===0?[0.16,0.66,0.95]:[0.18,0.2,0.26];
+   drawMesh(gridBoardMesh,gbm,boardCol,0.55,16);
   }
  }
  gl.disable(gl.POLYGON_OFFSET_FILL);
@@ -4038,33 +4052,33 @@ function render(){
   var bw=Math.hypot(rpx-lpx,rpz-lpz)/2;
   var bang=Math.atan2(ah.px,ah.pz);
   if(ah.finish){
-   // grand start/finish gantry: podium-based towers, a checkered crossbeam,
-   // a sponsor banner board and fluttering flags on top.
-   var gAccent=[0.16,0.84,0.76];
-   // chunky podium bases the towers stand on
-   drawMesh(finishGate,M.mul(M.translate(lpx,ah.y,lpz),M.scale(1.7,0.35,1.7)),gAccent,0.5,16);
-   drawMesh(finishGate,M.mul(M.translate(rpx,ah.y,rpz),M.scale(1.7,0.35,1.7)),gAccent,0.5,16);
-   // towers
-   drawMesh(finishGate,M.translate(lpx,ah.y,lpz),[0.95,0.95,0.98],0.55,16);
-   drawMesh(finishGate,M.translate(rpx,ah.y,rpz),[0.95,0.95,0.98],0.55,16);
-   // crossbeam
-   var topM=M.mul(M.translate(ah.x,ah.y+4.4,ah.z),M.rotY(bang),M.scale(bw,1,1));
-   drawMesh(finishGateTop,topM,[0.12,0.12,0.14],0.6,18);
-   // sponsor banner board sitting above the beam
-   var bannerM=M.mul(M.mul(M.translate(ah.x,ah.y+5.7,ah.z),M.rotY(bang)),M.scale(bw*1.02,1.5,0.45));
-   drawMesh(archBanner,bannerM,gAccent,0.55,10);
-   // checker accents along the beam
-   for(var ck2=0;ck2<6;ck2++){var t=(ck2/5-0.5);
-    var cmx=ah.x+ah.px*t*bw*2,cmz=ah.z+ah.pz*t*bw*2;
-    drawMesh(finishGateTop,M.mul(M.translate(cmx,ah.y+4.9,cmz),M.rotY(bang),M.scale(bw*0.16,0.5,1.1)),(ck2%2?[1,1,1]:[0.1,0.1,0.1]),0.7,14);}
-   // fluttering flags atop both towers
-   var gFlutter=Math.sin(GS.raceTime*0.006)*0.45;
-   var gFlagCols=[[0.95,0.25,0.3],[0.2,0.55,0.95]];
-   var gTowers=[[lpx,lpz],[rpx,rpz]];
-   for(var fg=0;fg<2;fg++){
-    var gfm=M.mul(M.translate(gTowers[fg][0],ah.y+4.0,gTowers[fg][1]),M.rotY(bang+gFlutter));
-    drawMesh(flagPole,gfm,[0.85,0.85,0.9],0.5,8);
-    drawMesh(flagCloth,gfm,gFlagCols[fg],0.6,8);
+   // Clean Mario-Kart-style banner gantry: two slim metal posts with ball
+   // finials carry a single bright banner board straight across the road.
+   var metal=[0.82,0.84,0.9], gold=[0.95,0.78,0.22];
+   var frameCol=[0.16,0.66,0.95], panelCol=[0.97,0.98,1.0];
+   var beamY=ah.y+5.55;
+   // orient the banner's wide (local X) axis along the road's lateral (px,pz)
+   var rotM=M.rotY(Math.atan2(-ah.pz,ah.px));
+   // round base flanges + slim posts on each side
+   drawMesh(gantryBase,M.translate(lpx,ah.y,lpz),metal,0.55,30);
+   drawMesh(gantryBase,M.translate(rpx,ah.y,rpz),metal,0.55,30);
+   drawMesh(gantryPost,M.translate(lpx,ah.y,lpz),metal,0.55,40);
+   drawMesh(gantryPost,M.translate(rpx,ah.y,rpz),metal,0.55,40);
+   // gold ball finials capping the posts
+   drawMesh(gantryBall,M.translate(lpx,ah.y+5.85,lpz),gold,0.55,60);
+   drawMesh(gantryBall,M.translate(rpx,ah.y+5.85,rpz),gold,0.55,60);
+   // banner: colored outer frame, then a clean light inner panel poking through it
+   var frameM=M.mul(M.mul(M.translate(ah.x,beamY,ah.z),rotM),M.scale(bw+0.4,0.72,0.22));
+   drawMesh(gantryPanel,frameM,frameCol,0.55,18);
+   var panelM=M.mul(M.mul(M.translate(ah.x,beamY+0.06,ah.z),rotM),M.scale(bw+0.05,0.45,0.30));
+   drawMesh(gantryPanel,panelM,panelCol,0.62,14);
+   // crisp checkered band running along the bottom edge of the banner
+   var stripY=beamY-0.55, checks=Math.max(8,Math.round(bw*1.0));
+   for(var ck2=0;ck2<checks;ck2++){
+    var tt=((ck2+0.5)/checks-0.5)*2; // tile centers, -1..1
+    var cmx=ah.x+ah.px*tt*bw, cmz=ah.z+ah.pz*tt*bw;
+    var tileM=M.mul(M.mul(M.translate(cmx,stripY,cmz),rotM),M.scale(bw/checks,0.13,0.34));
+    drawMesh(gantryPanel,tileM,(ck2%2?[0.1,0.1,0.12]:[1,1,1]),0.7,12);
    }
   }else if(ah.tunnel){
    // Rock tunnel / overpass gallery spanning the road. This uses existing
