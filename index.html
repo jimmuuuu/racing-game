@@ -445,6 +445,8 @@ var TRACKS=[
 var ROADW=10; // road half width
 var WHEEL_R=0.355; // kart wheel radius — karts ride this high so tires sit ON the track
 var OVERSPEED_DECAY=22; // units/sec the player sheds when above normal top speed (e.g. after a boost ends)
+var PLAYER_BASE_MAX_SPEED_SCALE=0.86; // keeps player top speed close to the bot pack
+var PLAYER_BASE_ACCEL_SCALE=0.72; // smoother launch/build-up instead of instant runaway speed
 
 /* ===================== WEBGL SETUP ===================== */
 var canvas=document.getElementById('glcanvas'),gl=null;
@@ -2888,7 +2890,7 @@ function hazPos(h){
 // award a speed boost to a racer (used by boost pads)
 function padBoost(r){
  if(r.boostTimer>500)return; // already boosting strongly — don't stack
- r.boostTimer=Math.max(r.boostTimer,700);r.boostPower=Math.max(r.boostPower,18);
+ r.boostTimer=Math.max(r.boostTimer,700);r.boostPower=Math.max(r.boostPower,8);
  if(r.isPlayer){sndBoost();GS.fovTarget=74;GS.fovTimer=400;}
 }
 
@@ -3300,7 +3302,7 @@ function updatePlayer(p,dt){
  if(p.stallTimer>0){p.stallTimer-=dt;p.speed*=Math.pow(0.1,dtS);
   var ni3=nearestIndex(p.x,p.z,p.idx);p.y=groundYAt(p.x,p.z,ni3);advanceProgress(p,ni3);return;}
 
- var maxSpeed=p.maxSpeedBase, accel=p.accelBase, MAXTURN=p.turnBase;
+ var maxSpeed=p.maxSpeedBase*PLAYER_BASE_MAX_SPEED_SCALE, accel=p.accelBase*PLAYER_BASE_ACCEL_SCALE, MAXTURN=p.turnBase;
 
  // coin speed bonus
  maxSpeed+=Math.min(p.coinCount,10)*0.4;
@@ -3319,7 +3321,7 @@ function updatePlayer(p,dt){
   }
  }
 
- if(gas)p.speed+=accel*dtS;
+ if(gas&&p.speed<maxSpeed)p.speed+=accel*dtS;
  else if(brk)p.speed-=accel*1.2*dtS;
  else p.speed-=18*dtS;
 
