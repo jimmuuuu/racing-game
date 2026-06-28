@@ -1947,16 +1947,24 @@ if(false&&isFig8&&fig8overK>=0){
  charSteering.cyl(0,0.5,0.3, 0.025,0.16,1,8); // column
  charSteering.upload();
 
- // F1-style start/finish line — thin white line across the track
- startLineMesh=new Mesh();
- startLineMesh2=new Mesh();
+ // Checkered start/finish line painted across the track (2 rows of squares)
+ startLineMesh=new Mesh();   // white squares
+ startLineMesh2=new Mesh();  // black squares
  var sl=CL[0],slW=ROADW+1;
- var lineW=0.6;
- var lL=[sl.x-sl.px*slW,sl.y+0.05,sl.z-sl.pz*slW];
- var lR=[sl.x+sl.px*slW,sl.y+0.05,sl.z+sl.pz*slW];
- var lLf=[lL[0]+sl.dx*lineW,lL[1],lL[2]+sl.dz*lineW];
- var lRf=[lR[0]+sl.dx*lineW,lR[1],lR[2]+sl.dz*lineW];
- startLineMesh.tri(lL,lLf,lRf);startLineMesh.tri(lL,lRf,lR);
+ var SL_ROWS=2, SL_COLS=Math.max(10,Math.round(slW*1.4));
+ var slDepth=2.2, slY=sl.y+0.05;
+ for(var sr=0;sr<SL_ROWS;sr++){
+  for(var scc=0;scc<SL_COLS;scc++){
+   var u0=(scc/SL_COLS*2-1)*slW, u1=((scc+1)/SL_COLS*2-1)*slW;   // across (px)
+   var v0=sr/SL_ROWS*slDepth, v1=(sr+1)/SL_ROWS*slDepth;          // along road (dx)
+   var q00=[sl.x+sl.px*u0+sl.dx*v0,slY,sl.z+sl.pz*u0+sl.dz*v0];
+   var q10=[sl.x+sl.px*u1+sl.dx*v0,slY,sl.z+sl.pz*u1+sl.dz*v0];
+   var q01=[sl.x+sl.px*u0+sl.dx*v1,slY,sl.z+sl.pz*u0+sl.dz*v1];
+   var q11=[sl.x+sl.px*u1+sl.dx*v1,slY,sl.z+sl.pz*u1+sl.dz*v1];
+   var m=((sr+scc)%2===0)?startLineMesh:startLineMesh2;
+   m.tri(q00,q01,q11);m.tri(q00,q11,q10);
+  }
+ }
  startLineMesh.upload();
 
  // F1-style grid boxes — staggered 2-column layout behind the start line
@@ -3915,6 +3923,7 @@ function render(){
  if(roadStripeMesh) drawMesh(roadStripeMesh,I,[0.95,0.95,1.0],0.8);
  if(startLineMesh){
   drawMesh(startLineMesh,I,[1,1,1],0.9);
+  if(startLineMesh2) drawMesh(startLineMesh2,I,[0.08,0.08,0.1],0.85);
   if(gridBoxMesh) drawMesh(gridBoxMesh,I,[1,1,1],0.85);
  }
  if(gridBoardMesh){
@@ -4055,7 +4064,6 @@ function render(){
    // Clean Mario-Kart-style banner gantry: two slim metal posts with ball
    // finials carry a single bright banner board straight across the road.
    var metal=[0.82,0.84,0.9], gold=[0.95,0.78,0.22];
-   var frameCol=[0.16,0.66,0.95], panelCol=[0.97,0.98,1.0];
    var beamY=ah.y+5.55;
    // orient the banner's wide (local X) axis along the road's lateral (px,pz)
    var rotM=M.rotY(Math.atan2(-ah.pz,ah.px));
@@ -4067,18 +4075,21 @@ function render(){
    // gold ball finials capping the posts
    drawMesh(gantryBall,M.translate(lpx,ah.y+5.85,lpz),gold,0.55,60);
    drawMesh(gantryBall,M.translate(rpx,ah.y+5.85,rpz),gold,0.55,60);
-   // banner: colored outer frame, then a clean light inner panel poking through it
-   var frameM=M.mul(M.mul(M.translate(ah.x,beamY,ah.z),rotM),M.scale(bw+0.4,0.72,0.22));
-   drawMesh(gantryPanel,frameM,frameCol,0.55,18);
-   var panelM=M.mul(M.mul(M.translate(ah.x,beamY+0.06,ah.z),rotM),M.scale(bw+0.05,0.45,0.30));
-   drawMesh(gantryPanel,panelM,panelCol,0.62,14);
-   // crisp checkered band running along the bottom edge of the banner
-   var stripY=beamY-0.55, checks=Math.max(8,Math.round(bw*1.0));
-   for(var ck2=0;ck2<checks;ck2++){
-    var tt=((ck2+0.5)/checks-0.5)*2; // tile centers, -1..1
-    var cmx=ah.x+ah.px*tt*bw, cmz=ah.z+ah.pz*tt*bw;
-    var tileM=M.mul(M.mul(M.translate(cmx,stripY,cmz),rotM),M.scale(bw/checks,0.13,0.34));
-    drawMesh(gantryPanel,tileM,(ck2%2?[0.1,0.1,0.12]:[1,1,1]),0.7,12);
+   // fully checkered banner: 2 rows of square black/white tiles across the span
+   var bnRows=2, bnTile=0.55;
+   var bnCols=Math.max(10,Math.round(2*bw/bnTile));
+   var bnHalfH=bnRows*bnTile/2;
+   // dark backing panel so any seams never show sky
+   var backM=M.mul(M.mul(M.translate(ah.x,beamY,ah.z),rotM),M.scale(bw+0.22,bnHalfH+0.14,0.16));
+   drawMesh(gantryPanel,backM,[0.1,0.1,0.12],0.5,12);
+   for(var br=0;br<bnRows;br++){
+    var ty=beamY-bnHalfH+(br+0.5)*bnTile;
+    for(var bc=0;bc<bnCols;bc++){
+     var tt=((bc+0.5)/bnCols-0.5)*2; // tile centers, -1..1
+     var cmx=ah.x+ah.px*tt*bw, cmz=ah.z+ah.pz*tt*bw;
+     var tileM=M.mul(M.mul(M.translate(cmx,ty,cmz),rotM),M.scale(bw/bnCols,bnTile/2,0.30));
+     drawMesh(gantryPanel,tileM,((br+bc)%2?[0.08,0.08,0.1]:[1,1,1]),0.68,12);
+    }
    }
   }else if(ah.tunnel){
    // Rock tunnel / overpass gallery spanning the road. This uses existing
