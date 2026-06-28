@@ -2501,6 +2501,24 @@ function setupT(id,k){var el=document.getElementById(id);if(!el)return;
 }
 setupT('tl','l');setupT('tr','r');setupT('tg','g');setupT('tb','b');setupT('tdrift','drift');setupT('titem','item');
 function isMobile(){return 'ontouchstart' in window||navigator.maxTouchPoints>0}
+// Read the first connected gamepad and map it to the game's control booleans.
+// Standard mapping: RT/A = accelerate, LT/B = brake, left stick / d-pad = steer,
+// bumpers = drift, X = use item, Y = taunt. Returns null if no pad is present.
+var _gpTaunt=false;
+function readGamepad(){
+ if(!navigator.getGamepads)return null;
+ var pads=navigator.getGamepads(),gp=null;
+ for(var i=0;i<pads.length;i++){if(pads[i]){gp=pads[i];break;}}
+ if(!gp)return null;
+ var ax=gp.axes||[],bt=gp.buttons||[];
+ function bp(i){return !!(bt[i]&&(bt[i].pressed||bt[i].value>0.3));}
+ var lx=ax[0]||0;
+ var res={gas:bp(7)||bp(0),brk:bp(6)||bp(1),lft:lx<-0.35||bp(14),rgt:lx>0.35||bp(15),drift:bp(5)||bp(4),item:bp(2)};
+ var tn=bp(3);
+ if(tn&&!_gpTaunt&&GS.scr==='race')doTaunt();
+ _gpTaunt=tn;
+ return res;
+}
 
 /* ===================== AUDIO (optional beeps) ===================== */
 function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(sfxGain);o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d);}catch(e){} }
@@ -3005,6 +3023,10 @@ function updatePlayer(p,dt){
  var rgt=keys['arrowright']||keys['d']||touch.r;
  var driftKey=keys['shift']||keys[' ']||touch.drift;
  var itemKey=keys['e']||keys['enter']||touch.item;
+ if(GS.controlMode==='GAMEPAD'){
+  var gp=readGamepad();
+  if(gp){gas=gas||gp.gas;brk=brk||gp.brk;lft=lft||gp.lft;rgt=rgt||gp.rgt;driftKey=driftKey||gp.drift;itemKey=itemKey||gp.item;}
+ }
 
  // spinout
  if(p.spinTimer>0){p.spinTimer-=dt;p.speed*=Math.pow(0.3,dtS);p.spinAngle+=12*dtS;
@@ -3514,6 +3536,15 @@ function render(){
  var ty=p.y+height;
  var speedBob=Math.sin(GS.raceTime*0.006)*speedRatio*0.15;
  ty+=speedBob;
+ // ORBIT camera: slowly circle the kart instead of trailing directly behind it
+ if(GS.cameraMode==='ORBIT'){
+  var orbitA=p.heading+GS.raceTime*0.0005;
+  var orbR=16;
+  tx=p.x-Math.sin(orbitA)*orbR;
+  tz=p.z-Math.cos(orbitA)*orbR;
+  ty=p.y+8.5;
+  ahead=0; // look straight at the kart so it stays centred while orbiting
+ }
  var lfBase=isBoosting?10:6;
  var lf=1-Math.exp(-lfBase*frameDt/1000);
  cam.x+=(tx-cam.x)*lf;cam.y+=(ty-cam.y)*lf;cam.z+=(tz-cam.z)*lf;
