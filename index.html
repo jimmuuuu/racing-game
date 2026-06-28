@@ -390,9 +390,10 @@ function figureEightTrack(cx,cz,sx,sz,steps){
   var t=i/steps*Math.PI*2;
   var x=cx+Math.sin(t)*sx;
   var z=cz+Math.sin(t)*Math.cos(t)*sz;
-  // At the center crossing, one pass is an overpass and the opposite pass stays low.
-  var overpass=18*(1+Math.cos(t))*0.5;
-  var y=overpass+3*Math.sin(t*4);
+  // Gentle bridge at the center crossing. Keep this modest so the terrain
+  // does not carve a giant ravine around the figure-eight overlap.
+  var overpass=7*(1+Math.cos(t))*0.5;
+  var y=overpass+1.2*Math.sin(t*4);
   pts.push([x,y,z]);
  }
  return pts;
@@ -958,6 +959,10 @@ function buildRaceMeshes(){
     var w=1/(d2+60);sumW+=w;sumY+=w*c.y;
    }
    var wavg=sumW>0?sumY/sumW:baseY;
+  // The figure-eight bridge crosses over nearby low road. Do not let the
+  // elevated bridge samples drag the whole grass heightfield upward/downward
+  // into the giant ravine seen around the crossover.
+  if(track.theme==='figure8'&&nearY>3.5){nearY=1.0;wavg=Math.min(wavg,1.6);}
    var dist=Math.sqrt(minD);
    // Flush corridor: out to ROADW+3 (past the rumble strips at ROADW+1.8) the
    // terrain snaps to the nearest centerline elevation so grass meets the road
