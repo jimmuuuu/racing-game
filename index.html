@@ -2824,11 +2824,6 @@ var itemBoxMesh=null,coinMesh=null,boostPadMesh=null,hazardMesh=null;
 function buildItemsAndCoins(){
  itemBoxes=[];coins=[];hazards=[];projectiles=[];boostPads=[];trackHazards=[];
  var n=CL.length;
- // boost pads on the racing line every ~24 samples (skip start/finish straight)
- for(var bpI=18;bpI<n-6;bpI+=24){
-  var bc=CL[bpI%n];
-  boostPads.push({x:bc.x,y:bc.y,z:bc.z,dx:bc.dx,dz:bc.dz,heading:Math.atan2(bc.dx,bc.dz)});
- }
  // dynamic moving hazards (rolling boulders that sweep across the road)
  var hazCount=4,hazStep=Math.floor(n/(hazCount+1));
  for(var hz=0;hz<hazCount;hz++){
@@ -4123,17 +4118,6 @@ function render(){
    drawMesh(itemBoxMesh,hm,[1,0.95,0.1],0.75);
    // banana glow
    drawMesh(itemBoxMesh,hm,[1,1,0.3],0.25);
-  }
- }
- // boost pads (glowing orange chevrons that pulse)
- if(boostPadMesh){
-  var bpPulse=0.7+Math.sin(GS.raceTime*0.008)*0.3;
-  for(var bpd=0;bpd<boostPads.length;bpd++){
-   var bp3=boostPads[bpd];
-   var ddx3=bp3.x-p.x,ddz3=bp3.z-p.z;if(ddx3*ddx3+ddz3*ddz3>160*160)continue;
-   var bpm=M.mul(M.translate(bp3.x,bp3.y+0.04,bp3.z),M.rotY(bp3.heading));
-   drawMesh(boostPadMesh,bpm,[1,0.45*bpPulse+0.2,0.05],0.9,20);
-   drawMesh(boostPadMesh,M.mul(bpm,M.scale(1.08,1,1.08)),[1,0.8,0.3],0.35,8);
   }
  }
  // moving track hazards (rolling boulders)
