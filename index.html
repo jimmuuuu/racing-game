@@ -3189,6 +3189,7 @@ function startRace(){
  var p=GS.racers[0];
  cam.x=p.x-Math.sin(p.heading)*14;cam.z=p.z-Math.cos(p.heading)*14;cam.y=p.y+7;
  cam.tx=cam.x;cam.ty=cam.y;cam.tz=cam.z;
+ for(var ri=0;ri<GS.racers.length;ri++)saveRacerPrev(GS.racers[ri]);
  GS.prevPositions=null;GS.lastLap=-1;GS.shake={x:0,y:0,decay:0};GS.fov=65;GS.fovTarget=65;GS.fovTimer=0;GS.tauntCooldown=0;GS.lapTimes=[];GS.lapStart=0;GS.bestLap=Infinity;GS.prevHudPos=-1;
  // countdown
  GS.cdVal=3;GS.cdTimer=0;
@@ -3655,6 +3656,24 @@ function computePositions(){
  for(var i=0;i<arr.length;i++){arr[i].place=i+1;}
 }
 
+// Snapshot racer pose before each physics step so render can interpolate
+// between fixed-timestep updates (prevents the back-and-forth stutter).
+function saveRacerPrev(r){
+ r._px=r.x;r._py=r.y;r._pz=r.z;r._ph=r.heading;
+}
+function interpRacerPose(r,alpha){
+ if(r._px===undefined)return;
+ var ox=r.x,oy=r.y,oz=r.z,oh=r.heading;
+ r.x=r._px+(ox-r._px)*alpha;
+ r.y=r._py+(oy-r._py)*alpha;
+ r.z=r._pz+(oz-r._pz)*alpha;
+ var dh=oh-r._ph;while(dh>Math.PI)dh-=Math.PI*2;while(dh<-Math.PI)dh+=Math.PI*2;
+ r.heading=r._ph+dh*alpha;
+}
+function restoreRacerPose(r,ox,oy,oz,oh){
+ r.x=ox;r.y=oy;r.z=oz;r.heading=oh;
+}
+
 /* ===================== MAIN LOOP ===================== */
 var lastT=0,fpsAccum=0,fpsCount=0,frameDt=16;
 var physicsAccumulator=0;
@@ -3686,14 +3705,15 @@ function loop(now){
   } else {
    physicsAccumulator+=dt;
    GS.raceTime+=dt;
-   physicsAccumulator+=dt;
    while(physicsAccumulator>=FIXED_TIMESTEP){
+    saveRacerPrev(GS.racers[0]);
+    for(var i=1;i<GS.racers.length;i++)saveRacerPrev(GS.racers[i]);
     updatePlayer(GS.racers[0],FIXED_TIMESTEP);
     for(var i=1;i<GS.racers.length;i++)updateBot(GS.racers[i],FIXED_TIMESTEP);
     var dtS2=FIXED_TIMESTEP/1000;
     for(var pi=projectiles.length-1;pi>=0;pi--){
      var pr=projectiles[pi];pr.life-=FIXED_TIMESTEP;pr.x+=pr.dx*dtS2;pr.z+=pr.dz*dtS2;
-     var pni=nearestIndex(pr.x,pr.z,pr.lastIdx);pr.lastIdx=pni;if(CL[pni])pr.y=CL[pni].y+0.6;
+     var pni=nearestIndex(pr.x,pr.z,pr.lastIdx);pr.lastIdx=pni;if(CL[pni])pr.y=groundYAt(pr.x,pr.z,pni)+0.6;
      if(pr.life<=0){projectiles.splice(pi,1);continue;}
      for(var ri=0;ri<GS.racers.length;ri++){
       var rr=GS.racers[ri];if(ri===pr.owner||rr===pr.ownerRacer)continue;
@@ -3710,7 +3730,13 @@ function loop(now){
     if(GS.fovTimer>0){GS.fovTimer-=FIXED_TIMESTEP;if(GS.fovTimer<=0)GS.fovTarget=65;}
     physicsAccumulator-=FIXED_TIMESTEP;
    }
-   GS.fov+=(GS.fovTarget-GS.fov)*Math.min(1,dt*0.006);
+   var rp=GS.racers[0];
+   var maxSpeedRef=46+Math.min(rp.coinCount,10)*0.4;
+   var speedRatio=Math.min(1,rp.speed/maxSpeedRef);
+   var speedFOV=65+(speedRatio*8)+(rp.boostTimer>0?12:0)+(rp.driftActive?6:0);
+   if(GS.fovTimer<=0)GS.fovTarget=speedFOV;
+   else GS.fovTarget=Math.max(speedFOV,GS.fovTarget);
+   GS.fov+=(GS.fovTarget-GS.fov)*(1-Math.exp(-12*dt/1000));
 
    // Announcer: overtake/passed detection
    var plNow=GS.racers[0].place||1;
@@ -3806,13 +3832,17 @@ function render(){
  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 
  var p=GS.racers[0];
+ var rendAlpha=GS.started?physicsAccumulator/FIXED_TIMESTEP:1;
+ var pSnap=null;
+ if(p._px!==undefined&&GS.started){
+  pSnap={x:p.x,y:p.y,z:p.z,h:p.heading};
+  interpRacerPose(p,rendAlpha);
+ }
  var maxSpeedRef=46+Math.min(p.coinCount,10)*0.4;
  var speedRatio=Math.min(1,p.speed/maxSpeedRef);
  var isBoosting=p.boostTimer>0;
  var isDrifting=p.driftActive;
- var adaptiveFOVBoost=(speedRatio*8)+(isBoosting?12:0)+(isDrifting?6:0);
- var dynamicFOV=65+adaptiveFOVBoost;
- GS.currentFOV=dynamicFOV;
+ GS.currentFOV=GS.fov;
 
  var behind=14, height=7, ahead=8;
  if(isBoosting){behind=11;height=5.5;}
@@ -3839,7 +3869,7 @@ function render(){
  var lookZ=p.z+Math.cos(p.heading)*ahead;
  var look=[lookX,lookY,lookZ];
  var aspect=canvas.width/canvas.height||1;
- var proj=M.perspective(dynamicFOV*Math.PI/180,aspect,0.5,800);
+ var proj=M.perspective(GS.fov*Math.PI/180,aspect,0.5,800);
  var view=M.lookAt([cam.x,cam.y,cam.z],look,[0,1,0]);
 
  // sky first (depth write disabled effectively by w-trick + drawn before)
@@ -4180,11 +4210,22 @@ function render(){
    drawMesh(itemBoxMesh,pm,[1,0.3,0.3],0.2);
   }
  }
- // karts (with spin visual)
+ // karts (with spin visual) — interpolate every racer for smooth motion
+ var kartSnaps=[];
  for(var i=0;i<GS.racers.length;i++){
   var rr=GS.racers[i];
+  var snap=null;
+  if(i>0&&rr._px!==undefined&&GS.started){
+   snap={x:rr.x,y:rr.y,z:rr.z,h:rr.heading};
+   kartSnaps.push({r:rr,s:snap});
+   interpRacerPose(rr,rendAlpha);
+  }
   if(rr.spinTimer>0){var origH=rr.heading;rr.heading+=rr.spinAngle;drawKart(rr);rr.heading=origH;}
   else drawKart(rr);
+ }
+ for(var ks=0;ks<kartSnaps.length;ks++){
+  var k=kartSnaps[ks];
+  restoreRacerPose(k.r,k.s.x,k.s.y,k.s.z,k.s.h);
  }
  // particles
  renderParticles(proj,view);
@@ -4297,10 +4338,9 @@ function render(){
    fxCtx.restore();
   }
  }
+ if(pSnap)restoreRacerPose(p,pSnap.x,pSnap.y,pSnap.z,pSnap.h);
 }
 
-/* show(null) clears all screens */
-(function patchShow(){})();
 goMenu();
 
 /* ===================== LOADING SCREEN SEQUENCE ===================== */
