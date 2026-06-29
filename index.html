@@ -2291,16 +2291,9 @@ if(false&&isFig8&&fig8overK>=0){
  // a single huge ancient tree as a hero landmark
  if(track.theme!=='beach')(function(){var hi=Math.floor(n*0.5);var hc=CL[hi];var hx=hc.x+hc.px*40,hz=hc.z+hc.pz*40;
   landmarks.push({type:'bigtree',x:hx,y:sampleH(hx,hz)-0.3,z:hz,rot:1.2,sc:3.2});})();
- // ===== checkpoint arches + finish gate spanning the road =====
+ // ===== finish gate at the start line only (no mid-track checkpoint arches) =====
  arches=[];
- var archCount=5;
- for(var ar=0;ar<archCount;ar++){
-  var ai=Math.floor((ar+0.5)/archCount*n)%n;
-  var ac=CL[ai];
-  arches.push({x:ac.x,y:ac.y,z:ac.z,px:ac.px,pz:ac.pz,finish:false,idx:ai});
- }
- // finish gate at the start line (bigger, checkered)
- (function(){var ac=CL[0];arches.unshift({x:ac.x,y:ac.y,z:ac.z,px:ac.px,pz:ac.pz,finish:true,idx:0});})();
+ (function(){var ac=CL[0];arches.push({x:ac.x,y:ac.y,z:ac.z,px:ac.px,pz:ac.pz,finish:true,idx:0});})();
  // ===== VILLAGE CLUSTER: a little market town the player drives past =====
  villages=[];
  if(track.theme!=='beach')(function(){
@@ -3568,14 +3561,15 @@ function updateBot(b,dt){
  var cA=CL[(ni+1)%CL.length],cB=CL[(ni+lookDist)%CL.length];
  var curvAngle=Math.abs(Math.atan2(cB.dx,cB.dz)-Math.atan2(cA.dx,cA.dz));
  if(curvAngle>Math.PI)curvAngle=Math.PI*2-curvAngle;
- if(curvAngle>0.3){maxSpeed*=Math.max(0.6,1-curvAngle*0.5);b.speed-=curvAngle*30*dtS;}
+ if(curvAngle>0.3){maxSpeed*=Math.max(0.7,1-curvAngle*0.35);b.speed=Math.max(b.speed-curvAngle*18*dtS,maxSpeed*0.35);}
 
  b.wob+=dtS;
- var wob=Math.sin(b.wob*1.3)*(ROADW*0.25);
+ var wob=Math.sin(b.wob*1.3)*(ROADW*0.15);
  var tx=look.x+look.px*wob, tz=look.z+look.pz*wob;
  var trackH=Math.atan2(bc.dx,bc.dz);
  var toLook=Math.atan2(tx-b.x,tz-b.z);
- var lookBlend=Math.min(1,Math.max(0,(b.speed-8)/22));
+ // On straights hug the centerline tangent; blend toward look-ahead only in corners.
+ var lookBlend=curvAngle>0.18?Math.min(1,Math.max(0,(b.speed-10)/20)):0;
  var lookOff=toLook-trackH;
  while(lookOff>Math.PI)lookOff-=Math.PI*2;while(lookOff<-Math.PI)lookOff+=Math.PI*2;
  var desired=trackH+lookOff*lookBlend;
@@ -3587,14 +3581,8 @@ function updateBot(b,dt){
  if(b.boostTimer>0){b.boostTimer-=dt;maxSpeed+=b.boostPower;}
  b.speed+=(b.accelBase*0.72)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
  if(b.speed<0)b.speed=0;
- // anti-stall: if crawling, snap heading onto the racing line and relaunch
- if(!b._stallMs)b._stallMs=0;
- if(b.speed<7&&!b.spinTimer&&!b.finished)b._stallMs+=dt;else b._stallMs=0;
- if(b._stallMs>900){
-  b.heading=trackH;
-  b.speed=Math.max(b.speed,maxSpeed*0.42);
-  b._stallMs=0;
- }
+ // Keep bots rolling — never crawl to a full stop mid-race
+ if(!b.finished&&b.speed<maxSpeed*0.32)b.speed=maxSpeed*0.32;
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
  // wall barrier for bots — use the post-move centerline index (matches the
@@ -3603,7 +3591,7 @@ function updateBot(b,dt){
  bc=CL[bni];
  var bdx=b.x-bc.x,bdz=b.z-bc.z;
  var blat=bdx*bc.px+bdz*bc.pz;var babs=Math.abs(blat);
- if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.5)*bs;b.z=bc.z+bc.pz*(ROADW+3.5)*bs;b.speed*=0.82;b.heading=Math.atan2(bc.dx,bc.dz);}
+ if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.2)*bs;b.z=bc.z+bc.pz*(ROADW+3.2)*bs;b.speed=Math.max(b.speed*0.9,maxSpeed*0.35);b.heading=Math.atan2(bc.dx,bc.dz);}
  b.y=groundYAt(b.x,b.z,bni);
  b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R; // spin wheels by distance travelled
  // hazard collision
@@ -3658,6 +3646,11 @@ function updateBot(b,dt){
 }
 function advanceProgress(r,ni){
  var n=CL.length;
+ // Bots: ignore backward progress snaps (parallel-track nearest-point ambiguity)
+ if(!r.isPlayer){
+  var curD=CL[r.idx]?CL[r.idx].dist:0,newD=CL[ni]?CL[ni].dist:0;
+  if(newD+8<curD)ni=r.idx;
+ }
  if(r.prevIdx>n*0.7 && ni<n*0.3){
   if(r.isPlayer){
    var lt=GS.raceTime-GS.lapStart;
@@ -4119,7 +4112,7 @@ function render(){
      drawMesh(gantryPanel,tileM,((br+bc)%2?[0.08,0.08,0.1]:[1,1,1]),0.68,12);
     }
    }
-  }else if(ah.tunnel){
+ }else if(ah.tunnel){
    // Rock tunnel / overpass gallery spanning the road. This uses existing
    // meshes so each track can get a custom landmark without adding assets.
    gl.disable(gl.CULL_FACE);
@@ -4138,12 +4131,8 @@ function render(){
     drawMesh(finishGateTop,rib,[shade,shade,shade],0.55,8);
    }
    gl.enable(gl.CULL_FACE);
-  }else{
-   drawMesh(archPost,M.translate(lpx,ah.y,lpz),[0.9,0.3,0.3],0.55,12);
-   drawMesh(archPost,M.translate(rpx,ah.y,rpz),[0.9,0.3,0.3],0.55,12);
-   var beamM=M.mul(M.translate(ah.x,ah.y+4.0,ah.z),M.rotY(bang),M.scale(bw,1,1));
-   drawMesh(archBanner,beamM,[0.95,0.85,0.2],0.6,14);
   }
+  // non-finish checkpoint arches removed (were yellow beams + red posts on the track)
  }
  // ===== trackside atmosphere (cones, tyres, balloons, flags) =====
  var atmTime=GS.raceTime*0.002;
