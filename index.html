@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<title>BRAINROT RACING 3D v81</title>
+<title>BRAINROT RACING 3D v82</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -2942,12 +2942,12 @@ function renderParticles(proj,view){
 /* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
 var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack','Zoomium Shield','Reverse Rocket','Slick Slime','Speed Star','Chaos Bomb'];
 var itemBoxes=[],coins=[],hazards=[],projectiles=[];
-var coinMesh=null,hazardMesh=null,projectileMesh=null,itemOrbMesh=null;
+var coinMesh=null,hazardMesh=null,projectileMesh=null,itemBoxMesh=null,itemQMesh=null;
 
 function buildItemsAndCoins(){
  itemBoxes=[];coins=[];hazards=[];projectiles=[];
  var n=CL.length;
- // power-up orbs on the driving surface (left/right lanes — not yellow cubes)
+ // power-up boxes on the driving surface (left/right lanes)
  for(var i=12;i<n;i+=22){
   var c=CL[i%n],side=((i/22)%2===0)?-1:1;
   var lane=side*3.8;
@@ -2972,7 +2972,28 @@ function buildItemsAndCoins(){
  hazardMesh.sphere(0,0,0,1,8,7);
  hazardMesh.upload();
  projectileMesh=new Mesh();projectileMesh.sphere(0,0,0,0.35,6,5);projectileMesh.upload();
- itemOrbMesh=new Mesh();itemOrbMesh.sphere(0,0,0,0.42,10,8);itemOrbMesh.upload();
+ // red item cube + white question mark on each side face
+ itemBoxMesh=new Mesh();itemBoxMesh.box(0,0,0,0.35,0.35,0.35);itemBoxMesh.upload();
+ itemQMesh=new Mesh();
+ (function(){
+  var t=0.022;
+  function qZ(fz){
+   itemQMesh.box(0,-0.02,fz,0.065,0.12,t);
+   itemQMesh.box(0.05,0.12,fz,0.055,0.05,t);
+   itemQMesh.box(0.09,0.06,fz,0.045,0.05,t);
+   itemQMesh.box(0.04,0.01,fz,0.045,0.05,t);
+   itemQMesh.box(0,-0.16,fz,0.05,0.05,t);
+  }
+  function qX(fx){
+   itemQMesh.box(fx,-0.02,0,t,0.12,0.065);
+   itemQMesh.box(fx,0.12,0.05,t,0.055,0.05);
+   itemQMesh.box(fx,0.06,0.09,t,0.045,0.05);
+   itemQMesh.box(fx,0.01,0.04,t,0.045,0.05);
+   itemQMesh.box(fx,-0.16,0,t,0.05,0.05);
+  }
+  qZ(0.36);qZ(-0.36);qX(0.36);qX(-0.36);
+ })();
+ itemQMesh.upload();
 }
 
 // current world position of a moving track hazard
@@ -4146,16 +4167,16 @@ function render(){
    drawMesh(balloonString,bm2,[0.3,0.3,0.3],0.5,6);drawMesh(balloonMesh,bm2,ao.col,0.5,40);}
   else if(ao.atm==='flag'){drawMesh(flagPole,am2,[0.6,0.6,0.62],0.5,10);drawMesh(flagCloth,am2,ao.col,0.55,8);}
  }
- // world item cubes removed — glowing magenta orbs on the track instead
- if(itemOrbMesh){
-  var ibTime=GS.raceTime*0.0025;
+ // power-up boxes — red cube, spin in place + slow vertical bob only
+ if(itemBoxMesh){
+  var ibTime=GS.raceTime*0.002;
   for(var ib=0;ib<itemBoxes.length;ib++){
    var box=itemBoxes[ib];if(!box.active)continue;
    var ddx2=box.x-p.x,ddz2=box.z-p.z;if(ddx2*ddx2+ddz2*ddz2>150*150)continue;
-   var bob=box.y+Math.sin(ibTime+ib)*0.35;
-   var bm=M.mul(M.mul(M.translate(box.x,bob,box.z),M.rotY(ibTime*2.5+ib*0.6)),M.rotX(ibTime*1.8));
-   drawMesh(itemOrbMesh,bm,[0.75,0.15,0.95],0.8,40);
-   drawMesh(itemOrbMesh,bm,[0.35,0.9,1.0],0.25,40);
+   var bobY=box.y+Math.sin(ibTime+ib)*0.22;
+   var bm=M.mul(M.translate(box.x,bobY,box.z),M.rotY(ibTime*1.6+ib*0.7));
+   drawMesh(itemBoxMesh,bm,[0.92,0.18,0.2],0.78);
+   if(itemQMesh)drawMesh(itemQMesh,bm,[1,1,1],0.85);
   }
  }
  // coins — single gold pass (no yellow halo cubes)
