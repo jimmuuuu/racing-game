@@ -416,6 +416,10 @@ function mountainDescentY(f){
  var u=(f-0.72)/0.28;
  return 14+72*(u*u*(3-2*u));
 }
+// Gentle coastal dunes for the beach circuit — one smooth rise/fall per lap.
+function beachY(f){
+ return 1.4*Math.sin(f*Math.PI*2+0.35)+0.5*Math.sin(f*Math.PI*4+1.1);
+}
 var TRACKS=[
  {name:'Skibidi Crossroads',desc:'Hilltop start, a plunging downhill, then duck under the bridge where the figure-eight crosses over itself',
   theme:'figure8',
@@ -425,8 +429,10 @@ var TRACKS=[
  {name:'Rizz Beach Boardwalk',desc:'Ocean-side beach sprint past waves, pier houses and a sunny seaside village',
   theme:'beach',
   sky:[0.30,0.74,1.0],skyBot:[0.86,0.96,1.0],grass:[0.88,0.78,0.50],road:[0.48,0.46,0.43],roadDark:[0.35,0.33,0.31],rumble:[1.0,0.58,0.16],tree:[0.14,0.60,0.34],fog:[0.72,0.90,0.98],
-  lakeDefs:[{f:0.10,side:-1,off:72,r:120},{f:0.36,side:-1,off:92,r:150},{f:0.72,side:-1,off:80,r:110}],
-  pts:polyTrack([[0,40],[260,0],[620,-10],[820,90],[760,220],[560,260],[760,410],[420,500],[60,450],[-130,300],[-100,130]],95,5,45,function(f){return 2.5*Math.sin(f*Math.PI*4);})},
+  // Ocean sits well off the south beach straight — large visual water, no terrain carve under the road
+  lakeDefs:[{f:0.10,side:-1,off:135,r:72},{f:0.35,side:-1,off:150,r:80},{f:0.58,side:-1,off:142,r:76},{f:0.82,side:-1,off:128,r:68}],
+  // Stadium coastal loop: long beach straight + inland straight, wide turns (no fold-back overlap)
+  pts:polyTrack([[520,30],[700,30],[740,200],[700,370],[120,390],[-160,370],[-200,200],[-140,50],[180,30]],80,5,48,beachY)},
  {name:'Maple Ridge Run',desc:'Forest ridge road with rolling hills, a horseshoe climb and a downhill S-section',
   theme:'forest',
   sky:[0.45,0.68,0.92],skyBot:[0.82,0.90,0.98],grass:[0.34,0.61,0.28],road:[0.43,0.43,0.45],roadDark:[0.32,0.32,0.35],rumble:[0.90,0.90,0.95],tree:[0.22,0.58,0.26],fog:[0.67,0.80,0.92],
@@ -814,8 +820,9 @@ function buildCenterline(track){
   var p0=pts[(i-1+n)%n],p1=pts[i],p2=pts[(i+1)%n],p3=pts[(i+2)%n];
   for(var s=0;s<STEP;s++){ samples.push(cr(p0,p1,p2,p3,s/STEP)); }
  }
- // Y-smoothing: 3 iterations of neighbor-averaging to prevent steep vertical steps
- for(var pass=0;pass<3;pass++){
+ // Y-smoothing: extra passes on beach/mountain for gentle, realistic slopes
+ var yPasses=(track.theme==='beach')?6:(track.theme==='mountain'?5:3);
+ for(var pass=0;pass<yPasses;pass++){
   var sm=samples.length;
   var yBuf=[];
   for(var j=0;j<sm;j++){
@@ -1031,8 +1038,9 @@ function buildRaceMeshes(){
    // far edge -> ease down to the base plane so terrain skirts the horizon
    var fb=Math.max(0,Math.min(1,(dist-MARGIN*0.5)/(MARGIN*0.5)));
    hy=hy+(baseY-hy)*fb;
-   // carve lake basins (smooth bowl, blended out to the shoreline)
+   // carve lake basins (smooth bowl, blended out to the shoreline) — never under the road
    for(var lkB=0;lkB<lakes.length;lkB++){var lb=lakes[lkB];
+    if(minD<ROADW+18)continue;
     var bdx=gx-lb.x,bdz=gz-lb.z,bdd=Math.sqrt(bdx*bdx+bdz*bdz),bR=lb.basinR;
     if(bdd<bR){var bt=1-bdd/bR;bt=bt*bt*(3-2*bt); // smoothstep
      hy=hy+(lb.floorY-hy)*bt;}}
