@@ -2869,11 +2869,10 @@ function renderParticles(proj,view){
 /* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
 var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack','Zoomium Shield','Reverse Rocket','Slick Slime','Speed Star','Chaos Bomb'];
 var itemBoxes=[],coins=[],hazards=[],projectiles=[];
-var boostPads=[],trackHazards=[];
-var itemBoxMesh=null,coinMesh=null,boostPadMesh=null,hazardMesh=null;
+var itemBoxMesh=null,coinMesh=null,hazardMesh=null;
 
 function buildItemsAndCoins(){
- itemBoxes=[];coins=[];hazards=[];projectiles=[];boostPads=[];trackHazards=[];
+ itemBoxes=[];coins=[];hazards=[];projectiles=[];
  var n=CL.length;
  // item boxes every ~20 segments, offset left/right
  for(var i=0;i<n;i+=20){
@@ -2894,17 +2893,6 @@ function buildItemsAndCoins(){
  coinMesh.sphere(0.07,0,0,0.12,5,6);     // embossed front stud
  coinMesh.sphere(-0.07,0,0,0.12,5,6);    // embossed back stud
  coinMesh.upload();
- // boost pad: double chevron arrow pointing forward (+z local), flat on the road
- boostPadMesh=new Mesh();
- function addChev(z0){
-  var tip=[0,0.06,z0+2.4],R=[2.4,0.06,z0],L=[-2.4,0.06,z0];        // outer arrowhead
-  var tipI=[0,0.06,z0+1.0],RI=[1.4,0.06,z0+0.55],LI=[-1.4,0.06,z0+0.55];
-  // outer V band: two arms (winding tip,right,left => upward normal, front-facing)
-  boostPadMesh.tri(tip,R,RI);boostPadMesh.tri(tip,RI,tipI);
-  boostPadMesh.tri(tip,tipI,LI);boostPadMesh.tri(tip,LI,L);
- }
- addChev(-2.6);addChev(0);addChev(2.6);
- boostPadMesh.upload();
  // moving hazard: chunky low-poly boulder
  hazardMesh=new Mesh();
  hazardMesh.sphere(0,0,0,1,8,7);
@@ -2917,13 +2905,6 @@ function hazPos(h){
  var off=Math.sin(GS.raceTime*h.spd+h.phase)*h.range;
  return {x:c.x+c.px*off,y:c.y+h.yoff,z:c.z+c.pz*off};
 }
-// award a speed boost to a racer (used by boost pads)
-function padBoost(r){
- if(r.boostTimer>500)return; // already boosting strongly — don't stack
- r.boostTimer=Math.max(r.boostTimer,700);r.boostPower=Math.max(r.boostPower,5);
- if(r.isPlayer){sndBoost();GS.fovTarget=74;GS.fovTimer=400;}
-}
-
 function spinoutRacer(r){
  if(r.invTimer>0||r.spinTimer>0)return;
  r.spinTimer=1200;r.speed*=0.15;
@@ -3426,27 +3407,10 @@ function updatePlayer(p,dt){
  p.y=groundYAt(p.x,p.z,pni);
  p.wheelRoll=(p.wheelRoll||0)+p.speed*dtS/WHEEL_R; // spin wheels by distance travelled
 
- // jump boost (hill crest detection)
- if(p.prevY>p.prevPrevY+0.01&&p.y<p.prevY-0.01&&driftKey){
-  p.boostTimer=400;p.boostPower=5;beep(550,0.1);
- }
-
- // slipstream
- p.slipTimer=Math.max(0,p.slipTimer-dt);
- for(var si=1;si<GS.racers.length;si++){
-  var bot=GS.racers[si];
-  var sdx=bot.x-p.x,sdz=bot.z-p.z,sd=Math.sqrt(sdx*sdx+sdz*sdz);
-  if(sd<18&&sd>2){
-   var ahead=Math.sin(p.heading)*sdx+Math.cos(p.heading)*sdz;
-   if(ahead>0){p.slipTimer+=dt*2;if(p.slipTimer>2000){p.boostTimer=600;p.boostPower=6;p.slipTimer=0;beep(500,0.12);}}
-  }
- }
-
  // item use (8 unique items)
  if(itemKey&&p.item){
   var it=p.item;p.item=null;
   if(it==='Skibidi Boost'){p.boostTimer=1500;p.boostPower=9;sndBoost();
-   GS.fovTarget=75;GS.fovTimer=500;GS.shake.x=(Math.random()-0.5)*0.5;GS.shake.y=(Math.random()-0.5)*0.4;GS.shake.decay=250;
    for(var ib=0;ib<10;ib++)spawnP(p.x+(Math.random()-0.5)*2,p.y+0.5+Math.random(),p.z+(Math.random()-0.5)*2,
     (Math.random()-0.5)*5,Math.random()*6-1,(Math.random()-0.5)*5,0.2,0.8+Math.random()*0.2,1,700);}
   else if(it==='Banana Splat'){hazards.push({x:p.x-Math.sin(p.heading)*3,y:p.y+0.15,z:p.z-Math.cos(p.heading)*3,type:'banana',active:true});sndCrash();}
@@ -3503,12 +3467,6 @@ function updatePlayer(p,dt){
    p.speed*=0.7;
   }
  }
- // boost pad pass-over
- for(var bpc=0;bpc<boostPads.length;bpc++){
-  var bp=boostPads[bpc];var pdx=bp.x-p.x,pdz=bp.z-p.z;
-  if(pdx*pdx+pdz*pdz<16)padBoost(p);
- }
-
  // engine sound
  sndEngine(p.speed,maxSpeed);
  // drift sound
@@ -3589,11 +3547,6 @@ function updateBot(b,dt){
    spawnPropBurst(sceneItem2.x,sceneItem2.y,sceneItem2.z,sceneItem2.atm);
    b.speed*=0.7;
   }
- }
- // boost pads + moving hazards for bots
- for(var bpc2=0;bpc2<boostPads.length;bpc2++){
-  var bp2=boostPads[bpc2];var pdx2=bp2.x-b.x,pdz2=bp2.z-b.z;
-  if(pdx2*pdx2+pdz2*pdz2<16)padBoost(b);
  }
  // coin collect + item box pickup
  for(var ci=coins.length-1;ci>=0;ci--){
@@ -3730,13 +3683,7 @@ function loop(now){
     if(GS.fovTimer>0){GS.fovTimer-=FIXED_TIMESTEP;if(GS.fovTimer<=0)GS.fovTarget=65;}
     physicsAccumulator-=FIXED_TIMESTEP;
    }
-   var rp=GS.racers[0];
-   var maxSpeedRef=46+Math.min(rp.coinCount,10)*0.4;
-   var speedRatio=Math.min(1,rp.speed/maxSpeedRef);
-   var speedFOV=65+(speedRatio*8)+(rp.boostTimer>0?12:0)+(rp.driftActive?6:0);
-   if(GS.fovTimer<=0)GS.fovTarget=speedFOV;
-   else GS.fovTarget=Math.max(speedFOV,GS.fovTarget);
-   GS.fov+=(GS.fovTarget-GS.fov)*(1-Math.exp(-12*dt/1000));
+   GS.fov=65;GS.fovTarget=65;
 
    // Announcer: overtake/passed detection
    var plNow=GS.racers[0].place||1;
@@ -3833,24 +3780,16 @@ function render(){
 
  var p=GS.racers[0];
  var rendAlpha=GS.started?physicsAccumulator/FIXED_TIMESTEP:1;
- var pSnap=null;
- if(p._px!==undefined&&GS.started){
-  pSnap={x:p.x,y:p.y,z:p.z,h:p.heading};
-  interpRacerPose(p,rendAlpha);
- }
  var maxSpeedRef=46+Math.min(p.coinCount,10)*0.4;
  var speedRatio=Math.min(1,p.speed/maxSpeedRef);
  var isBoosting=p.boostTimer>0;
- var isDrifting=p.driftActive;
- GS.currentFOV=GS.fov;
+ GS.currentFOV=65;
 
  var behind=14, height=7, ahead=8;
  if(isBoosting){behind=11;height=5.5;}
  var tx=p.x-Math.sin(p.heading)*behind;
  var tz=p.z-Math.cos(p.heading)*behind;
  var ty=p.y+height;
- var speedBob=Math.sin(GS.raceTime*0.006)*speedRatio*0.15;
- ty+=speedBob;
  // ORBIT camera: slowly circle the kart instead of trailing directly behind it
  if(GS.cameraMode==='ORBIT'){
   var orbitA=p.heading+GS.raceTime*0.0005;
@@ -3860,26 +3799,28 @@ function render(){
   ty=p.y+8.5;
   ahead=0; // look straight at the kart so it stays centred while orbiting
  }
- var lfBase=isBoosting?10:6;
- var lf=1-Math.exp(-lfBase*frameDt/1000);
- cam.x+=(tx-cam.x)*lf;cam.y+=(ty-cam.y)*lf;cam.z+=(tz-cam.z)*lf;
- var shakeIntensity=GS.shake.decay>0?GS.shake.decay/400:0;
- var lookX=p.x+Math.sin(p.heading)*ahead+GS.shake.x*shakeIntensity;
- var lookY=p.y+1.5+GS.shake.y*shakeIntensity;
+ // Smooth camera follow — use a fixed blend so motion stays steady frame-to-frame
+ var camBlend=1-Math.exp(-8*frameDt/1000);
+ cam.x+=(tx-cam.x)*camBlend;cam.y+=(ty-cam.y)*camBlend;cam.z+=(tz-cam.z)*camBlend;
+ var lookX=p.x+Math.sin(p.heading)*ahead;
+ var lookY=p.y+1.5;
  var lookZ=p.z+Math.cos(p.heading)*ahead;
  var look=[lookX,lookY,lookZ];
  var aspect=canvas.width/canvas.height||1;
- var proj=M.perspective(GS.fov*Math.PI/180,aspect,0.5,800);
+ var proj=M.perspective(65*Math.PI/180,aspect,0.5,800);
  var view=M.lookAt([cam.x,cam.y,cam.z],look,[0,1,0]);
+
+ // sky: fixed projection + yaw-only rotation so FOV/pitch/bob never flicker it
+ var skyProj=M.perspective(65*Math.PI/180,aspect,0.5,800);
+ var skyYaw=Math.atan2(lookX-cam.x,lookZ-cam.z);
+ var skyView=M.lookAt([0,0,0],[-Math.sin(skyYaw),0,-Math.cos(skyYaw)],[0,1,0]);
 
  // sky first (depth write disabled effectively by w-trick + drawn before)
  gl.useProgram(skyProg);
  gl.depthMask(false);
  gl.bindBuffer(gl.ARRAY_BUFFER,skyMesh.posBuf);gl.enableVertexAttribArray(L.sAPos);gl.vertexAttribPointer(L.sAPos,3,gl.FLOAT,false,0,0);
  gl.bindBuffer(gl.ARRAY_BUFFER,skyMesh.colBuf);gl.enableVertexAttribArray(L.sACol);gl.vertexAttribPointer(L.sACol,3,gl.FLOAT,false,0,0);
- gl.uniformMatrix4fv(L.sUProj,false,proj);
- // strip translation from view so sky stays centered on camera
- var skyView=_skyViewBuf;for(var _sv=0;_sv<16;_sv++)skyView[_sv]=view[_sv];skyView[12]=0;skyView[13]=0;skyView[14]=0;
+ gl.uniformMatrix4fv(L.sUProj,false,skyProj);
  gl.uniformMatrix4fv(L.sUView,false,skyView);
  gl.drawArrays(gl.TRIANGLES,0,skyMesh.count);
  gl.depthMask(true);
@@ -4215,7 +4156,7 @@ function render(){
  for(var i=0;i<GS.racers.length;i++){
   var rr=GS.racers[i];
   var snap=null;
-  if(i>0&&rr._px!==undefined&&GS.started){
+  if(rr._px!==undefined&&GS.started){
    snap={x:rr.x,y:rr.y,z:rr.z,h:rr.heading};
    kartSnaps.push({r:rr,s:snap});
    interpRacerPose(rr,rendAlpha);
@@ -4338,7 +4279,6 @@ function render(){
    fxCtx.restore();
   }
  }
- if(pSnap)restoreRacerPose(p,pSnap.x,pSnap.y,pSnap.z,pSnap.h);
 }
 
 goMenu();
