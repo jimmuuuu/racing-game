@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<title>BRAINROT RACING 3D</title>
+<title>BRAINROT RACING 3D v79</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -2210,37 +2210,12 @@ if(false&&isFig8&&fig8overK>=0){
   var aty=sampleH(atx,atz);
   var apick=ta2;
   var ent={x:atx,y:aty,z:atz,rot:ta1*6.28,sc:0.9+ta1*0.4};
-  if(apick<0.3){ent.atm='cone';ent.sc=0.8+ta1*0.4;}
-  else if(apick<0.5){ent.atm='tyre';}
-  else if(apick<0.75){ent.atm='flag';ent.col=balloonCols[Math.floor(ta1*balloonCols.length)%balloonCols.length];}
+  if(apick<0.45){ent.atm='tyre';}
+  else if(apick<0.7){ent.atm='flag';ent.col=balloonCols[Math.floor(ta1*balloonCols.length)%balloonCols.length];}
   else{ent.atm='balloon';ent.col=balloonCols[Math.floor(ta2*balloonCols.length)%balloonCols.length];ent.sc=0.8+ta1*0.5;}
   scenery.push(ent);
  }
- // ===== lamp posts evenly spaced along both sides of the road =====
- for(var lp=0;lp<n;lp+=14){
-  var lpc=CL[lp];
-  for(var lps=0;lps<2;lps++){var sgn=lps===0?1:-1;
-   var lpx=lpc.x+lpc.px*(ROADW+2.4)*sgn,lpz=lpc.z+lpc.pz*(ROADW+2.4)*sgn;
-   if(inLake(lpx,lpz))continue;
-   // face the gooseneck arm toward the road
-   var lprot=Math.atan2((lpc.x-lpx),(lpc.z-lpz));
-   scenery.push({type:'lamp',x:lpx,y:sampleH(lpx,lpz),z:lpz,rot:lprot,sc:1.0});}
- }
- // ===== direction arrow signs on the sharpest corners =====
- for(var as=0;as<n;as+=3){
-  var a0=CL[as],a1=CL[(as+6)%n];
-  var dot=a0.dx*a1.dx+a0.dz*a1.dz;
-  if(dot>0.985)continue;                         // straight enough -> skip
-  // cross product sign tells which way the road turns
-  var cross=a0.dx*a1.dz-a0.dz*a1.dx;
-  var sgn=cross<0?1:-1;                           // place sign on outside of bend
-  var arx=a0.x+a0.px*(ROADW+2.0)*sgn,arz=a0.z+a0.pz*(ROADW+2.0)*sgn;
-  if(inLake(arx,arz))continue;
-  // arrow points along travel direction, flipped to indicate turn side
-  var arrot=Math.atan2(a0.dx,a0.dz)+(cross<0?0:Math.PI);
-  scenery.push({type:'arrow',x:arx,y:sampleH(arx,arz),z:arz,rot:arrot,sc:1.0});
-  as+=6; // don't spam a whole corner
- }
+ // Lamp posts + corner arrow signs removed (yellow markers on poles looked like floating cubes).
  // ===== decorative stone bridges spanning each lake (not on beach — has its own pier) =====
  if(track.theme!=='beach'){
   for(var bz=0;bz<lakes.length;bz++){var lb=lakes[bz];
@@ -2938,7 +2913,7 @@ function renderParticles(proj,view){
 /* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
 var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack','Zoomium Shield','Reverse Rocket','Slick Slime','Speed Star','Chaos Bomb'];
 var itemBoxes=[],coins=[],hazards=[],projectiles=[];
-var itemBoxMesh=null,coinMesh=null,hazardMesh=null;
+var coinMesh=null,hazardMesh=null,projectileMesh=null;
 
 function buildItemsAndCoins(){
  itemBoxes=[];coins=[];hazards=[];projectiles=[];
@@ -2949,8 +2924,7 @@ function buildItemsAndCoins(){
   var lane=((Math.floor(j/8)%3)-1)*3.2;
   coins.push({x:c2.x+c2.px*lane,y:c2.y+0.55,z:c2.z+c2.pz*lane,active:true});
  }
- // build meshes (itemBoxMesh kept for hazard markers only — no world item cubes)
- itemBoxMesh=new Mesh();itemBoxMesh.box(0,0,0,0.7,0.7,0.7);itemBoxMesh.upload();
+ // build meshes (no yellow item cubes in the world)
  // premium coin: beveled gold disc with a torus rim + embossed center stud
  coinMesh=new Mesh();
  coinMesh.cyl(0,0,0,0.36,0.06,0,18);     // disc body (thin along x, faces in y-z plane)
@@ -2962,6 +2936,7 @@ function buildItemsAndCoins(){
  hazardMesh=new Mesh();
  hazardMesh.sphere(0,0,0,1,8,7);
  hazardMesh.upload();
+ projectileMesh=new Mesh();projectileMesh.sphere(0,0,0,0.35,6,5);projectileMesh.upload();
 }
 
 // current world position of a moving track hazard
@@ -3532,68 +3507,51 @@ function updatePlayer(p,dt){
 }
 function updateBot(b,dt){
  var dtS=dt/1000;
- if(b.finished){var fni=nearestIndex(b.x,b.z,b.idx);b.y=groundYAt(b.x,b.z,fni);return;}
+ if(b.finished){b.y=groundYAt(b.x,b.z,b.idx);return;}
  if(b.spinTimer>0){b.spinTimer-=dt;b.speed*=Math.pow(0.3,dtS);b.spinAngle+=12*dtS;
   if(b.spinTimer<=0){b.spinTimer=0;b.invTimer=2000;b.spinAngle=0;}
   var ni2=nearestIndex(b.x,b.z,b.idx);b.y=groundYAt(b.x,b.z,ni2);advanceProgress(b,ni2);return;}
  if(b.invTimer>0)b.invTimer-=dt;
+ var n=CL.length;if(!n)return;
  var speedMul=DIFFS[GS.diff];
  var maxSpeed=b.maxSpeedBase*speedMul*(0.93+(b.slot%3)*0.02);
-
- // TIER 4: Rubber-banding
  var playerPlace=GS.racers[0].place||1, botPlace=b.place||2;
  var rubberScale={Easy:1.0,Medium:0.6,Hard:0.15}[GS.diff]||0.6;
- if(botPlace>playerPlace){
-  var placesBehind=botPlace-playerPlace;
-  maxSpeed*=1+0.08*placesBehind*rubberScale;
- } else if(botPlace===1){
-  maxSpeed*=1-0.04*rubberScale;
- }
+ if(botPlace>playerPlace)maxSpeed*=1+0.08*(botPlace-playerPlace)*rubberScale;
+ else if(botPlace===1)maxSpeed*=1-0.04*rubberScale;
 
- var ni=nearestIndex(b.x,b.z,b.idx);
- b.idx=ni;
- var bc=CL[ni];
- // TIER 4: AI cornering - variable look-ahead by difficulty
- var lookDist={Easy:3,Medium:5,Hard:8}[GS.diff]||5;
- var look=CL[(ni+lookDist)%CL.length];
-
- // curvature measurement
- var cA=CL[(ni+1)%CL.length],cB=CL[(ni+lookDist)%CL.length];
+ var idx=b.idx;if(idx<0||idx>=n)idx=0;
+ var lookDist={Easy:4,Medium:7,Hard:10}[GS.diff]||7;
+ var cA=CL[idx],cB=CL[(idx+lookDist)%n];
  var curvAngle=Math.abs(Math.atan2(cB.dx,cB.dz)-Math.atan2(cA.dx,cA.dz));
  if(curvAngle>Math.PI)curvAngle=Math.PI*2-curvAngle;
- if(curvAngle>0.3){maxSpeed*=Math.max(0.7,1-curvAngle*0.35);b.speed=Math.max(b.speed-curvAngle*18*dtS,maxSpeed*0.35);}
+ if(curvAngle>0.25)maxSpeed*=Math.max(0.68,1-curvAngle*0.38);
 
- b.wob+=dtS;
- var wob=Math.sin(b.wob*1.3)*(ROADW*0.15);
- var tx=look.x+look.px*wob, tz=look.z+look.pz*wob;
- var trackH=Math.atan2(bc.dx,bc.dz);
- var toLook=Math.atan2(tx-b.x,tz-b.z);
- // On straights hug the centerline tangent; blend toward look-ahead only in corners.
- var lookBlend=curvAngle>0.18?Math.min(1,Math.max(0,(b.speed-10)/20)):0;
- var lookOff=toLook-trackH;
- while(lookOff>Math.PI)lookOff-=Math.PI*2;while(lookOff<-Math.PI)lookOff+=Math.PI*2;
- var desired=trackH+lookOff*lookBlend;
- var diff=desired-b.heading;
- while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
- var turn=diff*4.5*dtS;
- var btc=(b.turnBase+0.45)*dtS;
- b.heading+=Math.max(-btc,Math.min(btc,turn));
  if(b.boostTimer>0){b.boostTimer-=dt;maxSpeed+=b.boostPower;}
- b.speed+=(b.accelBase*0.72)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
+ b.speed+=(b.accelBase*0.78)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
  if(b.speed<0)b.speed=0;
- // Keep bots rolling — never crawl to a full stop mid-race
- if(!b.finished&&b.speed<maxSpeed*0.32)b.speed=maxSpeed*0.32;
- b.x+=Math.sin(b.heading)*b.speed*dtS;
- b.z+=Math.cos(b.heading)*b.speed*dtS;
- // wall barrier for bots — use the post-move centerline index (matches the
- // player); using the pre-move index let bots clip through walls on curves
- var bni=nearestIndex(b.x,b.z,ni);
- bc=CL[bni];
- var bdx=b.x-bc.x,bdz=b.z-bc.z;
- var blat=bdx*bc.px+bdz*bc.pz;var babs=Math.abs(blat);
- if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.2)*bs;b.z=bc.z+bc.pz*(ROADW+3.2)*bs;b.speed=Math.max(b.speed*0.9,maxSpeed*0.35);b.heading=Math.atan2(bc.dx,bc.dz);}
- b.y=groundYAt(b.x,b.z,bni);
- b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R; // spin wheels by distance travelled
+
+ // Rail-follow the centerline — avoids nearest-point snaps that stall on folded tracks.
+ var lane=(b.slot%2===0?-1:1)*2.6;
+ var travel=b.speed*dtS;
+ while(travel>0){
+  var seg=CL[idx],nxt=CL[(idx+1)%n];
+  var sl=seg.segLen||Math.hypot(nxt.x-seg.x,nxt.z-seg.z)||0.001;
+  if(travel<=sl){
+   var t=travel/sl;
+   b.x=seg.x+(nxt.x-seg.x)*t+seg.px*lane;
+   b.z=seg.z+(nxt.z-seg.z)*t+seg.pz*lane;
+   b.heading=Math.atan2(nxt.x-seg.x,nxt.z-seg.z);
+   travel=0;
+  }else{
+   travel-=sl;idx=(idx+1)%n;
+   b.x=CL[idx].x+CL[idx].px*lane;b.z=CL[idx].z+CL[idx].pz*lane;
+   b.heading=Math.atan2(CL[idx].dx,CL[idx].dz);
+  }
+ }
+ b.idx=idx;
+ b.y=groundYAt(b.x,b.z,idx);
+ b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R;
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
@@ -3642,15 +3600,10 @@ function updateBot(b,dt){
   else if(b.item==='Zoomium Shield'){b.invTimer=2500;b.item=null;}
   else if(b.item==='Chaos Bomb'){for(var rcb=0;rcb<GS.racers.length;rcb++){if(GS.racers[rcb]===b)continue;var rbx=GS.racers[rcb].x-b.x,rbz=GS.racers[rcb].z-b.z,rbd=Math.sqrt(rbx*rbx+rbz*rbz);if(rbd<40){spinoutRacer(GS.racers[rcb]);}}b.item=null;}
  }
- advanceProgress(b,nearestIndex(b.x,b.z,bni));
+ advanceProgress(b,idx);
 }
 function advanceProgress(r,ni){
  var n=CL.length;
- // Bots: ignore backward progress snaps (parallel-track nearest-point ambiguity)
- if(!r.isPlayer){
-  var curD=CL[r.idx]?CL[r.idx].dist:0,newD=CL[ni]?CL[ni].dist:0;
-  if(newD+8<curD)ni=r.idx;
- }
  if(r.prevIdx>n*0.7 && ni<n*0.3){
   if(r.isPlayer){
    var lt=GS.raceTime-GS.lapStart;
@@ -3976,8 +3929,6 @@ function render(){
   else if(o.type==='grass'){drawMesh(grassTuftMesh,om,o.col,0.55,6);}
   else if(o.type==='log'){drawMesh(logMesh,om,o.col,0.5,8);}
   else if(o.type==='fence'){drawMesh(fenceMesh,om,o.col,0.5,10);}
-  else if(o.type==='lamp'){drawMesh(lampPostMesh,om,[0.22,0.22,0.26],0.45,24);drawMesh(lampGlobe,om,[1.0,0.95,0.7],0.85,40);}
-  else if(o.type==='arrow'){gl.disable(gl.CULL_FACE);drawMesh(arrowPost,om,[0.3,0.3,0.32],0.5,10);drawMesh(arrowSign,om,[0.1,0.1,0.12],0.5,10);drawMesh(arrowSign,M.mul(om,M.scale(0.82,0.82,1.3)),[1.0,0.85,0.1],0.7,18);gl.enable(gl.CULL_FACE);}
   else if(o.type==='bridge'){gl.disable(gl.CULL_FACE);drawMesh(bridgeMesh,om,[0.6,0.58,0.55],0.55,12);drawMesh(bridgeRail,om,[0.5,0.48,0.45],0.5,10);gl.enable(gl.CULL_FACE);}
   else if(o.type==='campfire'){drawMesh(campfireLogs,om,[0.4,0.28,0.18],0.5,8);
    var ff=1+Math.sin(GS.raceTime*0.02+o.x)*0.12;
@@ -4084,7 +4035,7 @@ function render(){
   if(ah.finish){
    // Clean Mario-Kart-style banner gantry: two slim metal posts with ball
    // finials carry a single bright banner board straight across the road.
-   var metal=[0.82,0.84,0.9], gold=[0.95,0.78,0.22];
+   var metal=[0.82,0.84,0.9];
    var beamY=ah.y+5.55;
    // orient the banner's wide (local X) axis along the road's lateral (px,pz)
    var rotM=M.rotY(Math.atan2(-ah.pz,ah.px));
@@ -4093,9 +4044,6 @@ function render(){
    drawMesh(gantryBase,M.translate(rpx,ah.y,rpz),metal,0.55,30);
    drawMesh(gantryPost,M.translate(lpx,ah.y,lpz),metal,0.55,40);
    drawMesh(gantryPost,M.translate(rpx,ah.y,rpz),metal,0.55,40);
-   // gold ball finials capping the posts
-   drawMesh(gantryBall,M.translate(lpx,ah.y+5.85,lpz),gold,0.55,60);
-   drawMesh(gantryBall,M.translate(rpx,ah.y+5.85,rpz),gold,0.55,60);
    // fully checkered banner: 2 rows of square black/white tiles across the span
    var bnRows=2, bnTile=0.55;
    var bnCols=Math.max(10,Math.round(2*bw/bnTile));
@@ -4140,26 +4088,14 @@ function render(){
   var ao=scenery[sc2];if(!ao.atm||ao._destroyed)continue;
   var adx2=ao.x-p.x,adz2=ao.z-p.z;if(adx2*adx2+adz2*adz2>140*140)continue;
   var am2=M.mul(M.translate(ao.x,ao.y,ao.z),M.rotY(ao.rot),M.scale(ao.sc,ao.sc,ao.sc));
-  if(ao.atm==='cone'){drawMesh(coneMesh,am2,[0.95,0.4,0.1],0.55,10);drawMesh(coneStripe,am2,[1,1,1],0.6,10);}
-  else if(ao.atm==='tyre'){drawMesh(tyreMesh,am2,[0.12,0.12,0.13],0.5,8);}
+  if(ao.atm==='tyre'){drawMesh(tyreMesh,am2,[0.12,0.12,0.13],0.5,8);}
   else if(ao.atm==='balloon'){var bob=Math.sin(atmTime*2+ao.x)*0.3;
    var bm2=M.mul(M.translate(ao.x,ao.y+2.0+bob,ao.z),M.scale(ao.sc,ao.sc,ao.sc));
    drawMesh(balloonString,bm2,[0.3,0.3,0.3],0.5,6);drawMesh(balloonMesh,bm2,ao.col,0.5,40);}
   else if(ao.atm==='flag'){drawMesh(flagPole,am2,[0.6,0.6,0.62],0.5,10);drawMesh(flagCloth,am2,ao.col,0.55,8);}
  }
  // world item cubes removed
- if(false&&itemBoxMesh){
-  var ibTime=GS.raceTime*0.0025;
-  for(var ib=0;ib<itemBoxes.length;ib++){
-   var box=itemBoxes[ib];if(!box.active)continue;
-   var ddx2=box.x-p.x,ddz2=box.z-p.z;if(ddx2*ddx2+ddz2*ddz2>150*150)continue;
-   var bm=M.mul(M.translate(box.x,box.y+Math.sin(ibTime+ib)*0.5,box.z),M.rotY(ibTime*3+ib*0.5));
-   drawMesh(itemBoxMesh,bm,[1,0.9,0.1],0.75);
-   // glow: brighter, semi-transparent
-   drawMesh(itemBoxMesh,bm,[1,0.95,0.3],0.3);
-  }
- }
- // coins with shimmer and rotation
+ // coins — single gold pass (no yellow halo cubes)
  if(coinMesh){
   var cTime=GS.raceTime*0.004;
   for(var ci=0;ci<coins.length;ci++){
@@ -4168,11 +4104,7 @@ function render(){
    var shimmer=0.85+Math.sin(cTime+ci)*0.15;
    var bobY=cn.y+Math.sin(cTime+ci*0.3)*0.12;
    var cm=M.mul(M.mul(M.translate(cn.x,bobY,cn.z),M.rotY(cTime*4+ci)),M.rotX(cTime*2));
-   // glowing halo behind the coin (slightly larger, bright, faces spin)
-   drawMesh(coinMesh,M.mul(cm,M.scale(1.35,1.35,0.5)),[1.0,0.9,0.35],0.95,8);
-   drawMesh(coinMesh,cm,[shimmer,shimmer*0.85,0.12],0.6,64);
-   // bright specular highlight pass
-   drawMesh(coinMesh,cm,[1,1,0.55],0.25,80);
+   drawMesh(coinMesh,cm,[shimmer,shimmer*0.82,0.15],0.65,64);
   }
  }
  // hazards (bananas / slime — no yellow item cubes)
@@ -4186,14 +4118,13 @@ function render(){
   }
  }
  // projectiles (fast moving, glowing red)
- if(itemBoxMesh){
+ if(projectileMesh){
   for(var pi=0;pi<projectiles.length;pi++){
    var pr=projectiles[pi];
    var spin=GS.raceTime*0.01+pi;
    var pm=M.mul(M.mul(M.mul(M.translate(pr.x,pr.y,pr.z),M.rotY(spin)),M.rotX(spin*0.7)),M.scale(0.4,0.4,0.4));
-   drawMesh(itemBoxMesh,pm,[1,0.15,0.15],0.7);
-   // projectile glow trail
-   drawMesh(itemBoxMesh,pm,[1,0.3,0.3],0.2);
+   drawMesh(projectileMesh,pm,[1,0.15,0.15],0.7);
+   drawMesh(projectileMesh,pm,[1,0.3,0.3],0.2);
   }
  }
  // karts (with spin visual) — interpolate every racer for smooth motion
