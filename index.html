@@ -851,15 +851,44 @@ function buildCenterline(track){
   var sl=Math.hypot(spx,spz)||1;
   spx/=sl;spz/=sl;
   CL.push({x:rawCL[k].x,y:rawCL[k].y,z:rawCL[k].z,
-   dx:rawCL[k].dx,dz:rawCL[k].dz,px:spx,pz:spz,dist:trackLength});
+   dx:rawCL[k].dx,dz:rawCL[k].dz,px:spx,pz:spz,dist:trackLength,segLen:rawCL[k].segLen});
   trackLength+=rawCL[k].segLen;
  }
+}
+// Rotate CL so index 0 sits on a chosen sample (rebuilds dist along the loop).
+function rotateCenterline(startIdx){
+ var n=CL.length;if(n<2)return;
+ startIdx=((startIdx%n)+n)%n;
+ if(startIdx===0)return;
+ CL=CL.slice(startIdx).concat(CL.slice(0,startIdx));
+ trackLength=0;
+ for(var k=0;k<n;k++){
+  var nx=CL[(k+1)%n];
+  var dx=nx.x-CL[k].x,dz=nx.z-CL[k].z;
+  var sl=Math.hypot(dx,dz)||0.001;
+  CL[k].segLen=sl;
+  CL[k].dist=trackLength;
+  trackLength+=sl;
+ }
+}
+// Beach start: south straight, eastbound, near the boardwalk midpoint.
+function findBeachStartIdx(){
+ var n=CL.length,best=0,bd=1e9;
+ for(var k=0;k<n;k++){
+  var c=CL[k];
+  if(Math.abs(c.z-30)>10)continue;
+  if(c.dx<0.5)continue;
+  var d=(c.x-610)*(c.x-610)+(c.z-30)*(c.z-30);
+  if(d<bd){bd=d;best=k;}
+ }
+ return best;
 }
 
 function buildRaceMeshes(){
  var track=TRACKS[GS.selTrack];
  applySkyBg(track);
  buildCenterline(track);
+ if(track.theme==='beach')rotateCenterline(findBeachStartIdx());
  var n=CL.length;
  // ===== FIGURE-8 CROSSOVER INFO (shared by terrain + bridge geometry) =====
  // The two stacked roads meet at the waist (the centroid of the lemniscate).
@@ -2058,6 +2087,16 @@ if(false&&isFig8&&fig8overK>=0){
  // true if (x,z) falls within (or near the shoreline of) a lake — keeps props dry
  function inLake(x,z){for(var L=0;L<lakes.length;L++){var lb=lakes[L];
   var rr=lb.r*1.15,dx=x-lb.x,dz=z-lb.z;if(dx*dx+dz*dz<rr*rr)return true;}return false;}
+ // lateral distance from the nearest centerline sample — keeps props off the asphalt
+ function trackLat(x,z,hint){
+  var ni=nearestIndex(x,z,hint==null?0:hint);
+  var c=CL[ni];
+  return {ni:ni,c:c,lat:(x-c.x)*c.px+(z-c.z)*c.pz};
+ }
+ function offTrackClear(x,z,margin,hint){
+  return Math.abs(trackLat(x,z,hint).lat)>=margin;
+ }
+ function beachOceanSide(c){return c.pz>=0?1:-1;}
  // scenery: scatter trees + props alongside the road, planted on the terrain surface.
  // deterministic pseudo-random so the layout is stable but feels handcrafted.
  trees=[];scenery=[];
@@ -2072,7 +2111,7 @@ if(false&&isFig8&&fig8overK>=0){
   var r1=rnd(s),r2=rnd(s*1.7+5),r3=rnd(s*2.3+9);
   var off=(ROADW+5)+r1*14;
   var tx=c.x+c.px*off*side,tz=c.z+c.pz*off*side;
-  if(inLake(tx,tz))continue;
+  if(inLake(tx,tz)||!offTrackClear(tx,tz,ROADW+4,s))continue;
   var variant=Math.floor(r2*treeMeshes.length)%treeMeshes.length;
   trees.push({x:tx,y:sampleH(tx,tz)-0.3,z:tz,
     sc:0.75+r1*0.9,
@@ -2085,6 +2124,7 @@ if(false&&isFig8&&fig8overK>=0){
   if(r2>0.4){
    var off2=off+10+r3*16;
    var tx2=c.x+c.px*off2*side,tz2=c.z+c.pz*off2*side;
+   if(!offTrackClear(tx2,tz2,ROADW+4,s))continue;
    var v2=Math.floor(r1*treeMeshes.length)%treeMeshes.length;
    trees.push({x:tx2,y:sampleH(tx2,tz2)-0.3,z:tz2,sc:0.9+r3*1.1,rot:r1*6.28,lean:(r3-0.5)*0.15,variant:v2,
      leaf:leafPalette[Math.floor(r2*leafPalette.length)%leafPalette.length],
@@ -2098,7 +2138,7 @@ if(false&&isFig8&&fig8overK>=0){
   var pside=(rs1<0.5)?-1:1;
   var poff=(ROADW+2.5)+rs2*16;
   var px2=cc.x+cc.px*poff*pside,pz2=cc.z+cc.pz*poff*pside;
-  if(inLake(px2,pz2))continue;
+  if(inLake(px2,pz2)||!offTrackClear(px2,pz2,ROADW+3,sp))continue;
   var py2=sampleH(px2,pz2);
   var pick=rs3;
   if(pick<0.32){
@@ -2125,7 +2165,7 @@ if(false&&isFig8&&fig8overK>=0){
   var pgside=(pr1<0.5)?-1:1;
   var pgoff=(ROADW+3)+pr2*22;
   var pgx=pc.x+pc.px*pgoff*pgside,pgz=pc.z+pc.pz*pgoff*pgside;
-  if(inLake(pgx,pgz))continue;
+  if(inLake(pgx,pgz)||!offTrackClear(pgx,pgz,ROADW+3,pa))continue;
   scenery.push({type:'patch',x:pgx,y:sampleH(pgx,pgz),z:pgz,sc:2.0+pr1*3.2,rot:pr2*6.28,
     col:patchCols[Math.floor(pr1*patchCols.length)%patchCols.length]});
  }
@@ -2147,8 +2187,9 @@ if(false&&isFig8&&fig8overK>=0){
  for(var at=0;at<n;at+=5){
   var tc=CL[at];var ta1=rnd(at*6.1+3),ta2=rnd(at*7.3+8);
   var tside=(ta1<0.5)?-1:1;
-  var toff=ROADW+1.4+ta2*1.2;
+  var toff=ROADW+3+ta2*1.2;
   var atx=tc.x+tc.px*toff*tside,atz=tc.z+tc.pz*toff*tside;
+  if(!offTrackClear(atx,atz,ROADW+2,at))continue;
   var aty=sampleH(atx,atz);
   var apick=ta2;
   var ent={x:atx,y:aty,z:atz,rot:ta1*6.28,sc:0.9+ta1*0.4};
@@ -2183,12 +2224,15 @@ if(false&&isFig8&&fig8overK>=0){
   scenery.push({type:'arrow',x:arx,y:sampleH(arx,arz),z:arz,rot:arrot,sc:1.0});
   as+=6; // don't spam a whole corner
  }
- // ===== decorative stone bridges spanning each lake =====
- for(var bz=0;bz<lakes.length;bz++){var lb=lakes[bz];
-  var bang=rnd(bz*17+3)*Math.PI*2;
-  scenery.push({type:'bridge',x:lb.x,y:lb.y+0.4,z:lb.z,rot:bang,sc:1.0});}
+ // ===== decorative stone bridges spanning each lake (not on beach — has its own pier) =====
+ if(track.theme!=='beach'){
+  for(var bz=0;bz<lakes.length;bz++){var lb=lakes[bz];
+   if(!offTrackClear(lb.x,lb.z,ROADW+30))continue;
+   var bang=rnd(bz*17+3)*Math.PI*2;
+   scenery.push({type:'bridge',x:lb.x,y:lb.y+0.4,z:lb.z,rot:bang,sc:1.0});}
+ }
  // ===== campfires (a couple, near the village + a lake) =====
- (function(){
+ if(track.theme!=='beach')(function(){
   var vi=Math.floor(n*0.33);var vc=CL[vi];
   var cfx=vc.x+vc.px*40,cfz=vc.z+vc.pz*40;
   scenery.push({type:'campfire',x:cfx,y:sampleH(cfx,cfz),z:cfz,rot:0,sc:1.0});
@@ -2211,21 +2255,24 @@ if(false&&isFig8&&fig8overK>=0){
   skyClouds.push({x:Math.cos(cang)*crad,y:120+cr2*120,z:Math.sin(cang)*crad,sc:3+cr*5});}
  // ===== place large landmarks at spaced intervals around the track =====
  landmarks=[];
- var lmTypes=['windmill','cabin','tower','lighthouse','statue','billboard'];
- var lmCount=lmTypes.length*2; // two laps of each type around the circuit
- for(var lm=0;lm<lmCount;lm++){
-  var idx=Math.floor((lm+0.5)/lmCount*n)%n;
-  var lc=CL[idx];var lr=rnd(idx*9.3+lm*3.7);
-  var lside=(lm%2===0)?-1:1;
-  var loff=(ROADW+22)+lr*18;
-  var lx=lc.x+lc.px*loff*lside,lz=lc.z+lc.pz*loff*lside;
-  var type=lmTypes[lm%lmTypes.length];
-  landmarks.push({type:type,x:lx,y:sampleH(lx,lz),z:lz,
-    rot:Math.atan2(lc.x-lx,lc.z-lz),  // face roughly toward the road
-    sc:0.9+lr*0.5});
+ if(track.theme!=='beach'){
+  var lmTypes=['windmill','cabin','tower','lighthouse','statue','billboard'];
+  var lmCount=lmTypes.length*2; // two laps of each type around the circuit
+  for(var lm=0;lm<lmCount;lm++){
+   var idx=Math.floor((lm+0.5)/lmCount*n)%n;
+   var lc=CL[idx];var lr=rnd(idx*9.3+lm*3.7);
+   var lside=(lm%2===0)?-1:1;
+   var loff=(ROADW+22)+lr*18;
+   var lx=lc.x+lc.px*loff*lside,lz=lc.z+lc.pz*loff*lside;
+   if(!offTrackClear(lx,lz,ROADW+6,idx))continue;
+   var type=lmTypes[lm%lmTypes.length];
+   landmarks.push({type:type,x:lx,y:sampleH(lx,lz),z:lz,
+     rot:Math.atan2(lc.x-lx,lc.z-lz),  // face roughly toward the road
+     sc:0.9+lr*0.5});
+  }
  }
  // a single huge ancient tree as a hero landmark
- (function(){var hi=Math.floor(n*0.5);var hc=CL[hi];var hx=hc.x+hc.px*40,hz=hc.z+hc.pz*40;
+ if(track.theme!=='beach')(function(){var hi=Math.floor(n*0.5);var hc=CL[hi];var hx=hc.x+hc.px*40,hz=hc.z+hc.pz*40;
   landmarks.push({type:'bigtree',x:hx,y:sampleH(hx,hz)-0.3,z:hz,rot:1.2,sc:3.2});})();
  // ===== checkpoint arches + finish gate spanning the road =====
  arches=[];
@@ -2239,7 +2286,7 @@ if(false&&isFig8&&fig8overK>=0){
  (function(){var ac=CL[0];arches.unshift({x:ac.x,y:ac.y,z:ac.z,px:ac.px,pz:ac.pz,finish:true,idx:0});})();
  // ===== VILLAGE CLUSTER: a little market town the player drives past =====
  villages=[];
- (function(){
+ if(track.theme!=='beach')(function(){
   var vi=Math.floor(n*0.33);var vc=CL[vi];var vside=1;
   var stallCols=[[0.9,0.35,0.3],[0.95,0.8,0.3],[0.35,0.65,0.85],[0.5,0.75,0.45]];
   // arrange a small grid of buildings just off the track
@@ -2275,21 +2322,33 @@ if(false&&isFig8&&fig8overK>=0){
   villages.push({type:type||'cabin',x:pnt.x,y:pnt.y,z:pnt.z,rot:pnt.rot,col:ci!=null?beachStallCols[ci%beachStallCols.length]:null});
  }
  if(track.theme==='beach'){
-  // Boardwalk village and beach houses facing the ocean side of the course.
+  // Boardwalk houses and palms on the ocean (south) side — no along-track offset.
   for(var bh=0;bh<9;bh++){
    var bf=0.08+bh*0.075;
-   addBeachHouse(bf,-1,34+(bh%3)*7,(bh%2?9:-7),bh%3===0?'stall':'cabin',bh);
-   var bpnt=pointNear(bf,-1,22,(bh%2?6:-6));
-   scenery.push({type:'fence',x:bpnt.x,y:bpnt.y,z:bpnt.z,sc:1.4,rot:bpnt.rot+Math.PI/2,col:[0.82,0.68,0.45]});
+   var bci=Math.floor(bf*n)%n,bos=beachOceanSide(CL[bci]);
+   addBeachHouse(bf,bos,ROADW+26+(bh%3)*8,0,bh%3===0?'stall':'cabin',bh);
+   var bpnt=pointNear(bf,bos,ROADW+18+(bh%2)*4,0);
+   if(offTrackClear(bpnt.x,bpnt.z,ROADW+4,bci))
+    scenery.push({type:'fence',x:bpnt.x,y:bpnt.y,z:bpnt.z,sc:1.4,rot:bpnt.rot+Math.PI/2,col:[0.82,0.68,0.45]});
   }
-  // Palm-lined beach edge, flags, balloons and a lighthouse hero landmark.
   for(var palm=0;palm<18;palm++){
-   var pf=0.03+palm*0.052,pnt=pointNear(pf,-1,17+(palm%4)*5,0);
+   var pf=0.03+palm*0.052,pci=Math.floor(pf*n)%n,pos=beachOceanSide(CL[pci]);
+   var pnt=pointNear(pf,pos,ROADW+14+(palm%4)*5,0);
+   if(!offTrackClear(pnt.x,pnt.z,ROADW+4,pci))continue;
    trees.push({x:pnt.x,y:pnt.y-0.3,z:pnt.z,sc:1.25+(palm%3)*0.18,rot:palm*0.9,lean:(palm%2?0.16:-0.12),variant:2,leaf:[0.10,0.55,0.30],bark:[0.55,0.36,0.18]});
-   if(palm%3===0)scenery.push({x:pnt.x+pnt.c.dx*5,y:pnt.y,z:pnt.z+pnt.c.dz*5,rot:pnt.rot,sc:1.1,atm:'flag',col:balloonCols[palm%balloonCols.length]});
+   if(palm%3===0){
+    var fx=pnt.x+pnt.c.px*4*pos,fz=pnt.z+pnt.c.pz*4*pos;
+    if(offTrackClear(fx,fz,ROADW+3,pci))
+     scenery.push({x:fx,y:sampleH(fx,fz),z:fz,rot:pnt.rot,sc:1.1,atm:'flag',col:balloonCols[palm%balloonCols.length]});
+   }
   }
-  var lh=pointNear(0.20,-1,78,8);landmarks.push({type:'lighthouse',x:lh.x,y:lh.y,z:lh.z,rot:lh.rot,sc:1.6});
-  var pier=pointNear(0.30,-1,54,0);scenery.push({type:'bridge',x:pier.x,y:pier.y+0.25,z:pier.z,rot:pier.rot+Math.PI/2,sc:1.6});
+  var lhi=Math.floor(0.20*n)%n,lhos=beachOceanSide(CL[lhi]);
+  var lh=pointNear(0.20,lhos,ROADW+62,0);
+  landmarks.push({type:'lighthouse',x:lh.x,y:lh.y,z:lh.z,rot:lh.rot,sc:1.6});
+  var pri=Math.floor(0.30*n)%n,pros=beachOceanSide(CL[pri]);
+  var pier=pointNear(0.30,pros,ROADW+46,0);
+  if(offTrackClear(pier.x,pier.z,ROADW+8,pri))
+   scenery.push({type:'bridge',x:pier.x,y:pier.y+0.25,z:pier.z,rot:pier.rot+Math.PI/2,sc:1.6});
  }else if(track.theme==='mountain'){
   // Tunnel mouth through the mountain: dark arched galleries plus rock walls.
   var t0=pointNear(0.40,1,0,0);
@@ -2751,10 +2810,16 @@ function makeRacer(chIdx,isPlayer,startSlot){
  var rowBack=-(startSlot*8+4);
  var sideOff=(startSlot%2===0)?-3.2:3.2;
  var ph=charPhysics(chIdx);
+ var rx=c.x+c.px*sideOff+c.dx*rowBack, rz=c.z+c.pz*sideOff+c.dz*rowBack;
+ // All grid slots share idx 0 at the standing start (back rows are behind in
+ // world space but not ~one lap ahead in progress — walking the CL array
+ // backward wraps to the end of the loop on folded circuits like the beach).
+ var si=0;
+ var sy=groundYAt(rx,rz,si);
  return {chIdx:chIdx,isPlayer:isPlayer,
   maxSpeedBase:ph.maxSpeed,accelBase:ph.accel,turnBase:ph.turn,driftMul:ph.driftMul,
-  x:c.x+c.px*sideOff+c.dx*rowBack,y:c.y+0.0,z:c.z+c.pz*sideOff+c.dz*rowBack,heading:Math.atan2(c.dx,c.dz),
-  speed:0,idx:0,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
+  x:rx,y:sy,z:rz,heading:Math.atan2(c.dx,c.dz),
+  speed:0,idx:si,lap:0,prevIdx:si,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
   stallTimer:0,slipTimer:0,spinTimer:0,invTimer:0,coinCount:0,item:null,
   prevY:0,prevPrevY:0,rocketGas:false,rocketEarly:false,spinAngle:0,
@@ -2866,12 +2931,14 @@ function buildItemsAndCoins(){
  // item boxes every ~20 segments, offset left/right
  for(var i=0;i<n;i+=20){
   var c=CL[i%n],side=((i/20)%2===0)?-1:1;
-  itemBoxes.push({x:c.x+c.px*side*4,y:c.y+1.2,z:c.z+c.pz*side*4,active:true,timer:0});
+  var boxLat=ROADW+5;
+  itemBoxes.push({x:c.x+c.px*side*boxLat,y:c.y+1.2,z:c.z+c.pz*side*boxLat,active:true,timer:0});
  }
- // coins every ~8 segments
+ // coins every ~8 segments — outside the rumble strips
  for(var j=3;j<n;j+=8){
-  var c2=CL[j%n],off2=Math.sin(j*0.7)*3;
-  coins.push({x:c2.x+c2.px*off2,y:c2.y+0.8,z:c2.z+c2.pz*off2,active:true});
+  var c2=CL[j%n],coinSide=Math.sin(j*0.7)>=0?1:-1;
+  var coinLat=ROADW+3+Math.abs(Math.sin(j*1.3))*5;
+  coins.push({x:c2.x+c2.px*coinSide*coinLat,y:c2.y+0.8,z:c2.z+c2.pz*coinSide*coinLat,active:true});
  }
  // build meshes
  itemBoxMesh=new Mesh();itemBoxMesh.box(0,0,0,0.7,0.7,0.7);itemBoxMesh.upload();
@@ -3491,6 +3558,7 @@ function updateBot(b,dt){
  }
 
  var ni=nearestIndex(b.x,b.z,b.idx);
+ b.idx=ni;
  // TIER 4: AI cornering - variable look-ahead by difficulty
  var lookDist={Easy:3,Medium:5,Hard:8}[GS.diff]||5;
  var look=CL[(ni+lookDist)%CL.length];
