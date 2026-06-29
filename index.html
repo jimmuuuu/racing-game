@@ -2972,26 +2972,25 @@ function buildItemsAndCoins(){
  hazardMesh.sphere(0,0,0,1,8,7);
  hazardMesh.upload();
  projectileMesh=new Mesh();projectileMesh.sphere(0,0,0,0.35,6,5);projectileMesh.upload();
- // red item cube + white question mark on each side face
+ // red item cube + white Tung Tung Sahur silhouette on each side face
  itemBoxMesh=new Mesh();itemBoxMesh.box(0,0,0,0.35,0.35,0.35);itemBoxMesh.upload();
  itemQMesh=new Mesh();
  (function(){
-  var t=0.022;
-  function qZ(fz){
-   itemQMesh.box(0,-0.02,fz,0.065,0.12,t);
-   itemQMesh.box(0.05,0.12,fz,0.055,0.05,t);
-   itemQMesh.box(0.09,0.06,fz,0.045,0.05,t);
-   itemQMesh.box(0.04,0.01,fz,0.045,0.05,t);
-   itemQMesh.box(0,-0.16,fz,0.05,0.05,t);
+  // upright wooden-bat club profile [v(height), halfWidth] (fat head on top)
+  var prof=[[-0.22,0.10],[-0.17,0.105],[-0.09,0.11],[0.0,0.125],[0.08,0.145],[0.16,0.165],[0.22,0.15],[0.27,0.10],[0.31,0.0]];
+  function addFace(m){
+   function q(a,b,c,d){itemQMesh.tri(m(a[0],a[1]),m(b[0],b[1]),m(c[0],c[1]));itemQMesh.tri(m(a[0],a[1]),m(c[0],c[1]),m(d[0],d[1]));}
+   for(var i=0;i<prof.length-1;i++){var v0=prof[i][0],w0=prof[i][1],v1=prof[i+1][0],w1=prof[i+1][1];
+    q([-w0,v0],[w0,v0],[w1,v1],[-w1,v1]);}
+   q([-0.09,-0.30],[-0.025,-0.30],[-0.025,-0.22],[-0.09,-0.22]); // left leg
+   q([0.025,-0.30],[0.09,-0.30],[0.09,-0.22],[0.025,-0.22]);     // right leg
+   q([0.16,-0.01],[0.27,-0.01],[0.27,0.05],[0.16,0.05]);         // little held bat
   }
-  function qX(fx){
-   itemQMesh.box(fx,-0.02,0,t,0.12,0.065);
-   itemQMesh.box(fx,0.12,0.05,t,0.055,0.05);
-   itemQMesh.box(fx,0.06,0.09,t,0.045,0.05);
-   itemQMesh.box(fx,0.01,0.04,t,0.045,0.05);
-   itemQMesh.box(fx,-0.16,0,t,0.05,0.05);
-  }
-  qZ(0.36);qZ(-0.36);qX(0.36);qX(-0.36);
+  var fz=0.36,fx=0.36;
+  addFace(function(u,v){return [u,v,fz];});   // +Z face
+  addFace(function(u,v){return [-u,v,-fz];}); // -Z face
+  addFace(function(u,v){return [fx,v,-u];});  // +X face
+  addFace(function(u,v){return [-fx,v,u];});  // -X face
  })();
  itemQMesh.upload();
 }
@@ -4176,7 +4175,7 @@ function render(){
    var bobY=box.y+Math.sin(ibTime+ib)*0.22;
    var bm=M.mul(M.translate(box.x,bobY,box.z),M.rotY(ibTime*1.6+ib*0.7));
    drawMesh(itemBoxMesh,bm,[0.92,0.18,0.2],0.78);
-   if(itemQMesh)drawMesh(itemQMesh,bm,[1,1,1],0.85);
+   if(itemQMesh){gl.disable(gl.CULL_FACE);drawMesh(itemQMesh,bm,[1,1,1],0.9,4);gl.enable(gl.CULL_FACE);}
   }
  }
  // coins — single gold pass (no yellow halo cubes)
