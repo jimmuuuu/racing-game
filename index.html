@@ -432,7 +432,7 @@ var TRACKS=[
   // Ocean sits well off the south beach straight — large visual water, no terrain carve under the road
   lakeDefs:[{f:0.10,side:-1,off:135,r:72},{f:0.35,side:-1,off:150,r:80},{f:0.58,side:-1,off:142,r:76},{f:0.82,side:-1,off:128,r:68}],
   // Stadium coastal loop: long beach straight + inland straight, wide turns (no fold-back overlap)
-  pts:polyTrack([[520,30],[700,30],[740,200],[700,370],[120,390],[-160,370],[-200,200],[-140,50],[180,30]],80,5,48,beachY)},
+  pts:polyTrack([[520,30],[700,30],[740,200],[700,370],[120,390],[-160,370],[-200,200],[-140,50],[180,30]],80,8,32,beachY)},
  {name:'Maple Ridge Run',desc:'Forest ridge road with rolling hills, a horseshoe climb and a downhill S-section',
   theme:'forest',
   sky:[0.45,0.68,0.92],skyBot:[0.82,0.90,0.98],grass:[0.34,0.61,0.28],road:[0.43,0.43,0.45],roadDark:[0.32,0.32,0.35],rumble:[0.90,0.90,0.95],tree:[0.22,0.58,0.26],fog:[0.67,0.80,0.92],
@@ -813,12 +813,27 @@ function buildCenterline(track){
  var STEP=12;
  function cr(p0,p1,p2,p3,t){
   var t2=t*t,t3=t2*t;
-  function c(a,b,cc,d){return 0.5*((2*b)+(-a+cc)*t+(2*a-5*b+4*cc-d)*t2+(-a+3*b-3*cc+d)*t3)}
+  function c(a,b,cc,d){return 0.5*((2*b)+(-a+cc)*t+(2*a-5*b+4*cc-d)*t2+(-a+3*b-3*cc+d)*t3);}
   return [c(p0[0],p1[0],p2[0],p3[0]),c(p0[1],p1[1],p2[1],p3[1]),c(p0[2],p1[2],p2[2],p3[2])];
  }
- for(var i=0;i<n;i++){
-  var p0=pts[(i-1+n)%n],p1=pts[i],p2=pts[(i+1)%n],p3=pts[(i+2)%n];
-  for(var s=0;s<STEP;s++){ samples.push(cr(p0,p1,p2,p3,s/STEP)); }
+ if(track.theme==='figure8'){
+  for(var i=0;i<n;i++){
+   var p0=pts[(i-1+n)%n],p1=pts[i],p2=pts[(i+1)%n],p3=pts[(i+2)%n];
+   for(var s=0;s<STEP;s++){ samples.push(cr(p0,p1,p2,p3,s/STEP)); }
+  }
+ }else{
+  // polyTrack already outputs a dense racing line — re-splining bulges curves and
+  // can fold the loop over itself (beach stadium overlap). Subdivide long spans.
+  var MAXSEG=6;
+  for(var i=0;i<n;i++){
+   var p0=pts[i],p1=pts[(i+1)%n];
+   var dx=p1[0]-p0[0],dz=p1[2]-p0[2],len=Math.hypot(dx,dz)||1;
+   var steps=Math.max(1,Math.ceil(len/MAXSEG));
+   for(var s=0;s<steps;s++){
+    var t=s/steps;
+    samples.push([p0[0]+dx*t,p0[1]+(p1[1]-p0[1])*t,p0[2]+dz*t]);
+   }
+  }
  }
  // Y-smoothing: extra passes on beach/mountain for gentle, realistic slopes
  var yPasses=(track.theme==='beach')?6:(track.theme==='mountain'?5:3);
@@ -840,11 +855,12 @@ function buildCenterline(track){
   var ox=nx[0]-cur[0],oz=nx[2]-cur[2];var ol=Math.hypot(ox,oz)||1;ox/=ol;oz/=ol;
   rawCL.push({x:cur[0],y:cur[1],z:cur[2],dx:ox,dz:oz,px:oz,pz:-ox,segLen:ol});
  }
- // Smooth perpendiculars over a 5-sample window to prevent any remaining jitter
+ // Smooth perpendiculars over a window to prevent kerb/road ribbon gaps
+ var pxWin=(track.theme==='figure8')?2:4;
  CL=[];trackLength=0;
  for(var k=0;k<m;k++){
   var spx=0,spz=0;
-  for(var w=-2;w<=2;w++){
+  for(var w=-pxWin;w<=pxWin;w++){
    var idx=(k+w+m)%m;
    spx+=rawCL[idx].px; spz+=rawCL[idx].pz;
   }
@@ -975,7 +991,7 @@ function buildRaceMeshes(){
  // raised red/white racing kerbs along both edges. The lip rises higher through
  // corners (where the centerline turns) so apexes read as exciting banked kerbs.
  curbMeshA=new Mesh();curbMeshB=new Mesh();   // A=red, B=white (alternate)
- var CURBW=1.4;
+ var CURBW=1.4,CURB_STRIPE=4.5;
  for(var i=0;i<n;i++){
   var a=CL[i],b=CL[(i+1)%n];
   // curvature: compare direction a few samples apart so real corners register
@@ -983,15 +999,16 @@ function buildRaceMeshes(){
   var turn=a.dx*fwd.dx+a.dz*fwd.dz;                   // ~1 straight, lower on bends
   var curve=Math.max(0,1-turn);                       // 0 straight .. up on bends
   var lift=0.1+Math.min(0.34,curve*2.2);              // kerb height (taller on corners)
-  var cm=(Math.floor(i/2)%2===0)?curbMeshA:curbMeshB;
-  // inner edge (at road), outer edge (CURBW out), top raised by lift
+  // stripe by distance along the lap so red/white blocks connect cleanly
+  var cm=(Math.floor(a.dist/CURB_STRIPE)%2===0)?curbMeshA:curbMeshB;
+  // blend edge normals at the segment ends so kerb lips meet without stacking
+  var apx=a.px,apz=a.pz,bpx=b.px,bpz=b.pz;
   function curbSide(sgn){
-   var ai=[a.x+a.px*ROADW*sgn,a.y+0.04,a.z+a.pz*ROADW*sgn];
-   var ao=[a.x+a.px*(ROADW+CURBW)*sgn,a.y+0.04,a.z+a.pz*(ROADW+CURBW)*sgn];
-   var bi=[b.x+b.px*ROADW*sgn,b.y+0.04,b.z+b.pz*ROADW*sgn];
-   var bo=[b.x+b.px*(ROADW+CURBW)*sgn,b.y+0.04,b.z+b.pz*(ROADW+CURBW)*sgn];
-   var aoT=[ao[0],a.y+lift,ao[2]],boT=[bo[0],b.y+lift,bo[2]]; // raised outer top
-   // top slope (inner low -> outer high), then outer vertical face down
+   var ai=[a.x+apx*ROADW*sgn,a.y+0.04,a.z+apz*ROADW*sgn];
+   var ao=[a.x+apx*(ROADW+CURBW)*sgn,a.y+0.04,a.z+apz*(ROADW+CURBW)*sgn];
+   var bi=[b.x+bpx*ROADW*sgn,b.y+0.04,b.z+bpz*ROADW*sgn];
+   var bo=[b.x+bpx*(ROADW+CURBW)*sgn,b.y+0.04,b.z+bpz*(ROADW+CURBW)*sgn];
+   var aoT=[ao[0],a.y+lift,ao[2]],boT=[bo[0],b.y+lift,bo[2]];
    if(sgn>0){cm.tri(ai,bi,boT);cm.tri(ai,boT,aoT);cm.tri(aoT,boT,bo);cm.tri(aoT,bo,ao);}
    else     {cm.tri(bi,ai,aoT);cm.tri(bi,aoT,boT);cm.tri(boT,aoT,ao);cm.tri(boT,ao,bo);}
   }
@@ -2769,20 +2786,25 @@ var _tauntTouchCheck=false;
 var racerIndices={};
 function nearestIndex(x,z,hint){
  var n=CL.length;if(!n)return 0;
- var searchHint=hint;if(searchHint===undefined||searchHint<0||searchHint>=n)searchHint=null;
- if(searchHint!==null){
-  var best=searchHint,bd=1e9;
-  var windowSize=15;
-  var lo=(searchHint-windowSize+n)%n;
-  for(var k=0;k<windowSize*2;k++){
-   var i=(lo+k)%n;var dx=CL[i].x-x,dz=CL[i].z-z;var d=dx*dx+dz*dz;
-   if(d<bd){bd=d;best=i;}
-  }
-  return best;
+ var searchHint=hint;if(searchHint===undefined||searchHint<0||searchHint>=n)searchHint=0;
+ var best=searchHint,bestD=1e9;
+ // Project onto centerline segments near the hint (forward-biased). Pure nearest-
+ // point search snaps to the wrong parallel leg on folded circuits and stalls AI.
+ var fwdWin=Math.min(140,Math.max(40,Math.floor(n*0.2)));
+ var backWin=14;
+ for(var s=-backWin;s<fwdWin;s++){
+  var i=(searchHint+s+n)%n;
+  var a=CL[i],b=CL[(i+1)%n];
+  var abx=b.x-a.x,abz=b.z-a.z,L2=abx*abx+abz*abz||1;
+  var t=((x-a.x)*abx+(z-a.z)*abz)/L2;
+  if(t<0)t=0;else if(t>1)t=1;
+  var cx=a.x+abx*t,cz=a.z+abz*t;
+  var dx=x-cx,dz=z-cz,d=dx*dx+dz*dz;
+  if(s<0)d*=1.12+0.025*(-s);
+  var pick=t>0.55?(i+1)%n:i;
+  if(d<bestD){bestD=d;best=pick;}
  }
- var best2=0,bd2=1e9;
- for(var j=0;j<n;j++){var dx2=CL[j].x-x,dz2=CL[j].z-z;var d2=dx2*dx2+dz2*dz2;if(d2<bd2){bd2=d2;best2=j;}}
- return best2;
+ return best;
 }
 // Smoothly interpolate the road elevation at a world (x,z) by projecting onto the
 // nearest centerline segment, instead of snapping to the nearest sample's y. The
@@ -2928,19 +2950,13 @@ var itemBoxMesh=null,coinMesh=null,hazardMesh=null;
 function buildItemsAndCoins(){
  itemBoxes=[];coins=[];hazards=[];projectiles=[];
  var n=CL.length;
- // item boxes every ~20 segments, offset left/right
- for(var i=0;i<n;i+=20){
-  var c=CL[i%n],side=((i/20)%2===0)?-1:1;
-  var boxLat=ROADW+5;
-  itemBoxes.push({x:c.x+c.px*side*boxLat,y:c.y+1.2,z:c.z+c.pz*side*boxLat,active:true,timer:0});
- }
- // coins every ~8 segments — outside the rumble strips
+ // coins on the driving surface — center / lane offsets inside the road
  for(var j=3;j<n;j+=8){
-  var c2=CL[j%n],coinSide=Math.sin(j*0.7)>=0?1:-1;
-  var coinLat=ROADW+3+Math.abs(Math.sin(j*1.3))*5;
-  coins.push({x:c2.x+c2.px*coinSide*coinLat,y:c2.y+0.8,z:c2.z+c2.pz*coinSide*coinLat,active:true});
+  var c2=CL[j%n];
+  var lane=((Math.floor(j/8)%3)-1)*3.2;
+  coins.push({x:c2.x+c2.px*lane,y:c2.y+0.55,z:c2.z+c2.pz*lane,active:true});
  }
- // build meshes
+ // build meshes (itemBoxMesh kept for hazard markers only — no world item cubes)
  itemBoxMesh=new Mesh();itemBoxMesh.box(0,0,0,0.7,0.7,0.7);itemBoxMesh.upload();
  // premium coin: beveled gold disc with a torus rim + embossed center stud
  coinMesh=new Mesh();
@@ -3491,24 +3507,7 @@ function updatePlayer(p,dt){
    for(var gp=0;gp<5;gp++)spawnP(p.x+(Math.random()-0.5),p.y+1,p.z+(Math.random()-0.5),(Math.random()-0.5)*2,3+Math.random()*3,(Math.random()-0.5)*2,1,0.85,0,500);}
  }
 
- // item box collision (better item selection like Mario Kart)
- for(var bi=0;bi<itemBoxes.length;bi++){
-  var box=itemBoxes[bi];if(!box.active)continue;
-  var bdx=box.x-p.x,bdz=box.z-p.z;
-  if(bdx*bdx+bdz*bdz<5&&!p.item){box.active=false;box.timer=5000;
-   var pos=p.place||1;
-   var itemIdx=0;
-   if(pos===4)itemIdx=Math.floor(Math.random()*4)+4; // last place: best items (4-7)
-   else if(pos===3)itemIdx=Math.floor(Math.random()*3)+2; // 3rd: mid items (2-4)
-   else if(pos===2)itemIdx=Math.floor(Math.random()*2)+1; // 2nd: some defense (1-2)
-   else itemIdx=Math.floor(Math.random()*2); // 1st: weak items (0-1)
-   p.item=ITEMS[Math.min(itemIdx,ITEMS.length-1)];
-   sndPickup();
-   for(var ibp=0;ibp<5;ibp++)spawnP(box.x+(Math.random()-0.5),box.y,box.z+(Math.random()-0.5),(Math.random()-0.5)*3,3+Math.random()*3,(Math.random()-0.5)*3,0.5,1,1,500);
-   GS.shake.x=(Math.random()-0.5)*0.3;GS.shake.y=(Math.random()-0.5)*0.2;GS.shake.decay=150;
-  }
- }
-
+ // item boxes removed — no world pickup cubes
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
@@ -3540,6 +3539,7 @@ function updatePlayer(p,dt){
 }
 function updateBot(b,dt){
  var dtS=dt/1000;
+ if(b.finished){var fni=nearestIndex(b.x,b.z,b.idx);b.y=groundYAt(b.x,b.z,fni);return;}
  if(b.spinTimer>0){b.spinTimer-=dt;b.speed*=Math.pow(0.3,dtS);b.spinAngle+=12*dtS;
   if(b.spinTimer<=0){b.spinTimer=0;b.invTimer=2000;b.spinAngle=0;}
   var ni2=nearestIndex(b.x,b.z,b.idx);b.y=groundYAt(b.x,b.z,ni2);advanceProgress(b,ni2);return;}
@@ -3559,6 +3559,7 @@ function updateBot(b,dt){
 
  var ni=nearestIndex(b.x,b.z,b.idx);
  b.idx=ni;
+ var bc=CL[ni];
  // TIER 4: AI cornering - variable look-ahead by difficulty
  var lookDist={Easy:3,Medium:5,Hard:8}[GS.diff]||5;
  var look=CL[(ni+lookDist)%CL.length];
@@ -3570,26 +3571,39 @@ function updateBot(b,dt){
  if(curvAngle>0.3){maxSpeed*=Math.max(0.6,1-curvAngle*0.5);b.speed-=curvAngle*30*dtS;}
 
  b.wob+=dtS;
- var wob=Math.sin(b.wob*1.3)*(ROADW*0.4);
+ var wob=Math.sin(b.wob*1.3)*(ROADW*0.25);
  var tx=look.x+look.px*wob, tz=look.z+look.pz*wob;
- var desired=Math.atan2(tx-b.x,tz-b.z);
+ var trackH=Math.atan2(bc.dx,bc.dz);
+ var toLook=Math.atan2(tx-b.x,tz-b.z);
+ var lookBlend=Math.min(1,Math.max(0,(b.speed-8)/22));
+ var lookOff=toLook-trackH;
+ while(lookOff>Math.PI)lookOff-=Math.PI*2;while(lookOff<-Math.PI)lookOff+=Math.PI*2;
+ var desired=trackH+lookOff*lookBlend;
  var diff=desired-b.heading;
  while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
- var turn=diff*4*dtS;
- var btc=(b.turnBase+0.4)*dtS;
+ var turn=diff*4.5*dtS;
+ var btc=(b.turnBase+0.45)*dtS;
  b.heading+=Math.max(-btc,Math.min(btc,turn));
  if(b.boostTimer>0){b.boostTimer-=dt;maxSpeed+=b.boostPower;}
  b.speed+=(b.accelBase*0.72)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
  if(b.speed<0)b.speed=0;
+ // anti-stall: if crawling, snap heading onto the racing line and relaunch
+ if(!b._stallMs)b._stallMs=0;
+ if(b.speed<7&&!b.spinTimer&&!b.finished)b._stallMs+=dt;else b._stallMs=0;
+ if(b._stallMs>900){
+  b.heading=trackH;
+  b.speed=Math.max(b.speed,maxSpeed*0.42);
+  b._stallMs=0;
+ }
  b.x+=Math.sin(b.heading)*b.speed*dtS;
  b.z+=Math.cos(b.heading)*b.speed*dtS;
  // wall barrier for bots — use the post-move centerline index (matches the
  // player); using the pre-move index let bots clip through walls on curves
  var bni=nearestIndex(b.x,b.z,ni);
- var bc=CL[bni];
+ bc=CL[bni];
  var bdx=b.x-bc.x,bdz=b.z-bc.z;
  var blat=bdx*bc.px+bdz*bc.pz;var babs=Math.abs(blat);
- if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.5)*bs;b.z=bc.z+bc.pz*(ROADW+3.5)*bs;b.speed*=0.6;}
+ if(babs>ROADW+3.5){var bs=blat>0?1:-1;b.x=bc.x+bc.px*(ROADW+3.5)*bs;b.z=bc.z+bc.pz*(ROADW+3.5)*bs;b.speed*=0.82;b.heading=Math.atan2(bc.dx,bc.dz);}
  b.y=groundYAt(b.x,b.z,bni);
  b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R; // spin wheels by distance travelled
  // hazard collision
@@ -3615,11 +3629,7 @@ function updateBot(b,dt){
   var cdx=coins[ci].x-b.x,cdz=coins[ci].z-b.z;
   if(cdx*cdx+cdz*cdz<4){coins[ci].active=false;if(b.coinCount<10)b.coinCount++;}
  }
- for(var bi2=0;bi2<itemBoxes.length;bi2++){
-  var box2=itemBoxes[bi2];if(!box2.active)continue;
-  var bx2=box2.x-b.x,bz2=box2.z-b.z;
-  if(bx2*bx2+bz2*bz2<5&&!b.item){box2.active=false;box2.timer=5000;b.item=ITEMS[Math.floor(Math.random()*ITEMS.length)];}
- }
+ for(var bi2=0;bi2<itemBoxes.length;bi2++){/* world item cubes removed */}
  // Bot item usage (smarter AI)
  if(b.item){
   if(b.item==='Skibidi Boost'||b.item==='Speed Star'){b.boostTimer=1200;b.boostPower=b.item==='Speed Star'?11:8;b.item=null;
@@ -4148,8 +4158,8 @@ function render(){
    drawMesh(balloonString,bm2,[0.3,0.3,0.3],0.5,6);drawMesh(balloonMesh,bm2,ao.col,0.5,40);}
   else if(ao.atm==='flag'){drawMesh(flagPole,am2,[0.6,0.6,0.62],0.5,10);drawMesh(flagCloth,am2,ao.col,0.55,8);}
  }
- // item boxes (spinning with glow)
- if(itemBoxMesh){
+ // world item cubes removed
+ if(false&&itemBoxMesh){
   var ibTime=GS.raceTime*0.0025;
   for(var ib=0;ib<itemBoxes.length;ib++){
    var box=itemBoxes[ib];if(!box.active)continue;
@@ -4167,7 +4177,7 @@ function render(){
    var cn=coins[ci];if(!cn.active)continue;
    var cdx2=cn.x-p.x,cdz2=cn.z-p.z;if(cdx2*cdx2+cdz2*cdz2>120*120)continue;
    var shimmer=0.85+Math.sin(cTime+ci)*0.15;
-   var bobY=cn.y+Math.sin(cTime+ci*0.3)*0.25;
+   var bobY=cn.y+Math.sin(cTime+ci*0.3)*0.12;
    var cm=M.mul(M.mul(M.translate(cn.x,bobY,cn.z),M.rotY(cTime*4+ci)),M.rotX(cTime*2));
    // glowing halo behind the coin (slightly larger, bright, faces spin)
    drawMesh(coinMesh,M.mul(cm,M.scale(1.35,1.35,0.5)),[1.0,0.9,0.35],0.95,8);
@@ -4176,15 +4186,14 @@ function render(){
    drawMesh(coinMesh,cm,[1,1,0.55],0.25,80);
   }
  }
- // hazards (bananas = yellow with glow)
- if(itemBoxMesh){
+ // hazards (bananas / slime — no yellow item cubes)
+ if(hazardMesh){
   for(var hi=0;hi<hazards.length;hi++){
    if(!hazards[hi].active)continue;
    var h=hazards[hi];
    var hm=M.mul(M.translate(h.x,h.y,h.z),M.scale(0.5,0.3,0.5));
-   drawMesh(itemBoxMesh,hm,[1,0.95,0.1],0.75);
-   // banana glow
-   drawMesh(itemBoxMesh,hm,[1,1,0.3],0.25);
+   var hcol=h.type==='banana'?[0.95,0.85,0.1]:[0.2,0.85,0.3];
+   drawMesh(hazardMesh,hm,hcol,0.75);
   }
  }
  // projectiles (fast moving, glowing red)
