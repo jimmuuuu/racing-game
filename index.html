@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<title>BRAINROT RACING 3D v80</title>
+<title>BRAINROT RACING 3D v81</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -2793,7 +2793,10 @@ function groundYAt(x,z,hint){
  }
  return bestY;
 }
-function progressOf(r){ return r.lap*trackLength + (r.trackDist!=null?r.trackDist:(CL[r.idx]?CL[r.idx].dist:0)); }
+function progressOf(r){
+ if(r.trackProg!=null)return r.lap*trackLength+(r.trackProg%trackLength+trackLength)%trackLength;
+ return r.lap*trackLength+(CL[r.idx]?CL[r.idx].dist:0);
+}
 
 // Place a kart at distance `dist` along the loop (metres), with optional lane offset.
 function sampleTrackAt(dist,lane){
@@ -2821,18 +2824,21 @@ function sampleTrackAt(dist,lane){
 }
 
 function makeRacer(chIdx,isPlayer,startSlot){
+ var c=CL[0];
  var ph=charPhysics(chIdx);
- var lane=(startSlot%2===0?-1:1)*2.6;
  var gridBack=startSlot*8+4;
- var trackDist=(trackLength-gridBack+trackLength)%trackLength;
- var sample=sampleTrackAt(trackDist,lane);
- var rx=sample.x, rz=sample.z;
- var si=sample.idx;
- var sy=groundYAt(rx,rz,si);
+ var sideOff=(startSlot%2===0)?-3.2:3.2;
+ var lane=(startSlot%2===0?-1:1)*2.6;
+ // Grid on the start straight — world offset from CL[0], not loop distance (folded tracks mis-place bots).
+ var rx=c.x+c.px*sideOff-c.dx*gridBack;
+ var rz=c.z+c.pz*sideOff-c.dz*gridBack;
+ var sy=groundYAt(rx,rz,0);
+ // Unwrapped distance along the loop; increases forever so lap math never misfires on idx wrap.
+ var trackProg=trackLength-gridBack;
  return {chIdx:chIdx,isPlayer:isPlayer,
   maxSpeedBase:ph.maxSpeed,accelBase:ph.accel,turnBase:ph.turn,driftMul:ph.driftMul,
-  x:rx,y:sy,z:rz,heading:sample.heading,
-  speed:0,idx:si,trackDist:trackDist,lap:0,prevIdx:si,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
+  x:rx,y:sy,z:rz,heading:Math.atan2(c.dx,c.dz),
+  speed:0,idx:0,trackProg:trackProg,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
   stallTimer:0,slipTimer:0,spinTimer:0,invTimer:0,coinCount:0,item:null,
   prevY:0,prevPrevY:0,rocketGas:false,rocketEarly:false,spinAngle:0,
@@ -3557,7 +3563,6 @@ function updateBot(b,dt){
  if(b.spinTimer>0){b.spinTimer-=dt;b.speed*=Math.pow(0.3,dtS);b.spinAngle+=12*dtS;
   if(b.spinTimer<=0){b.spinTimer=0;b.invTimer=2000;b.spinAngle=0;}
   var ni2=nearestIndex(b.x,b.z,b.idx);b.idx=ni2;
-  if(CL[ni2])b.trackDist=CL[ni2].dist;
   b.y=groundYAt(b.x,b.z,ni2);advanceProgress(b,ni2);return;}
  if(b.invTimer>0)b.invTimer-=dt;
  var n=CL.length;if(!n)return;
@@ -3579,14 +3584,22 @@ function updateBot(b,dt){
  b.speed+=(b.accelBase*0.78)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
  if(b.speed<0)b.speed=0;
 
- // Distance-based rail follow — keeps grid spacing and never snaps to the finish line.
+ // Unwrapped distance rail — never snap idx to the finish line on folded tracks.
  var lane=(b.slot%2===0?-1:1)*2.6;
- b.trackDist=(b.trackDist!=null?b.trackDist:0)+b.speed*dtS;
- while(b.trackDist>=trackLength)b.trackDist-=trackLength;
- var sample=sampleTrackAt(b.trackDist,lane);
+ if(b.trackProg==null)b.trackProg=trackLength-(b.slot*8+4);
+ b.trackProg+=b.speed*dtS;
+ var distOnLap=((b.trackProg%trackLength)+trackLength)%trackLength;
+ var sample=sampleTrackAt(distOnLap,lane);
  b.x=sample.x;b.z=sample.z;b.heading=sample.heading;b.idx=sample.idx;
  b.y=groundYAt(b.x,b.z,b.idx);
  b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R;
+ // Lap counting from continuous distance (not idx wrap — that false-triggers on spawn).
+ var botLap=Math.floor(b.trackProg/trackLength);
+ if(botLap>b.lap){
+  b.lap=botLap;
+  if(b.lap>=3&&!b.finished){b.finished=true;b.finishTime=GS.raceTime;GS.finishOrder.push({name:CHARS[b.chIdx].name,isPlayer:false,time:b.finishTime});}
+ }
+ b.prevIdx=b.idx;
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
@@ -3641,19 +3654,17 @@ function updateBot(b,dt){
   else if(b.item==='Zoomium Shield'){b.invTimer=2500;b.item=null;}
   else if(b.item==='Chaos Bomb'){for(var rcb=0;rcb<GS.racers.length;rcb++){if(GS.racers[rcb]===b)continue;var rbx=GS.racers[rcb].x-b.x,rbz=GS.racers[rcb].z-b.z,rbd=Math.sqrt(rbx*rbx+rbz*rbz);if(rbd<40){spinoutRacer(GS.racers[rcb]);}}b.item=null;}
  }
- advanceProgress(b,b.idx);
 }
 function advanceProgress(r,ni){
  var n=CL.length;
- if(r.prevIdx>n*0.7 && ni<n*0.3){
-  if(r.isPlayer){
-   var lt=GS.raceTime-GS.lapStart;
-   GS.lapTimes.push(lt);
-   if(lt<GS.bestLap)GS.bestLap=lt;
-   GS.lapStart=GS.raceTime;
-  }
+ // Player laps use centerline index wrap; bots use trackProg in updateBot.
+ if(r.isPlayer && r.prevIdx>n*0.7 && ni<n*0.3){
+  var lt=GS.raceTime-GS.lapStart;
+  GS.lapTimes.push(lt);
+  if(lt<GS.bestLap)GS.bestLap=lt;
+  GS.lapStart=GS.raceTime;
   r.lap++;
-  if(r.lap>=3 && !r.finished){r.finished=true;r.finishTime=GS.raceTime;GS.finishOrder.push({name:CHARS[r.chIdx].name,isPlayer:r.isPlayer,time:r.finishTime});}
+  if(r.lap>=3 && !r.finished){r.finished=true;r.finishTime=GS.raceTime;GS.finishOrder.push({name:CHARS[r.chIdx].name,isPlayer:true,time:r.finishTime});}
  }
  r.idx=ni;r.prevIdx=ni;
 }
