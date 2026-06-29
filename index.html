@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<title>BRAINROT RACING 3D v79</title>
+<title>BRAINROT RACING 3D v80</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -2793,23 +2793,46 @@ function groundYAt(x,z,hint){
  }
  return bestY;
 }
-function progressOf(r){ return r.lap*trackLength + (CL[r.idx]?CL[r.idx].dist:0); }
+function progressOf(r){ return r.lap*trackLength + (r.trackDist!=null?r.trackDist:(CL[r.idx]?CL[r.idx].dist:0)); }
+
+// Place a kart at distance `dist` along the loop (metres), with optional lane offset.
+function sampleTrackAt(dist,lane){
+ var n=CL.length;
+ if(!n||trackLength<=0)return{idx:0,x:0,y:0,z:0,heading:0};
+ dist=((dist%trackLength)+trackLength)%trackLength;
+ var idx=0;
+ while(true){
+  var seg=CL[idx],nxt=CL[(idx+1)%n];
+  var segStart=seg.dist;
+  var segEnd=(idx+1<n&&CL[idx+1].dist>segStart)?CL[idx+1].dist:trackLength;
+  var sl=segEnd-segStart;if(sl<=0)sl=seg.segLen||0.001;
+  if(dist<segEnd-1e-6||idx===n-1){
+   var t=(dist-segStart)/sl;if(t<0)t=0;if(t>1)t=1;
+   var la=lane||0;
+   return{
+    idx:idx,
+    x:seg.x+(nxt.x-seg.x)*t+seg.px*la,
+    z:seg.z+(nxt.z-seg.z)*t+seg.pz*la,
+    heading:Math.atan2(nxt.x-seg.x,nxt.z-seg.z)
+   };
+  }
+  idx=(idx+1)%n;
+ }
+}
 
 function makeRacer(chIdx,isPlayer,startSlot){
- var c=CL[0];
- var rowBack=-(startSlot*8+4);
- var sideOff=(startSlot%2===0)?-3.2:3.2;
  var ph=charPhysics(chIdx);
- var rx=c.x+c.px*sideOff+c.dx*rowBack, rz=c.z+c.pz*sideOff+c.dz*rowBack;
- // All grid slots share idx 0 at the standing start (back rows are behind in
- // world space but not ~one lap ahead in progress — walking the CL array
- // backward wraps to the end of the loop on folded circuits like the beach).
- var si=0;
+ var lane=(startSlot%2===0?-1:1)*2.6;
+ var gridBack=startSlot*8+4;
+ var trackDist=(trackLength-gridBack+trackLength)%trackLength;
+ var sample=sampleTrackAt(trackDist,lane);
+ var rx=sample.x, rz=sample.z;
+ var si=sample.idx;
  var sy=groundYAt(rx,rz,si);
  return {chIdx:chIdx,isPlayer:isPlayer,
   maxSpeedBase:ph.maxSpeed,accelBase:ph.accel,turnBase:ph.turn,driftMul:ph.driftMul,
-  x:rx,y:sy,z:rz,heading:Math.atan2(c.dx,c.dz),
-  speed:0,idx:si,lap:0,prevIdx:si,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
+  x:rx,y:sy,z:rz,heading:sample.heading,
+  speed:0,idx:si,trackDist:trackDist,lap:0,prevIdx:si,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
   stallTimer:0,slipTimer:0,spinTimer:0,invTimer:0,coinCount:0,item:null,
   prevY:0,prevPrevY:0,rocketGas:false,rocketEarly:false,spinAngle:0,
@@ -2913,11 +2936,17 @@ function renderParticles(proj,view){
 /* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
 var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack','Zoomium Shield','Reverse Rocket','Slick Slime','Speed Star','Chaos Bomb'];
 var itemBoxes=[],coins=[],hazards=[],projectiles=[];
-var coinMesh=null,hazardMesh=null,projectileMesh=null;
+var coinMesh=null,hazardMesh=null,projectileMesh=null,itemOrbMesh=null;
 
 function buildItemsAndCoins(){
  itemBoxes=[];coins=[];hazards=[];projectiles=[];
  var n=CL.length;
+ // power-up orbs on the driving surface (left/right lanes — not yellow cubes)
+ for(var i=12;i<n;i+=22){
+  var c=CL[i%n],side=((i/22)%2===0)?-1:1;
+  var lane=side*3.8;
+  itemBoxes.push({x:c.x+c.px*lane,y:c.y+1.0,z:c.z+c.pz*lane,active:true,timer:0});
+ }
  // coins on the driving surface — center / lane offsets inside the road
  for(var j=3;j<n;j+=8){
   var c2=CL[j%n];
@@ -2937,6 +2966,7 @@ function buildItemsAndCoins(){
  hazardMesh.sphere(0,0,0,1,8,7);
  hazardMesh.upload();
  projectileMesh=new Mesh();projectileMesh.sphere(0,0,0,0.35,6,5);projectileMesh.upload();
+ itemOrbMesh=new Mesh();itemOrbMesh.sphere(0,0,0,0.42,10,8);itemOrbMesh.upload();
 }
 
 // current world position of a moving track hazard
@@ -3475,7 +3505,23 @@ function updatePlayer(p,dt){
    for(var gp=0;gp<5;gp++)spawnP(p.x+(Math.random()-0.5),p.y+1,p.z+(Math.random()-0.5),(Math.random()-0.5)*2,3+Math.random()*3,(Math.random()-0.5)*2,1,0.85,0,500);}
  }
 
- // item boxes removed — no world pickup cubes
+ // item box collision (better item selection like Mario Kart)
+ for(var bi=0;bi<itemBoxes.length;bi++){
+  var box=itemBoxes[bi];if(!box.active)continue;
+  var bdx=box.x-p.x,bdz=box.z-p.z;
+  if(bdx*bdx+bdz*bdz<5&&!p.item){box.active=false;box.timer=5000;
+   var pos=p.place||1;
+   var itemIdx=0;
+   if(pos===4)itemIdx=Math.floor(Math.random()*4)+4;
+   else if(pos===3)itemIdx=Math.floor(Math.random()*3)+2;
+   else if(pos===2)itemIdx=Math.floor(Math.random()*2)+1;
+   else itemIdx=Math.floor(Math.random()*2);
+   p.item=ITEMS[Math.min(itemIdx,ITEMS.length-1)];
+   sndPickup();
+   for(var ibp=0;ibp<5;ibp++)spawnP(box.x+(Math.random()-0.5),box.y,box.z+(Math.random()-0.5),(Math.random()-0.5)*3,3+Math.random()*3,(Math.random()-0.5)*3,0.5,1,1,500);
+   GS.shake.x=(Math.random()-0.5)*0.3;GS.shake.y=(Math.random()-0.5)*0.2;GS.shake.decay=150;
+  }
+ }
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
@@ -3510,7 +3556,9 @@ function updateBot(b,dt){
  if(b.finished){b.y=groundYAt(b.x,b.z,b.idx);return;}
  if(b.spinTimer>0){b.spinTimer-=dt;b.speed*=Math.pow(0.3,dtS);b.spinAngle+=12*dtS;
   if(b.spinTimer<=0){b.spinTimer=0;b.invTimer=2000;b.spinAngle=0;}
-  var ni2=nearestIndex(b.x,b.z,b.idx);b.y=groundYAt(b.x,b.z,ni2);advanceProgress(b,ni2);return;}
+  var ni2=nearestIndex(b.x,b.z,b.idx);b.idx=ni2;
+  if(CL[ni2])b.trackDist=CL[ni2].dist;
+  b.y=groundYAt(b.x,b.z,ni2);advanceProgress(b,ni2);return;}
  if(b.invTimer>0)b.invTimer-=dt;
  var n=CL.length;if(!n)return;
  var speedMul=DIFFS[GS.diff];
@@ -3531,26 +3579,13 @@ function updateBot(b,dt){
  b.speed+=(b.accelBase*0.78)*dtS;if(b.speed>maxSpeed)b.speed=maxSpeed;
  if(b.speed<0)b.speed=0;
 
- // Rail-follow the centerline — avoids nearest-point snaps that stall on folded tracks.
+ // Distance-based rail follow — keeps grid spacing and never snaps to the finish line.
  var lane=(b.slot%2===0?-1:1)*2.6;
- var travel=b.speed*dtS;
- while(travel>0){
-  var seg=CL[idx],nxt=CL[(idx+1)%n];
-  var sl=seg.segLen||Math.hypot(nxt.x-seg.x,nxt.z-seg.z)||0.001;
-  if(travel<=sl){
-   var t=travel/sl;
-   b.x=seg.x+(nxt.x-seg.x)*t+seg.px*lane;
-   b.z=seg.z+(nxt.z-seg.z)*t+seg.pz*lane;
-   b.heading=Math.atan2(nxt.x-seg.x,nxt.z-seg.z);
-   travel=0;
-  }else{
-   travel-=sl;idx=(idx+1)%n;
-   b.x=CL[idx].x+CL[idx].px*lane;b.z=CL[idx].z+CL[idx].pz*lane;
-   b.heading=Math.atan2(CL[idx].dx,CL[idx].dz);
-  }
- }
- b.idx=idx;
- b.y=groundYAt(b.x,b.z,idx);
+ b.trackDist=(b.trackDist!=null?b.trackDist:0)+b.speed*dtS;
+ while(b.trackDist>=trackLength)b.trackDist-=trackLength;
+ var sample=sampleTrackAt(b.trackDist,lane);
+ b.x=sample.x;b.z=sample.z;b.heading=sample.heading;b.idx=sample.idx;
+ b.y=groundYAt(b.x,b.z,b.idx);
  b.wheelRoll=(b.wheelRoll||0)+b.speed*dtS/WHEEL_R;
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
@@ -3575,7 +3610,13 @@ function updateBot(b,dt){
   var cdx=coins[ci].x-b.x,cdz=coins[ci].z-b.z;
   if(cdx*cdx+cdz*cdz<4){coins[ci].active=false;if(b.coinCount<10)b.coinCount++;}
  }
- for(var bi2=0;bi2<itemBoxes.length;bi2++){/* world item cubes removed */}
+ for(var bi2=0;bi2<itemBoxes.length;bi2++){
+  var box2=itemBoxes[bi2];if(!box2.active)continue;
+  var bdx3=box2.x-b.x,bdz3=box2.z-b.z;
+  if(bdx3*bdx3+bdz3*bdz3<5&&!b.item){box2.active=false;box2.timer=5000;
+   b.item=ITEMS[Math.floor(Math.random()*ITEMS.length)];
+  }
+ }
  // Bot item usage (smarter AI)
  if(b.item){
   if(b.item==='Skibidi Boost'||b.item==='Speed Star'){b.boostTimer=1200;b.boostPower=b.item==='Speed Star'?11:8;b.item=null;
@@ -3600,7 +3641,7 @@ function updateBot(b,dt){
   else if(b.item==='Zoomium Shield'){b.invTimer=2500;b.item=null;}
   else if(b.item==='Chaos Bomb'){for(var rcb=0;rcb<GS.racers.length;rcb++){if(GS.racers[rcb]===b)continue;var rbx=GS.racers[rcb].x-b.x,rbz=GS.racers[rcb].z-b.z,rbd=Math.sqrt(rbx*rbx+rbz*rbz);if(rbd<40){spinoutRacer(GS.racers[rcb]);}}b.item=null;}
  }
- advanceProgress(b,idx);
+ advanceProgress(b,b.idx);
 }
 function advanceProgress(r,ni){
  var n=CL.length;
@@ -4094,7 +4135,18 @@ function render(){
    drawMesh(balloonString,bm2,[0.3,0.3,0.3],0.5,6);drawMesh(balloonMesh,bm2,ao.col,0.5,40);}
   else if(ao.atm==='flag'){drawMesh(flagPole,am2,[0.6,0.6,0.62],0.5,10);drawMesh(flagCloth,am2,ao.col,0.55,8);}
  }
- // world item cubes removed
+ // world item cubes removed — glowing magenta orbs on the track instead
+ if(itemOrbMesh){
+  var ibTime=GS.raceTime*0.0025;
+  for(var ib=0;ib<itemBoxes.length;ib++){
+   var box=itemBoxes[ib];if(!box.active)continue;
+   var ddx2=box.x-p.x,ddz2=box.z-p.z;if(ddx2*ddx2+ddz2*ddz2>150*150)continue;
+   var bob=box.y+Math.sin(ibTime+ib)*0.35;
+   var bm=M.mul(M.mul(M.translate(box.x,bob,box.z),M.rotY(ibTime*2.5+ib*0.6)),M.rotX(ibTime*1.8));
+   drawMesh(itemOrbMesh,bm,[0.75,0.15,0.95],0.8,40);
+   drawMesh(itemOrbMesh,bm,[0.35,0.9,1.0],0.25,40);
+  }
+ }
  // coins — single gold pass (no yellow halo cubes)
  if(coinMesh){
   var cTime=GS.raceTime*0.004;
