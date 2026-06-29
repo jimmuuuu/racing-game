@@ -3446,9 +3446,15 @@ function updatePlayer(p,dt){
  var dx=p.x-c.x,dz=p.z-c.z;var lateral=dx*c.px+dz*c.pz;
  var absLateral=Math.abs(lateral);
  var offRoad=absLateral>ROADW;
- var WALLW=ROADW+3.5;
- if(offRoad){ if(p.speed>maxSpeed*0.45)p.speed=maxSpeed*0.45; p.speed-=10*dtS; }
- // (wall barrier is enforced AFTER the position update below, matching the bots)
+ if(offRoad){
+  // Grass: the further off the road you go, the slower you get — but you can ALWAYS
+  // still drive and steer back. (No hard wall that pins/flings the kart anymore.)
+  var over=absLateral-ROADW;
+  var grassCap=Math.max(maxSpeed*0.32, maxSpeed*0.5-over*0.35);
+  if(p.speed>grassCap)p.speed=grassCap;
+  p.speed-=(6+over*0.35)*dtS;
+ }
+ // (soft off-track boundary is enforced AFTER the position update below)
  if(p.speed<0)p.speed=0;
  // When a boost ends, maxSpeed drops instantly. Rather than snapping the speed
  // straight down (which felt like the kart lurched backwards), bleed the extra
@@ -3501,11 +3507,16 @@ function updatePlayer(p,dt){
 
  p.x+=Math.sin(p.heading)*p.speed*dtS;
  p.z+=Math.cos(p.heading)*p.speed*dtS;
- // hard wall barrier, enforced on the post-move position (consistent with bots)
+ // Soft, generous off-track limit. Uses the player's own progress point (c) so it
+ // never snaps across a parallel switchback leg the way the old hard wall did
+ // (that snap is what flung the kart and felt like it was steering itself). It only
+ // engages 34 units past the road edge and gently eases you back — you stay in control.
+ var MAXOFF=ROADW+34;
+ var plat=(p.x-c.x)*c.px+(p.z-c.z)*c.pz;
+ if(Math.abs(plat)>MAXOFF){var psign=plat>0?1:-1;
+  var bx=c.x+c.px*MAXOFF*psign, bz=c.z+c.pz*MAXOFF*psign;
+  p.x+=(bx-p.x)*0.3; p.z+=(bz-p.z)*0.3;}
  var pni=nearestIndex(p.x,p.z,ni);
- var pc=CL[pni];
- var plat=(p.x-pc.x)*pc.px+(p.z-pc.z)*pc.pz;
- if(Math.abs(plat)>WALLW){var psign=plat>0?1:-1;p.x=pc.x+pc.px*WALLW*psign;p.z=pc.z+pc.pz*WALLW*psign;p.speed*=0.5;}
  p.prevPrevY=p.prevY;p.prevY=p.y;
  p.y=groundYAt(p.x,p.z,pni);
  p.wheelRoll=(p.wheelRoll||0)+p.speed*dtS/WHEEL_R; // spin wheels by distance travelled
