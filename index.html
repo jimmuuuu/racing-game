@@ -7,7 +7,8 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
-#glcanvas{position:absolute;top:0;left:0}
+#glcanvas{position:absolute;top:0;left:0;z-index:1;background:transparent}
+#sky-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(to bottom,#6ec8ff 0%,#b8e4ff 100%)}
 #ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center;z-index:10}
 #ui>div{pointer-events:auto}
 .screen{pointer-events:auto}
@@ -160,6 +161,7 @@ html,body{background:#070910}
   <div class="lstatus"><span id="loaderTip">Warming up engines…</span><span id="loaderPct">0%</span></div>
  </div>
 </div>
+<div id="sky-bg"></div>
 <canvas id="glcanvas"></canvas>
 <div id="fallback"><div class="big">3D mode isn't available on this device (WebGL is blocked). Use the 2D version instead.</div><div class="small" id="fbreason"></div></div>
 <div id="ui">
@@ -448,13 +450,20 @@ var OVERSPEED_DECAY=22; // units/sec the player sheds when above normal top spee
 var PLAYER_BASE_MAX_SPEED_SCALE=0.76; // keeps player top speed close to the bot pack
 var PLAYER_BASE_ACCEL_SCALE=0.50; // smoother launch/build-up instead of instant runaway speed
 
+function applySkyBg(track){
+ var el=document.getElementById('sky-bg');if(!el||!track)return;
+ var t=track.sky,b=track.skyBot;
+ function rgb(c){return 'rgb('+Math.round(c[0]*255)+','+Math.round(c[1]*255)+','+Math.round(c[2]*255)+')';}
+ el.style.background='linear-gradient(to bottom,'+rgb(t)+' 0%,'+rgb(b)+' 70%,'+rgb(b)+' 100%)';
+}
+
 /* ===================== WEBGL SETUP ===================== */
 var canvas=document.getElementById('glcanvas'),gl=null;
 function fail(msg){
  document.getElementById('fbreason').textContent=msg||'';
  document.getElementById('fallback').style.display='flex';
 }
-try{ gl=canvas.getContext('webgl')||canvas.getContext('experimental-webgl'); }catch(e){ gl=null; }
+try{ gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:false})||canvas.getContext('experimental-webgl',{alpha:true,premultipliedAlpha:false}); }catch(e){ gl=null; }
 if(!gl){ fail('Could not create a WebGL context.'); }
 
 var DPR=Math.min(window.devicePixelRatio||1,1.5);
@@ -572,6 +581,8 @@ function initGL(){
   sUView:gl.getUniformLocation(skyProg,'uView')
  };
  gl.enable(gl.DEPTH_TEST);
+ gl.enable(gl.BLEND);
+ gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
  gl.enable(gl.CULL_FACE);
  gl.cullFace(gl.BACK);
  gl.frontFace(gl.CCW);
@@ -840,6 +851,7 @@ function buildCenterline(track){
 
 function buildRaceMeshes(){
  var track=TRACKS[GS.selTrack];
+ applySkyBg(track);
  buildCenterline(track);
  var n=CL.length;
  // ===== FIGURE-8 CROSSOVER INFO (shared by terrain + bridge geometry) =====
@@ -2337,39 +2349,8 @@ if(false&&isFig8&&fig8overK>=0){
    }
   }
  })();
- // sky dome — hemisphere with smooth vertical gradient
- skyMesh=new SkyMesh();
- var top=track.sky,bot=track.skyBot;
- var fogC=track.fog||[0.5,0.6,0.7];
- var SRAD=500,SRINGS=10,SSEGS=16;
- function skyCol(ny){
-  var t=Math.max(0,Math.min(1,(ny+0.1)/1.1));
-  if(t<0.15){return [fogC[0]+(bot[0]-fogC[0])*t/0.15, fogC[1]+(bot[1]-fogC[1])*t/0.15, fogC[2]+(bot[2]-fogC[2])*t/0.15];}
-  return [bot[0]+(top[0]-bot[0])*(t-0.15)/0.85, bot[1]+(top[1]-bot[1])*(t-0.15)/0.85, bot[2]+(top[2]-bot[2])*(t-0.15)/0.85];
- }
- for(var ri=0;ri<SRINGS;ri++){
-  var ph0=ri/SRINGS*Math.PI*0.55, ph1=(ri+1)/SRINGS*Math.PI*0.55;
-  var y0=Math.cos(ph0),y1=Math.cos(ph1),r0=Math.sin(ph0),r1=Math.sin(ph1);
-  var c0=skyCol(y0),c1=skyCol(y1);
-  for(var si=0;si<SSEGS;si++){
-   var th0=si/SSEGS*Math.PI*2, th1=(si+1)/SSEGS*Math.PI*2;
-   var ax=r0*Math.cos(th0)*SRAD,az=r0*Math.sin(th0)*SRAD,ay=y0*SRAD;
-   var bx=r1*Math.cos(th0)*SRAD,bz=r1*Math.sin(th0)*SRAD,by=y1*SRAD;
-   var cx=r1*Math.cos(th1)*SRAD,cz=r1*Math.sin(th1)*SRAD,cy=y1*SRAD;
-   var dx2=r0*Math.cos(th1)*SRAD,dz2=r0*Math.sin(th1)*SRAD,dy2=y0*SRAD;
-   skyMesh.verts.push(ax,ay,az,bx,by,bz,cx,cy,cz);skyMesh.cols.push(c0[0],c0[1],c0[2],c1[0],c1[1],c1[2],c1[0],c1[1],c1[2]);skyMesh.count+=3;
-   skyMesh.verts.push(ax,ay,az,cx,cy,cz,dx2,dy2,dz2);skyMesh.cols.push(c0[0],c0[1],c0[2],c1[0],c1[1],c1[2],c0[0],c0[1],c0[2]);skyMesh.count+=3;
-  }
- }
- // bottom cap (below horizon) — fill with fog color
- var capY=-SRAD*0.3;
- var capC=fogC;
- for(var si=0;si<SSEGS;si++){
-  var th0=si/SSEGS*Math.PI*2, th1=(si+1)/SSEGS*Math.PI*2;
-  skyMesh.verts.push(0,capY,0, Math.cos(th1)*SRAD*1.2,capY,Math.sin(th1)*SRAD*1.2, Math.cos(th0)*SRAD*1.2,capY,Math.sin(th0)*SRAD*1.2);
-  skyMesh.cols.push(capC[0],capC[1],capC[2],capC[0],capC[1],capC[2],capC[0],capC[1],capC[2]);skyMesh.count+=3;
- }
- skyMesh.upload();
+ // sky is a fixed CSS gradient (#sky-bg) — no 3D dome (avoids flicker)
+ skyMesh=null;
  // Debug hook (used by automated smoke tests) to sample the terrain heightfield
  // and inspect crossover info; harmless in normal play.
  try{window.__trackDbg={sampleH:sampleH,fig8:isFig8?{cx:fig8cx,cz:fig8cz,under:fig8under,R:fig8R}:null,bounds:{minX:minX,maxX:maxX,minZ:minZ,maxZ:maxZ}};}catch(e){}
@@ -3170,7 +3151,11 @@ function startRace(){
  var p=GS.racers[0];
  cam.x=p.x-Math.sin(p.heading)*14;cam.z=p.z-Math.cos(p.heading)*14;cam.y=p.y+7;
  cam.tx=cam.x;cam.ty=cam.y;cam.tz=cam.z;
- for(var ri=0;ri<GS.racers.length;ri++)saveRacerPrev(GS.racers[ri]);
+ for(var ri=0;ri<GS.racers.length;ri++){
+  var rr=GS.racers[ri];
+  rr.boostTimer=0;rr.boostPower=0;rr.speed=0;rr.rocketGas=false;rr.rocketEarly=false;rr.stallTimer=0;
+  saveRacerPrev(GS.racers[ri]);
+ }
  GS.prevPositions=null;GS.lastLap=-1;GS.shake={x:0,y:0,decay:0};GS.fov=65;GS.fovTarget=65;GS.fovTimer=0;GS.tauntCooldown=0;GS.lapTimes=[];GS.lapStart=0;GS.bestLap=Infinity;GS.prevHudPos=-1;
  // countdown
  GS.cdVal=3;GS.cdTimer=0;
@@ -3648,10 +3633,15 @@ function loop(now){
     if(GS.cdVal>0){cd.textContent=GS.cdVal;sndCount(false);}
     else if(GS.cdVal===0){cd.textContent='GO!';sndCount(true);}
     else{
-     // Start with a clean fixed-step accumulator so race physics begins
-     // immediately and smoothly (no initial teleport burst).
+     // Start clean — no rocket-start boost, no leftover speed
      physicsAccumulator=0;
      cd.style.display='none';
+     var pl=GS.racers[0];
+     pl.boostTimer=0;pl.boostPower=0;pl.speed=0;pl.rocketGas=false;pl.rocketEarly=false;pl.stallTimer=0;
+     for(var rzi=1;rzi<GS.racers.length;rzi++){
+      var rz=GS.racers[rzi];
+      rz.boostTimer=0;rz.boostPower=0;rz.speed=0;rz.rocketGas=false;rz.rocketEarly=false;
+     }
      GS.started=true;
     }
    }
@@ -3775,7 +3765,8 @@ function updateHUD(){
 function render(){
  var track=TRACKS[GS.selTrack];
  gl.viewport(0,0,canvas.width,canvas.height);
- gl.clearColor(track.skyBot[0],track.skyBot[1],track.skyBot[2],1);
+ // transparent clear so the fixed CSS sky (#sky-bg) shows through
+ gl.clearColor(0,0,0,0);
  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 
  var p=GS.racers[0];
@@ -3810,22 +3801,7 @@ function render(){
  var proj=M.perspective(65*Math.PI/180,aspect,0.5,800);
  var view=M.lookAt([cam.x,cam.y,cam.z],look,[0,1,0]);
 
- // sky: fixed projection + yaw-only rotation so FOV/pitch/bob never flicker it
- var skyProj=M.perspective(65*Math.PI/180,aspect,0.5,800);
- var skyYaw=Math.atan2(lookX-cam.x,lookZ-cam.z);
- var skyView=M.lookAt([0,0,0],[-Math.sin(skyYaw),0,-Math.cos(skyYaw)],[0,1,0]);
-
- // sky first (depth write disabled effectively by w-trick + drawn before)
- gl.useProgram(skyProg);
- gl.depthMask(false);
- gl.bindBuffer(gl.ARRAY_BUFFER,skyMesh.posBuf);gl.enableVertexAttribArray(L.sAPos);gl.vertexAttribPointer(L.sAPos,3,gl.FLOAT,false,0,0);
- gl.bindBuffer(gl.ARRAY_BUFFER,skyMesh.colBuf);gl.enableVertexAttribArray(L.sACol);gl.vertexAttribPointer(L.sACol,3,gl.FLOAT,false,0,0);
- gl.uniformMatrix4fv(L.sUProj,false,skyProj);
- gl.uniformMatrix4fv(L.sUView,false,skyView);
- gl.drawArrays(gl.TRIANGLES,0,skyMesh.count);
- gl.depthMask(true);
-
- // world
+ // world (sky is the fixed CSS gradient behind the canvas)
  gl.useProgram(prog);
  gl.uniformMatrix4fv(L.uProj,false,proj);
  gl.uniformMatrix4fv(L.uView,false,view);
@@ -3844,11 +3820,6 @@ function render(){
   gl.disable(gl.CULL_FACE);
   drawMesh(bgMountains,mtnM,track.mtn||[0.42,0.46,0.58],0.78);
   if(bgMountainSnow)drawMesh(bgMountainSnow,mtnM,[0.92,0.95,1.0],0.85);
-  // puffy clouds drifting across the sky (follow the camera so the sky is never empty)
-  if(cloudMesh){var cloudDrift=GS.raceTime*0.004;
-   for(var cd=0;cd<skyClouds.length;cd++){var ck=skyClouds[cd];
-    var cwx=p.x+ck.x+Math.sin(cloudDrift*0.2+cd)*8,cwz=p.z+ck.z;
-    drawMesh(cloudMesh,M.mul(M.translate(cwx,ck.y,cwz),M.scale(ck.sc,ck.sc,ck.sc)),[1.0,1.0,1.0],0.92);}}
   // hot air balloons floating over the world
   if(hotAirBalloon){var habT=GS.raceTime*0.001;
    for(var hb2=0;hb2<skyBalloons.length;hb2++){var hbo=skyBalloons[hb2];
