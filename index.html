@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>BRAINROT RACING 3D v83</title>
+<title>BRAINROT RACING 3D v84</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -296,7 +296,7 @@ html,body{background:#070910}
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v83</div>
+<div id="buildver">3D v84</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -456,8 +456,8 @@ var TRACKS=[
 var ROADW=10; // road half width
 var WHEEL_R=0.355; // kart wheel radius — karts ride this high so tires sit ON the track
 var OVERSPEED_DECAY=22; // units/sec the player sheds when above normal top speed (e.g. after a boost ends)
-var PLAYER_BASE_MAX_SPEED_SCALE=0.76; // keeps player top speed close to the bot pack
-var PLAYER_BASE_ACCEL_SCALE=0.50; // smoother launch/build-up instead of instant runaway speed
+var PLAYER_BASE_MAX_SPEED_SCALE=0.82; // competitive top speed, still near the bot pack
+var PLAYER_BASE_ACCEL_SCALE=0.95; // quick, energetic acceleration (arcade feel)
 
 function applySkyBg(track){
  var el=document.getElementById('sky-bg');if(!el||!track)return;
@@ -3006,7 +3006,7 @@ function hazPos(h){
 }
 function spinoutRacer(r){
  if(r.invTimer>0||r.spinTimer>0)return;
- r.spinTimer=1200;r.speed*=0.15;
+ r.spinTimer=700;r.speed*=0.45; // shorter spin + keep more speed = quick recovery
  sndCrash();
  // shake
  GS.shake.x=(Math.random()-0.5)*1.5;GS.shake.y=(Math.random()-0.5)*1.0;GS.shake.decay=500;
@@ -3064,7 +3064,7 @@ var CHAR_INFO=[
 /* Map display stats -> real driving physics so each racer truly differs */
 function charPhysics(i){
  var st=(CHAR_INFO[i]||{stats:[74,74,74,74]}).stats;
- return {maxSpeed:27+st[0]*0.07, accel:16+st[1]*0.07, turn:1.9+st[2]*0.0045, driftMul:0.85+st[3]*0.0035};
+ return {maxSpeed:27+st[0]*0.07, accel:20+st[1]*0.09, turn:2.35+st[2]*0.006, driftMul:0.9+st[3]*0.004};
 }
 /* Render the real in-game 3D kart model into an offscreen canvas via the main GL context */
 function ensureKartMeshes(){ if(gl&&!kartBody){ try{buildRaceMeshes();}catch(e){} } }
@@ -3436,9 +3436,12 @@ function updatePlayer(p,dt){
   }
  }
 
- if(gas&&p.speed<maxSpeed)p.speed+=accel*dtS;
- else if(brk)p.speed-=accel*1.2*dtS;
- else p.speed-=18*dtS;
+ // Quick, energetic acceleration with a launch assist at low speed so the kart
+ // rebuilds pace fast after collisions/shortcuts. Coasting bleeds speed slowly, so
+ // lifting off the throttle preserves momentum (drift to manage speed, not braking).
+ if(gas&&p.speed<maxSpeed){var launch=p.speed<maxSpeed*0.45?1.7:1.0;p.speed+=accel*launch*dtS;}
+ else if(brk)p.speed-=accel*1.3*dtS;
+ else p.speed-=7*dtS;
 
  var ni=nearestIndex(p.x,p.z,p.idx);
  p.idx=ni;
@@ -3461,20 +3464,28 @@ function updatePlayer(p,dt){
  // boost speed off smoothly so the player eases back to the normal top speed.
  if(p.speed>maxSpeed)p.speed=Math.max(maxSpeed,p.speed-OVERSPEED_DECAY*dtS);
 
- // drift
- var steerAmt=MAXTURN*(0.4+0.6*Math.min(1,p.speed/14));
- if(driftKey&&p.speed>8&&(lft||rgt||p.driftActive)){
+ // Near-instant steering: strong response even at low speed, full grip reached quickly.
+ var steerAmt=MAXTURN*(0.62+0.38*Math.min(1,p.speed/10));
+ // === DRIFT: the core mechanic ===
+ // The kart keeps travelling along its heading (the front grips toward the racing
+ // line) while you steer a touch faster; momentum is preserved (no speed loss), and a
+ // clean drift pays out a mini-turbo on release. Drifting beats braking everywhere.
+ if(driftKey&&p.speed>6&&(lft||rgt||p.driftActive)){
   if(!p.driftActive){p.driftActive=true;p.driftDir=lft?1:(rgt?-1:0);p.driftCharge=0;}
+  if(p.driftDir===0)p.driftDir=lft?1:(rgt?-1:0);
   p.driftCharge+=dt;
-  var driftSteer=steerAmt*1.4;
-  p.heading+=p.driftDir*driftSteer*0.5*dtS;
+  var driftSteer=steerAmt*1.25;
+  p.heading+=p.driftDir*driftSteer*0.45*dtS;   // gentle constant bias into the turn
   if(lft)p.heading+=driftSteer*dtS;
   if(rgt)p.heading-=driftSteer*dtS;
-  // drift sparks (throttled to avoid dense smear trails)
-  var stage=p.driftCharge<600?0:(p.driftCharge<1400?1:2);
+  // moderate visual rear-out yaw (kart body angles, front still points down the line)
+  var yawTarget=-p.driftDir*0.36;
+  p.driftYaw=(p.driftYaw||0)+(yawTarget-(p.driftYaw||0))*Math.min(1,dt/110);
+  // drift sparks build through the charge stages
+  var stage=p.driftCharge<500?0:(p.driftCharge<1300?1:2);
   var cols=[[1,0.5,0],[0,0.8,1],[1,0.3,0.8]];
   p._driftSpawn=(p._driftSpawn||0)+dt;
-  if(p._driftSpawn>60){p._driftSpawn=0;
+  if(stage>0&&p._driftSpawn>55){p._driftSpawn=0;
    var sideOff=(Math.random()-0.5)*0.8;
    spawnP(p.x+p.driftDir*sideOff,p.y+0.2,p.z+sideOff*0.8,
     (Math.random()-0.5)*6-p.driftDir*2,Math.random()*5,(Math.random()-0.5)*4,
@@ -3483,13 +3494,13 @@ function updatePlayer(p,dt){
  } else {
   if(p.driftActive){
    p.driftActive=false;
-   var stage2=p.driftCharge<600?0:(p.driftCharge<1400?1:2);
+   var stage2=p.driftCharge<500?0:(p.driftCharge<1300?1:2);
    if(stage2>=1){
     p.driftCombo++;
     p.driftComboTimer=2000;
-    var comboMult=1+p.driftCombo*0.15;
-    var basePower=(stage2===1?7:12)*p.driftMul;
-    p.boostTimer=stage2===1?600:1200;
+    var comboMult=1+p.driftCombo*0.12;
+    var basePower=(stage2===1?8:13)*p.driftMul;
+    p.boostTimer=stage2===1?700:1300;
     p.boostPower=basePower*comboMult;
     var beepFreq=(stage2===1?660:990)+p.driftCombo*44;
     beep(beepFreq,0.15);
@@ -3499,11 +3510,13 @@ function updatePlayer(p,dt){
    } else {
     p.driftCombo=0;
    }
-   p.driftCharge=0;
+   p.driftCharge=0;p.driftDir=0;
   }
   if(lft)p.heading+=steerAmt*dtS;
   if(rgt)p.heading-=steerAmt*dtS;
  }
+ // ease the visual drift yaw back to centre when not drifting
+ if(!p.driftActive)p.driftYaw=(p.driftYaw||0)*Math.pow(0.0015,dtS);
 
  p.x+=Math.sin(p.heading)*p.speed*dtS;
  p.z+=Math.cos(p.heading)*p.speed*dtS;
@@ -3577,7 +3590,7 @@ function updatePlayer(p,dt){
   if(scDist<6.5){
    sceneItem._destroyed=true;
    spawnPropBurst(sceneItem.x,sceneItem.y,sceneItem.z,sceneItem.atm);
-   p.speed*=0.7;
+   p.speed*=0.88; // forgiving: clip a prop, lose only a little pace
   }
  }
  // engine sound
@@ -3892,7 +3905,10 @@ function render(){
  var maxSpeedRef=46+Math.min(p.coinCount,10)*0.4;
  var speedRatio=Math.min(1,p.speed/maxSpeedRef);
  var isBoosting=p.boostTimer>0;
- GS.currentFOV=65;
+ // Dynamic FOV: widens subtly with speed and pops open on boost for a rush of speed,
+ // then eases back smoothly. (Previously the projection was hard-coded to 65.)
+ var fovTarget=62+speedRatio*5+(isBoosting?9:0);
+ GS.currentFOV=(GS.currentFOV||62)+(fovTarget-(GS.currentFOV||62))*Math.min(1,frameDt/120);
 
  var behind=14, height=7, ahead=8;
  if(isBoosting){behind=11;height=5.5;}
@@ -3916,7 +3932,7 @@ function render(){
  var lookZ=p.z+Math.cos(p.heading)*ahead;
  var look=[lookX,lookY,lookZ];
  var aspect=canvas.width/canvas.height||1;
- var proj=M.perspective(65*Math.PI/180,aspect,0.5,800);
+ var proj=M.perspective((GS.currentFOV||65)*Math.PI/180,aspect,0.5,800);
  var view=M.lookAt([cam.x,cam.y,cam.z],look,[0,1,0]);
 
  // world (sky is the fixed CSS gradient behind the canvas)
@@ -4235,6 +4251,7 @@ function render(){
    interpRacerPose(rr,rendAlpha);
   }
   if(rr.spinTimer>0){var origH=rr.heading;rr.heading+=rr.spinAngle;drawKart(rr);rr.heading=origH;}
+  else if(rr.driftYaw){var oH=rr.heading;rr.heading+=rr.driftYaw;drawKart(rr);rr.heading=oH;}
   else drawKart(rr);
  }
  for(var ks=0;ks<kartSnaps.length;ks++){
