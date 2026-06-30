@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>BRAINROT RACING 3D v86</title>
+<title>BRAINROT RACING 3D v87</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -296,7 +296,7 @@ html,body{background:#070910}
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v86</div>
+<div id="buildver">3D v87</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -429,7 +429,7 @@ var TRACKS=[
   sky:[0.18,0.58,0.96],skyBot:[0.68,0.88,1.0],grass:[0.20,0.62,0.24],road:[0.46,0.46,0.48],roadDark:[0.34,0.34,0.36],rumble:[0.95,0.12,0.10],tree:[0.18,0.58,0.22],fog:[0.56,0.76,0.92],
   lakeDefs:[{f:0.12,side:1,off:96,r:18},{f:0.55,side:-1,off:96,r:22}],
   pts:figureEightTrack(260,230,360,250,44)},
- {name:'Rizz Beach Boardwalk',desc:'Ocean-side beach sprint past waves, pier houses and a sunny seaside village',
+ {name:'Rizz Beach Boardwalk',desc:'Ocean-side beach sprint past waves, pier houses and a sunny seaside village',surface:'sand',
   theme:'beach',
   sky:[0.30,0.74,1.0],skyBot:[0.86,0.96,1.0],grass:[0.88,0.78,0.50],road:[0.48,0.46,0.43],roadDark:[0.35,0.33,0.31],rumble:[1.0,0.58,0.16],tree:[0.14,0.60,0.34],fog:[0.72,0.90,0.98],
   // Ocean sits well off the south beach straight — large visual water, no terrain carve under the road
@@ -458,6 +458,13 @@ var WHEEL_R=0.355; // kart wheel radius — karts ride this high so tires sit ON
 var OVERSPEED_DECAY=22; // units/sec the player sheds when above normal top speed (e.g. after a boost ends)
 var PLAYER_BASE_MAX_SPEED_SCALE=0.82; // competitive top speed, still near the bot pack
 var PLAYER_BASE_ACCEL_SCALE=0.95; // quick, energetic acceleration (arcade feel)
+// Off-road surface types: each progressively bleeds speed differently, but ALL stay
+// drivable so calculated shortcuts remain possible (floor = min fraction of top speed).
+var SURFACES={
+ grass:{floor:0.32,cap:0.50,drag:6.0,dragK:0.35},
+ sand: {floor:0.26,cap:0.42,drag:8.5,dragK:0.40},
+ mud:  {floor:0.20,cap:0.34,drag:11.0,dragK:0.50}
+};
 
 function applySkyBg(track){
  var el=document.getElementById('sky-bg');if(!el||!track)return;
@@ -3450,12 +3457,13 @@ function updatePlayer(p,dt){
  var absLateral=Math.abs(lateral);
  var offRoad=absLateral>ROADW;
  if(offRoad){
-  // Grass: the further off the road you go, the slower you get — but you can ALWAYS
-  // still drive and steer back. (No hard wall that pins/flings the kart anymore.)
+  // Off-road: the further off you go, the slower you get — by surface type — but you
+  // can ALWAYS still drive and steer back, so calculated shortcuts stay possible.
+  var sf=SURFACES[(TRACKS[GS.selTrack]&&TRACKS[GS.selTrack].surface)||'grass']||SURFACES.grass;
   var over=absLateral-ROADW;
-  var grassCap=Math.max(maxSpeed*0.32, maxSpeed*0.5-over*0.35);
-  if(p.speed>grassCap)p.speed=grassCap;
-  p.speed-=(6+over*0.35)*dtS;
+  var offCap=Math.max(maxSpeed*sf.floor, maxSpeed*sf.cap-over*sf.dragK);
+  if(p.speed>offCap)p.speed=offCap;
+  p.speed-=(sf.drag+over*sf.dragK)*dtS;
  }
  // (soft off-track boundary is enforced AFTER the position update below)
  if(p.speed<0)p.speed=0;
