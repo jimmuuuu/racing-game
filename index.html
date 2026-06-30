@@ -3912,8 +3912,14 @@ function render(){
 
  var behind=14, height=7, ahead=8;
  if(isBoosting){behind=11;height=5.5;}
- var tx=p.x-Math.sin(p.heading)*behind;
- var tz=p.z-Math.cos(p.heading)*behind;
+ // Rotational lag: the camera heading trails the kart's heading, so swinging through
+ // a corner makes the view lean into it instead of snapping rigidly behind.
+ if(cam.heading==null)cam.heading=p.heading;
+ var dh=p.heading-cam.heading; while(dh>Math.PI)dh-=2*Math.PI; while(dh<-Math.PI)dh+=2*Math.PI;
+ cam.heading+=dh*Math.min(1,frameDt/1000*9);
+ var camH=cam.heading;
+ var tx=p.x-Math.sin(camH)*behind;
+ var tz=p.z-Math.cos(camH)*behind;
  var ty=p.y+height;
  // ORBIT camera: slowly circle the kart instead of trailing directly behind it
  if(GS.cameraMode==='ORBIT'){
@@ -3930,10 +3936,23 @@ function render(){
  var lookX=p.x+Math.sin(p.heading)*ahead;
  var lookY=p.y+1.5;
  var lookZ=p.z+Math.cos(p.heading)*ahead;
- var look=[lookX,lookY,lookZ];
+ // Gentle banking: roll the camera into the turn based on how hard we're cornering.
+ if(cam.bank==null)cam.bank=0;
+ var bankTarget=Math.max(-0.12,Math.min(0.12,dh*1.4));
+ cam.bank+=(bankTarget-cam.bank)*Math.min(1,frameDt/1000*6);
+ // Impact shake: oscillated (so it reads as a shake, not a static offset) and decays.
+ var shX=(GS.shake.x||0)*Math.sin(GS.raceTime*0.06), shY=(GS.shake.y||0)*Math.cos(GS.raceTime*0.05);
+ var eye=[cam.x+shX,cam.y+shY,cam.z];
+ var look=[lookX+shX,lookY+shY,lookZ];
  var aspect=canvas.width/canvas.height||1;
  var proj=M.perspective((GS.currentFOV||65)*Math.PI/180,aspect,0.5,800);
- var view=M.lookAt([cam.x,cam.y,cam.z],look,[0,1,0]);
+ // Roll the up-vector by the bank angle around the view direction.
+ var fwd=V.norm(V.sub(look,eye));
+ var rgtv=V.norm(V.cross(fwd,[0,1,0]));
+ var upv=V.cross(rgtv,fwd);
+ var cbk=Math.cos(cam.bank), sbk=Math.sin(cam.bank);
+ var up=[upv[0]*cbk+rgtv[0]*sbk, upv[1]*cbk+rgtv[1]*sbk, upv[2]*cbk+rgtv[2]*sbk];
+ var view=M.lookAt(eye,look,up);
 
  // world (sky is the fixed CSS gradient behind the canvas)
  gl.useProgram(prog);
