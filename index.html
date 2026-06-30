@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>BRAINROT RACING 3D v85</title>
+<title>BRAINROT RACING 3D v86</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -296,7 +296,7 @@ html,body{background:#070910}
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v85</div>
+<div id="buildver">3D v86</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -435,22 +435,22 @@ var TRACKS=[
   // Ocean sits well off the south beach straight — large visual water, no terrain carve under the road
   lakeDefs:[{f:0.10,side:-1,off:135,r:72},{f:0.35,side:-1,off:150,r:80},{f:0.58,side:-1,off:142,r:76},{f:0.82,side:-1,off:128,r:68}],
   // Stadium coastal loop: long beach straight + inland straight, wide turns (no fold-back overlap)
-  pts:polyTrack([[520,30],[700,30],[740,200],[700,370],[120,390],[-160,370],[-200,200],[-140,50],[180,30]],80,8,32,beachY)},
+  pts:polyTrack([[365,113],[280,284],[67,326],[-123,241],[-247,124],[-345,-21],[-345,-207],[-180,-325],[38,-293],[190,-184],[301,-58]],60,5,42,function(f){return 4*Math.sin(f*Math.PI*2)+2*Math.sin(f*Math.PI*4);})},
  {name:'Maple Ridge Run',desc:'Flowing forest circuit — sweeping curves, a linked S-chicane and one wide drift hairpin over rolling ridge hills',
   theme:'forest',
   sky:[0.45,0.68,0.92],skyBot:[0.82,0.90,0.98],grass:[0.34,0.61,0.28],road:[0.43,0.43,0.45],roadDark:[0.32,0.32,0.35],rumble:[0.90,0.90,0.95],tree:[0.22,0.58,0.26],fog:[0.67,0.80,0.92],
   lakeDefs:[{f:0.22,side:1,off:84,r:18},{f:0.62,side:-1,off:92,r:22}],
   pts:polyTrack([[-380,130],[-360,-200],[-220,-360],[130,-380],[320,-200],[230,10],[370,180],[300,340],[70,390],[-130,300],[-330,300]],60,5,42,function(f){return 9*Math.sin(f*Math.PI*2)+3.0*Math.sin(f*Math.PI*4+0.6);})},
- {name:'Neon Switchback City',desc:'Night street circuit with tight blocks, long tunnels of light and stacked switchbacks',
+ {name:'Neon Switchback City',desc:'Neon night circuit — flowing sweepers and linked curves under city lights',
   theme:'city',
   sky:[0.04,0.02,0.12],skyBot:[0.15,0.08,0.25],grass:[0.10,0.18,0.12],road:[0.24,0.24,0.30],roadDark:[0.17,0.17,0.22],rumble:[0,1.0,1.0],tree:[0.28,0.30,0.36],fog:[0.10,0.06,0.18],
   lakeDefs:[{f:0.50,side:1,off:95,r:16}],
-  pts:polyTrack([[120,0],[430,0],[610,95],[610,210],[470,210],[470,330],[650,420],[470,560],[130,560],[-40,430],[-40,300],[150,300],[190,180],[-40,110]],74,4,38,function(f){return 7*Math.sin(f*Math.PI*4);})},
- {name:'Dragon Peak Descent',desc:'Huge mountain downhill with cliff loops, a rock tunnel and a steep climb back to the summit',
+  pts:polyTrack([[333,68],[306,270],[108,322],[-54,267],[-225,255],[-387,130],[-333,-68],[-204,-180],[-108,-322],[81,-400],[225,-255],[258,-86]],58,5,42,function(f){return 5*Math.sin(f*Math.PI*4);})},
+ {name:'Dragon Peak Descent',desc:'Mountain ridge circuit — big sweeping curves and rolling elevation with a rock tunnel',
   theme:'mountain',
   sky:[0.50,0.70,0.95],skyBot:[0.82,0.92,1.0],grass:[0.30,0.45,0.25],road:[0.39,0.39,0.43],roadDark:[0.28,0.28,0.33],rumble:[0.95,0.50,0.00],tree:[0.24,0.39,0.21],fog:[0.64,0.77,0.90],
   lakeDefs:[{f:0.62,side:-1,off:94,r:20}],
-  pts:polyTrack([[0,0],[230,-110],[520,-40],[675,150],[510,305],[275,230],[430,430],[120,620],[-190,520],[-70,310],[-315,150],[-160,-70]],58,5,42,mountainDescentY)}
+  pts:polyTrack([[415,-175],[429,41],[251,200],[58,247],[-116,274],[-328,246],[-453,72],[-353,-137],[-148,-232],[25,-260],[220,-275]],60,5,42,function(f){return 14*Math.sin(f*Math.PI*2-0.5)+5*Math.sin(f*Math.PI*4);})}
 ];
 
 var ROADW=10; // road half width
