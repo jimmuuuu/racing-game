@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>BRAINROT RACING 3D v88</title>
+<title>BRAINROT RACING 3D v89</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -150,6 +150,18 @@ html,body{background:#070910}
 #titem{width:68px;height:68px;right:134px;bottom:110px;background:rgba(220,180,0,.32)}
 #hitem{display:inline-block;background:linear-gradient(180deg,rgba(20,20,30,.85),rgba(0,0,0,.75));color:#fff;padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;margin-left:6px;min-width:44px;text-align:center}
 #hcoins{display:inline-block;background:linear-gradient(180deg,rgba(20,20,30,.85),rgba(0,0,0,.75));color:#ffd700;padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;margin-left:6px}
+/* drift-charge / boost meter */
+#hboost{width:min(46vw,240px);height:10px;margin:6px auto 0;border-radius:6px;background:rgba(0,0,10,.55);border:1px solid rgba(255,255,255,.22);overflow:hidden;display:none}
+#hboostfill{height:100%;width:0%;border-radius:5px;background:#ffb020;transition:width .08s linear;box-shadow:0 0 10px currentColor}
+/* full-screen event flash (boost = teal, hit = red, finish = gold) */
+#flash{position:fixed;inset:0;pointer-events:none;z-index:13;opacity:0;transition:opacity .45s ease-out}
+/* squashy pop for the held-item chip */
+#hitem.pop{animation:itemPop .38s cubic-bezier(.2,2.2,.4,1)}
+@keyframes itemPop{0%{transform:scale(.4) rotate(-8deg)}60%{transform:scale(1.25) rotate(3deg)}100%{transform:scale(1) rotate(0)}}
+/* pause overlay */
+#pauseovl{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(4,6,12,.72);backdrop-filter:blur(4px)}
+.pause-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:34px 42px;border-radius:18px;background:linear-gradient(180deg,rgba(22,28,42,.95),rgba(10,13,22,.95));border:1px solid rgba(255,255,255,.12);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.pause-title{font-family:'Arial Black','Impact',sans-serif;font-weight:900;font-size:clamp(26px,5vw,40px);color:#f3f6fb;letter-spacing:2px;margin-bottom:8px;text-shadow:0 2px 18px rgba(47,224,201,.3)}
 </style>
 </head>
 <body>
@@ -283,6 +295,16 @@ html,body{background:#070910}
   <div id="hspeed">0 km/h</div>
   <div id="hcombo" style="display:none;background:linear-gradient(180deg,rgba(40,0,60,.9),rgba(20,0,30,.8));color:#f0f;padding:6px 14px;border-radius:10px;border:2px solid rgba(255,0,255,.5);font-family:'Arial Black',sans-serif;font-size:clamp(14px,2.2vw,20px);font-weight:900;text-shadow:0 0 10px #f0f,2px 2px 0 #000;margin-left:6px"></div>
  </div>
+ <div id="hboost"><div id="hboostfill"></div></div>
+</div>
+<div id="flash"></div>
+<div id="pauseovl">
+ <div class="pause-card">
+  <div class="pause-title">PAUSED</div>
+  <button class="btn cta" onclick="togglePause()">RESUME</button>
+  <button class="btn" onclick="pauseRestart()">RESTART RACE</button>
+  <button class="btn ghost" onclick="pauseMenu()">MAIN MENU</button>
+ </div>
 </div>
 <div id="countdown"></div>
 <div id="touch-controls">
@@ -296,7 +318,7 @@ html,body{background:#070910}
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v88</div>
+<div id="buildver">3D v89</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -557,7 +579,54 @@ var PART_FS=
 "precision mediump float; varying vec4 vCol;\n"+
 "void main(){ float d=length(gl_PointCoord-vec2(0.5)); if(d>0.5)discard; gl_FragColor=vCol*(1.0-d*2.0); }\n";
 
-var prog=null,skyProg=null,partProg=null,PL={},L={};
+/* textured sign quad (sponsor billboards) — text comes from canvas-generated textures */
+var SIGN_VS=
+"attribute vec3 aPos; attribute vec2 aUV;\n"+
+"uniform mat4 uProj; uniform mat4 uView; uniform mat4 uModel;\n"+
+"varying vec2 vUV; varying float vDist;\n"+
+"void main(){ vUV=aUV; vec4 vp=uView*uModel*vec4(aPos,1.0); vDist=length(vp.xyz); gl_Position=uProj*vp; }\n";
+var SIGN_FS=
+"precision mediump float; varying vec2 vUV; varying float vDist;\n"+
+"uniform sampler2D uTex; uniform vec3 uFogColor; uniform float uFogNear; uniform float uFogFar;\n"+
+"void main(){ vec4 c=texture2D(uTex,vUV); float fog=clamp((vDist-uFogNear)/(uFogFar-uFogNear),0.0,1.0); gl_FragColor=vec4(mix(c.rgb,uFogColor,fog*fog),c.a); }\n";
+
+var prog=null,skyProg=null,partProg=null,signProg=null,PL={},L={},SL={};
+var signQuadBuf=null,signUVBuf=null,sponsorTex=[];
+/* fake meme sponsor brands — original, non-infringing "brainrot carnival" signage */
+var SPONSORS=[
+ {t:'SKIBIDI FUEL',bg:'#ffdd33',fg:'#1a1a2e',ac:'#ff3366'},
+ {t:'OHIO SPEEDWAY',bg:'#ff5533',fg:'#ffffff',ac:'#1a1a2e'},
+ {t:'NPC OIL',bg:'#33ddff',fg:'#0a2233',ac:'#ffffff'},
+ {t:'RIZZ RACING',bg:'#ff44aa',fg:'#ffffff',ac:'#ffe066'},
+ {t:'GYATT GARAGE',bg:'#8844ff',fg:'#ffffff',ac:'#33ffcc'},
+ {t:'SIGMA BOOST',bg:'#22cc66',fg:'#08331a',ac:'#ffffff'},
+ {t:'AURA SURGE',bg:'#181840',fg:'#66eeff',ac:'#ff44aa'},
+ {t:'TRALALA TIRES',bg:'#ffffff',fg:'#1133aa',ac:'#ff3333'}
+];
+function makeSignTexture(s){
+ var cv=document.createElement('canvas');cv.width=256;cv.height=128;
+ var x=cv.getContext('2d');
+ x.fillStyle=s.bg;x.fillRect(0,0,256,128);
+ x.strokeStyle=s.ac;x.lineWidth=10;x.strokeRect(6,6,244,116);
+ // little corner star stickers for carnival energy
+ x.fillStyle=s.ac;
+ [[24,24],[232,24],[24,104],[232,104]].forEach(function(pt){
+  x.beginPath();for(var k=0;k<10;k++){var r=k%2?4:9,a=k/10*Math.PI*2-Math.PI/2;x.lineTo(pt[0]+Math.cos(a)*r,pt[1]+Math.sin(a)*r);}x.closePath();x.fill();
+ });
+ x.fillStyle=s.fg;x.textAlign='center';x.textBaseline='middle';
+ var words=s.t.split(' ');
+ if(words.length>1){x.font='900 30px "Arial Black",Arial,sans-serif';x.fillText(words[0],128,45);x.fillText(words.slice(1).join(' '),128,84);}
+ else{x.font='900 36px "Arial Black",Arial,sans-serif';x.fillText(s.t,128,64);}
+ var tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+ gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+ gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+ return tex;
+}
 function compile(type,src){
  var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
@@ -596,6 +665,17 @@ function initGL(){
   sUProj:gl.getUniformLocation(skyProg,'uProj'),
   sUView:gl.getUniformLocation(skyProg,'uView')
  };
+ signProg=link(SIGN_VS,SIGN_FS);
+ SL={aPos:gl.getAttribLocation(signProg,'aPos'),aUV:gl.getAttribLocation(signProg,'aUV'),
+  uProj:gl.getUniformLocation(signProg,'uProj'),uView:gl.getUniformLocation(signProg,'uView'),uModel:gl.getUniformLocation(signProg,'uModel'),
+  uTex:gl.getUniformLocation(signProg,'uTex'),uFogColor:gl.getUniformLocation(signProg,'uFogColor'),uFogNear:gl.getUniformLocation(signProg,'uFogNear'),uFogFar:gl.getUniformLocation(signProg,'uFogFar')};
+ // unit 2:1 sign quad (x±1, y±0.5)
+ signQuadBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,signQuadBuf);
+ gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-0.5,0, 1,-0.5,0, 1,0.5,0, -1,-0.5,0, 1,0.5,0, -1,0.5,0]),gl.STATIC_DRAW);
+ signUVBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,signUVBuf);
+ gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([0,0, 1,0, 1,1, 0,0, 1,1, 0,1]),gl.STATIC_DRAW);
+ sponsorTex=[];
+ for(var sp=0;sp<SPONSORS.length;sp++){try{sponsorTex.push(makeSignTexture(SPONSORS[sp]));}catch(e){}}
  gl.enable(gl.DEPTH_TEST);
  gl.enable(gl.BLEND);
  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
@@ -2757,7 +2837,25 @@ function doTaunt(){
  spawnFloatText(t,cw,ch2,'#ff0',36);
 }
 document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='t'&&GS.scr==='race')doTaunt();});
-document.addEventListener('keydown',function(e){if(e.key.toLowerCase()==='p'&&GS.scr==='race')GS.debug=!GS.debug;});
+document.addEventListener('keydown',function(e){if(e.key==='0'&&GS.scr==='race')GS.debug=!GS.debug;});
+document.addEventListener('keydown',function(e){var k=e.key.toLowerCase();if((k==='p'||k==='escape')&&GS.scr==='race'&&GS.started)togglePause();});
+/* ----- pause + screen flash ----- */
+function togglePause(){
+ if(GS.scr!=='race')return;
+ GS.paused=!GS.paused;
+ document.getElementById('pauseovl').style.display=GS.paused?'flex':'none';
+ if(!GS.paused)lastT=performance.now(); // no dt spike on resume
+}
+function pauseRestart(){GS.paused=false;document.getElementById('pauseovl').style.display='none';startRace();}
+function pauseMenu(){GS.paused=false;document.getElementById('pauseovl').style.display='none';goMenu();}
+/* quick full-screen flash for big moments (boost teal, hits red, finish gold) */
+function screenFlash(color){
+ var el=document.getElementById('flash');if(!el)return;
+ el.style.background=color;
+ el.style.transition='none';el.style.opacity='1';
+ void el.offsetWidth; // reflow so the fade transition restarts
+ el.style.transition='opacity .45s ease-out';el.style.opacity='0';
+}
 setupT('ttaunt','taunt');
 var _tauntTouchCheck=false;
 
@@ -2951,12 +3049,42 @@ function renderParticles(proj,view){
 
 /* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
 var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack','Zoomium Shield','Reverse Rocket','Slick Slime','Speed Star','Chaos Bomb'];
-var itemBoxes=[],coins=[],hazards=[],projectiles=[];
-var coinMesh=null,hazardMesh=null,projectileMesh=null,itemBoxMesh=null,itemQMesh=null;
+var itemBoxes=[],coins=[],hazards=[],projectiles=[],boostPads=[];
+var coinMesh=null,hazardMesh=null,projectileMesh=null,itemBoxMesh=null,itemQMesh=null,boostPadMesh=null;
+/* touching a glowing pad = instant burst of speed (works for player and bots) */
+function padBoost(r){
+ if(r._padCd&&r._padCd>0)return;
+ r._padCd=900;                      // per-racer cooldown so one pad fires once
+ r.boostTimer=Math.max(r.boostTimer||0,850);
+ r.boostPower=Math.max(r.boostPower||0,10);
+ if(r.isPlayer){sndBoost();screenFlash('rgba(80,255,200,0.28)');
+  for(var i=0;i<10;i++)spawnP(r.x+(Math.random()-0.5)*2,r.y+0.3,r.z+(Math.random()-0.5)*2,(Math.random()-0.5)*6,Math.random()*5,(Math.random()-0.5)*6,0.3,1,0.8,450);}
+}
 
 function buildItemsAndCoins(){
- itemBoxes=[];coins=[];hazards=[];projectiles=[];
+ itemBoxes=[];coins=[];hazards=[];projectiles=[];boostPads=[];
  var n=CL.length;
+ // boost pads: a few per lap, only on genuinely straight sections, well spaced
+ var lastPadDist=-1e9;
+ for(var bp0=14;bp0<n-6;bp0++){
+  var pa=CL[bp0],pb=CL[(bp0+12)%n];
+  if(pa.dx*pb.dx+pa.dz*pb.dz>0.998 && (pa.dist-lastPadDist)>trackLength/7){
+   boostPads.push({x:pa.x,y:pa.y,z:pa.z,heading:Math.atan2(pa.dx,pa.dz)});
+   lastPadDist=pa.dist;
+  }
+ }
+ // glowing double-chevron pad mesh (flat arrows pointing forward, +z local)
+ boostPadMesh=new Mesh();
+ (function(){
+  function chev(z0){
+   var tip=[0,0.06,z0+2.2],R=[2.0,0.06,z0],L=[-2.0,0.06,z0];
+   var tipI=[0,0.06,z0+0.95],RI=[1.2,0.06,z0+0.5],LI=[-1.2,0.06,z0+0.5];
+   boostPadMesh.tri(tip,R,RI);boostPadMesh.tri(tip,RI,tipI);
+   boostPadMesh.tri(tip,tipI,LI);boostPadMesh.tri(tip,LI,L);
+  }
+  chev(-2.2);chev(0);chev(2.2);
+ })();
+ boostPadMesh.upload();
  // power-up boxes on the driving surface (left/right lanes)
  for(var i=12;i<n;i+=22){
   var c=CL[i%n],side=((i/22)%2===0)?-1:1;
@@ -3014,6 +3142,7 @@ function hazPos(h){
 function spinoutRacer(r){
  if(r.invTimer>0||r.spinTimer>0)return;
  r.spinTimer=700;r.speed*=0.45; // shorter spin + keep more speed = quick recovery
+ if(r.isPlayer)screenFlash('rgba(255,60,50,0.30)');
  r.vx=0;r.vz=0; // clear carried momentum so the kart doesn't lurch when the spin ends
  sndCrash();
  // shake
@@ -3254,6 +3383,7 @@ function buildTrackGrid(){
 function startRace(){
  if(!gl){fail('WebGL unavailable.');return;}
  stopConfetti();
+ GS.paused=false;var _povl=document.getElementById('pauseovl');if(_povl)_povl.style.display='none';
  GS.scr='race';GS.started=false;GS.raceTime=0;GS.finishOrder=[];
  // reset transient input + physics timing so a held key or leftover
  // accumulated time can't trigger a phantom rocket-start or physics spike
@@ -3512,6 +3642,7 @@ function updatePlayer(p,dt){
     var beepFreq=(stage2===1?660:990)+p.driftCombo*44;
     beep(beepFreq,0.15);
     for(var bp=0;bp<8;bp++)spawnP(p.x,p.y+0.4,p.z,(Math.random()-0.5)*5,Math.random()*6,(Math.random()-0.5)*5,1,0.4+Math.random()*0.4,0,500);
+    screenFlash(stage2===1?'rgba(80,220,255,0.22)':'rgba(255,80,220,0.28)');
     var boostTxt=stage2===1?'BOOST!':'TURBO BOOST!';
     spawnFloatText(boostTxt,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.35:150,'#0f0',36);
    } else {
@@ -3571,6 +3702,13 @@ function updatePlayer(p,dt){
   else if(it==='Slick Slime'){for(var sl=0;sl<3;sl++){hazards.push({x:p.x+Math.cos(Math.PI*2*sl/3)*2,y:p.y+0.1,z:p.z+Math.sin(Math.PI*2*sl/3)*2,type:'slime',active:true});}sndCrash();}
   else if(it==='Speed Star'){p.boostTimer=800;p.boostPower=12;sndBoost();for(var ss=0;ss<15;ss++)spawnP(p.x+(Math.random()-0.5)*3,p.y+Math.random()*0.5,p.z+(Math.random()-0.5)*3,(Math.random()-0.5)*6,Math.random()*8,(Math.random()-0.5)*6,1,0.9,0.2,500);}
   else if(it==='Chaos Bomb'){for(var cb=0;cb<GS.racers.length;cb++){if(cb===0)continue;var r=GS.racers[cb];var cbx=r.x-p.x,cbz=r.z-p.z,cbd=Math.sqrt(cbx*cbx+cbz*cbz);if(cbd<40){spinoutRacer(r);}}}
+ }
+
+ // boost pad pass-over
+ if(p._padCd>0)p._padCd-=dt;
+ for(var bpc=0;bpc<boostPads.length;bpc++){
+  var bpp=boostPads[bpc];var pdx0=bpp.x-p.x,pdz0=bpp.z-p.z;
+  if(pdx0*pdx0+pdz0*pdz0<17)padBoost(p);
  }
 
  // collect coins
@@ -3670,6 +3808,12 @@ function updateBot(b,dt){
   if(b.lap>=3&&!b.finished){b.finished=true;b.finishTime=GS.raceTime;GS.finishOrder.push({name:CHARS[b.chIdx].name,isPlayer:false,time:b.finishTime});}
  }
  b.prevIdx=b.idx;
+ // boost pads for bots too (keeps the pack lively and fair)
+ if(b._padCd>0)b._padCd-=dt;
+ for(var bpc2=0;bpc2<boostPads.length;bpc2++){
+  var bpp2=boostPads[bpc2];var pdx2=bpp2.x-b.x,pdz2=bpp2.z-b.z;
+  if(pdx2*pdx2+pdz2*pdz2<17)padBoost(b);
+ }
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
@@ -3777,6 +3921,7 @@ function loop(now){
  if(dt<0)dt=0;
  if(dt>MAX_FRAME_DELTA)dt=MAX_FRAME_DELTA;
  frameDt=dt;
+ if(GS.paused){requestAnimationFrame(loop);return;} // frozen mid-race until resumed
  if(GS.scr==='race'){
   // countdown
   if(!GS.started){
@@ -3844,7 +3989,7 @@ function loop(now){
    }
 
    // end race when player finished
-   if(GS.racers[0].finished){ running=false; sndFinish(); stopMusic(); showResults(); return; }
+   if(GS.racers[0].finished){ running=false; screenFlash('rgba(255,215,60,0.35)'); sndFinish(); stopMusic(); showResults(); return; }
   }
   computePositions();
   render();
@@ -3902,8 +4047,26 @@ function updateHUD(){
  var lapTxt='Lap '+Math.min(3,p.lap+1)+'/3';
  if(lapEl.textContent!==lapTxt){lapEl.textContent=lapTxt;lapEl.classList.remove('lap-flash');void lapEl.offsetWidth;lapEl.classList.add('lap-flash');}
  document.getElementById('htime').textContent=fmtTime(GS.raceTime);
- document.getElementById('hitem').textContent=p.item?p.item.split(' ')[0]:'';
+ var itemEl=document.getElementById('hitem');
+ var itemTxt=p.item?p.item.split(' ')[0]:'';
+ if(itemEl.textContent!==itemTxt){
+  itemEl.textContent=itemTxt;
+  if(itemTxt){itemEl.classList.remove('pop');void itemEl.offsetWidth;itemEl.classList.add('pop');}
+ }
  document.getElementById('hcoins').textContent='✳'+p.coinCount;
+ // drift-charge / boost meter: fills while charging a drift (colored by spark
+ // stage), shows remaining boost while boosting, hides otherwise
+ var meterEl=document.getElementById('hboost'),fillEl=document.getElementById('hboostfill');
+ if(p.driftActive){
+  meterEl.style.display='block';
+  var chg=Math.min(1,p.driftCharge/1300);
+  fillEl.style.width=(chg*100)+'%';
+  fillEl.style.background=p.driftCharge<500?'#ffb020':(p.driftCharge<1300?'#20d0ff':'#ff40d0');
+ }else if(p.boostTimer>0){
+  meterEl.style.display='block';
+  fillEl.style.width=Math.min(100,p.boostTimer/1300*100)+'%';
+  fillEl.style.background='#3dffa0';
+ }else meterEl.style.display='none';
  var kmh=Math.round(p.speed*3.6);
  var spdEl=document.getElementById('hspeed');
  spdEl.textContent=kmh+' km/h';
@@ -3925,6 +4088,7 @@ function render(){
 
  var p=GS.racers[0];
  var rendAlpha=GS.started?physicsAccumulator/FIXED_TIMESTEP:1;
+ var signDraws=[]; // textured sponsor boards queued during scenery, flushed in one pass
  var maxSpeedRef=46+Math.min(p.coinCount,10)*0.4;
  var speedRatio=Math.min(1,p.speed/maxSpeedRef);
  var isBoosting=p.boostTimer>0;
@@ -4094,7 +4258,7 @@ function render(){
   var lo=landmarks[L9];
   var lddx=lo.x-p.x,lddz=lo.z-p.z;
   if(lddx*lddx+lddz*lddz>420*420)continue;
-  var lbase=M.mul(M.translate(lo.x,lo.y,lo.z),M.rotY(lo.rot),M.scale(lo.sc,lo.sc,lo.sc));
+  var lbase=M.mul(M.mul(M.translate(lo.x,lo.y,lo.z),M.rotY(lo.rot)),M.scale(lo.sc,lo.sc,lo.sc));
   if(lo.type==='windmill'){
    drawMesh(windmillBase,lbase,[0.86,0.84,0.78],0.55,12);
    drawMesh(windmillBase,M.mul(lbase,M.translate(0,0,0)),[0.86,0.84,0.78],0.55,12);
@@ -4116,8 +4280,13 @@ function render(){
    drawMesh(statueMesh,lbase,[0.66,0.66,0.62],0.55,18);
   }else if(lo.type==='billboard'){
    drawMesh(billboardLegs,lbase,[0.35,0.35,0.38],0.5,8);
-   drawMesh(billboardMesh,lbase,[0.9,0.3,0.35],0.55,20);
-   drawMesh(billboardMesh,M.mul(lbase,M.translate(0,0,0.07),M.scale(0.7,0.7,1)),[0.98,0.85,0.3],0.6,20);
+   drawMesh(billboardMesh,lbase,[0.16,0.16,0.2],0.5,20); // dark frame behind the ad
+   // meme sponsor ad faces (canvas-text textures), front and back so no mirrored text
+   if(sponsorTex.length){
+    var adIdx=Math.abs(Math.round(lo.x*3+lo.z*7))%sponsorTex.length;
+    signDraws.push({m:M.mul(M.mul(lbase,M.translate(0,2.6,0.17)),M.scale(2.1,1.7,1)),tex:adIdx});
+    signDraws.push({m:M.mul(M.mul(M.mul(lbase,M.rotY(Math.PI)),M.translate(0,2.6,0.17)),M.scale(2.1,1.7,1)),tex:adIdx});
+   }
   }else if(lo.type==='bigtree'){
    drawMesh(treeTrunkMesh,M.mul(lbase,M.scale(2.2,2.4,2.2)),[0.42,0.3,0.2],0.5,10);
    drawMesh(treeMeshes[0],M.mul(lbase,M.scale(1.8,1.9,1.8)),[0.18,0.46,0.22],0.5,8);
@@ -4238,6 +4407,19 @@ function render(){
    drawMesh(balloonString,bm2,[0.3,0.3,0.3],0.5,6);drawMesh(balloonMesh,bm2,ao.col,0.5,40);}
   else if(ao.atm==='flag'){drawMesh(flagPole,am2,[0.6,0.6,0.62],0.5,10);drawMesh(flagCloth,am2,ao.col,0.55,8);}
  }
+ // boost pads — glowing chevrons that pulse and brighten as you approach
+ if(boostPadMesh&&boostPads.length){
+  var bpPulse=0.72+Math.sin(GS.raceTime*0.008)*0.28;
+  gl.disable(gl.CULL_FACE);
+  for(var bpd=0;bpd<boostPads.length;bpd++){
+   var bp3=boostPads[bpd];
+   var bdx=bp3.x-p.x,bdz=bp3.z-p.z;if(bdx*bdx+bdz*bdz>170*170)continue;
+   var bpm=M.mul(M.translate(bp3.x,bp3.y+0.05,bp3.z),M.rotY(bp3.heading));
+   drawMesh(boostPadMesh,bpm,[0.15*bpPulse,0.95*bpPulse,0.85*bpPulse],0.95,10); // hot teal
+   drawMesh(boostPadMesh,M.mul(bpm,M.scale(1.12,1,1.12)),[0.6,1,0.95],0.35,8);   // soft halo
+  }
+  gl.enable(gl.CULL_FACE);
+ }
  // power-up boxes — red cube, spin in place + slow vertical bob only
  if(itemBoxMesh){
   var ibTime=GS.raceTime*0.002;
@@ -4281,6 +4463,23 @@ function render(){
    drawMesh(projectileMesh,pm,[1,0.15,0.15],0.7);
    drawMesh(projectileMesh,pm,[1,0.3,0.3],0.2);
   }
+ }
+ // flush textured sponsor boards in one program switch
+ if(signDraws.length&&signProg){
+  gl.useProgram(signProg);
+  gl.uniformMatrix4fv(SL.uProj,false,proj);gl.uniformMatrix4fv(SL.uView,false,view);
+  gl.uniform3fv(SL.uFogColor,track.fog);gl.uniform1f(SL.uFogNear,80.0);gl.uniform1f(SL.uFogFar,450.0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,signQuadBuf);gl.enableVertexAttribArray(SL.aPos);gl.vertexAttribPointer(SL.aPos,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,signUVBuf);gl.enableVertexAttribArray(SL.aUV);gl.vertexAttribPointer(SL.aUV,2,gl.FLOAT,false,0,0);
+  gl.activeTexture(gl.TEXTURE0);gl.uniform1i(SL.uTex,0);
+  gl.disable(gl.CULL_FACE);
+  for(var sd=0;sd<signDraws.length;sd++){
+   gl.bindTexture(gl.TEXTURE_2D,sponsorTex[signDraws[sd].tex]);
+   gl.uniformMatrix4fv(SL.uModel,false,signDraws[sd].m);
+   gl.drawArrays(gl.TRIANGLES,0,6);
+  }
+  gl.enable(gl.CULL_FACE);
+  gl.useProgram(prog); // restore the main lit program (its uniforms persist)
  }
  // karts (with spin visual) — interpolate every racer for smooth motion
  var kartSnaps=[];
