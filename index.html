@@ -477,9 +477,9 @@ var TRACKS=[
 
 var ROADW=10; // road half width
 var WHEEL_R=0.355; // kart wheel radius — karts ride this high so tires sit ON the track
-var OVERSPEED_DECAY=22; // units/sec the player sheds when above normal top speed (e.g. after a boost ends)
-var PLAYER_BASE_MAX_SPEED_SCALE=0.82; // competitive top speed, still near the bot pack
-var PLAYER_BASE_ACCEL_SCALE=0.95; // quick, energetic acceleration (arcade feel)
+var OVERSPEED_DECAY=18; // units/sec the player sheds when above normal top speed (e.g. after a boost ends)
+var PLAYER_BASE_MAX_SPEED_SCALE=0.90; // slightly faster, more arcade-racer top speed
+var PLAYER_BASE_ACCEL_SCALE=1.12; // punchier acceleration so the kart jumps back into pace
 // Off-road surface types: each progressively bleeds speed differently, but ALL stay
 // drivable so calculated shortcuts remain possible (floor = min fraction of top speed).
 var SURFACES={
@@ -3577,9 +3577,9 @@ function updatePlayer(p,dt){
  // Quick, energetic acceleration with a launch assist at low speed so the kart
  // rebuilds pace fast after collisions/shortcuts. Coasting bleeds speed slowly, so
  // lifting off the throttle preserves momentum (drift to manage speed, not braking).
- if(gas&&p.speed<maxSpeed){var launch=p.speed<maxSpeed*0.45?1.7:1.0;p.speed+=accel*launch*dtS;}
- else if(brk)p.speed-=accel*1.3*dtS;
- else p.speed-=7*dtS;
+ if(gas&&p.speed<maxSpeed){var launch=p.speed<maxSpeed*0.55?2.0:1.08;p.speed+=accel*launch*dtS;}
+ else if(brk)p.speed-=accel*1.45*dtS;
+ else p.speed-=5.5*dtS;
 
  var ni=nearestIndex(p.x,p.z,p.idx);
  p.idx=ni;
@@ -3604,7 +3604,7 @@ function updatePlayer(p,dt){
  if(p.speed>maxSpeed)p.speed=Math.max(maxSpeed,p.speed-OVERSPEED_DECAY*dtS);
 
  // Near-instant steering: strong response even at low speed, full grip reached quickly.
- var steerAmt=MAXTURN*(0.62+0.38*Math.min(1,p.speed/10));
+ var steerAmt=MAXTURN*1.08*(0.70+0.30*Math.min(1,p.speed/9));
  // === DRIFT: the core mechanic ===
  // The kart keeps travelling along its heading (the front grips toward the racing
  // line) while you steer a touch faster; momentum is preserved (no speed loss), and a
@@ -3613,13 +3613,13 @@ function updatePlayer(p,dt){
   if(!p.driftActive){p.driftActive=true;p.driftDir=lft?1:(rgt?-1:0);p.driftCharge=0;}
   if(p.driftDir===0)p.driftDir=lft?1:(rgt?-1:0);
   p.driftCharge+=dt;
-  var driftSteer=steerAmt*1.25;
-  p.heading+=p.driftDir*driftSteer*0.45*dtS;   // gentle constant bias into the turn
+  var driftSteer=steerAmt*1.42;
+  p.heading+=p.driftDir*driftSteer*0.55*dtS;   // constant bias into the turn for a snappy powerslide arc
   if(lft)p.heading+=driftSteer*dtS;
   if(rgt)p.heading-=driftSteer*dtS;
   // (visual drift yaw is derived from the real slip angle in the movement step below)
   // drift sparks build through the charge stages
-  var stage=p.driftCharge<500?0:(p.driftCharge<1300?1:2);
+  var stage=p.driftCharge<420?0:(p.driftCharge<1100?1:2);
   var cols=[[1,0.5,0],[0,0.8,1],[1,0.3,0.8]];
   p._driftSpawn=(p._driftSpawn||0)+dt;
   if(stage>0&&p._driftSpawn>55){p._driftSpawn=0;
@@ -3631,13 +3631,13 @@ function updatePlayer(p,dt){
  } else {
   if(p.driftActive){
    p.driftActive=false;
-   var stage2=p.driftCharge<500?0:(p.driftCharge<1300?1:2);
+   var stage2=p.driftCharge<420?0:(p.driftCharge<1100?1:2);
    if(stage2>=1){
     p.driftCombo++;
     p.driftComboTimer=2000;
-    var comboMult=1+p.driftCombo*0.12;
-    var basePower=(stage2===1?8:13)*p.driftMul;
-    p.boostTimer=stage2===1?700:1300;
+    var comboMult=1+p.driftCombo*0.14;
+    var basePower=(stage2===1?9.5:15.5)*p.driftMul;
+    p.boostTimer=stage2===1?850:1500;
     p.boostPower=basePower*comboMult;
     var beepFreq=(stage2===1?660:990)+p.driftCombo*44;
     beep(beepFreq,0.15);
@@ -3664,16 +3664,16 @@ function updatePlayer(p,dt){
  var vf=p.vx*_fx+p.vz*_fz;                               // forward speed
  var vr=p.vx*_rx+p.vz*_rz;                               // lateral slide speed
  vf+=(p.speed-vf)*Math.min(1,dtS*14);                    // throttle stays snappy
- var grip=p.driftActive?2.3:8.0;                         // lower grip => more slide
+ var grip=p.driftActive?1.85:7.2;                        // lower grip => more slide
  vr*=Math.exp(-grip*dtS);
  // clamp slip to a moderate angle: bigger while drifting (power-slide), tighter normally
- var _maxSlip=Math.abs(vf)*(p.driftActive?0.66:0.40); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
+ var _maxSlip=Math.abs(vf)*(p.driftActive?0.78:0.36); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
  p.vx=_fx*vf+_rx*vr; p.vz=_fz*vf+_rz*vr;
  p.x+=p.vx*dtS; p.z+=p.vz*dtS;
  p.speed=vf;                                             // forward speed drives HUD/audio/logic
  // visual body yaw follows the REAL slip, gently exaggerated so the rear reads as kicking out
  var _slip=Math.atan2(vr,Math.max(5,vf));
- p.driftYaw=Math.max(-0.55,Math.min(0.55,-_slip*1.3));
+ p.driftYaw=Math.max(-0.68,Math.min(0.68,-_slip*1.45));
  // Soft, generous off-track limit. Uses the player's own progress point (c) so it
  // never snaps across a parallel switchback leg the way the old hard wall did
  // (that snap is what flung the kart and felt like it was steering itself). It only
@@ -4089,12 +4089,12 @@ function render(){
  var p=GS.racers[0];
  var rendAlpha=GS.started?physicsAccumulator/FIXED_TIMESTEP:1;
  var signDraws=[]; // textured sponsor boards queued during scenery, flushed in one pass
- var maxSpeedRef=46+Math.min(p.coinCount,10)*0.4;
+ var maxSpeedRef=49+Math.min(p.coinCount,10)*0.4;
  var speedRatio=Math.min(1,p.speed/maxSpeedRef);
  var isBoosting=p.boostTimer>0;
  // Dynamic FOV: widens subtly with speed and pops open on boost for a rush of speed,
  // then eases back smoothly. (Previously the projection was hard-coded to 65.)
- var fovTarget=62+speedRatio*5+(isBoosting?9:0);
+ var fovTarget=62+speedRatio*7+(isBoosting?11:0);
  GS.currentFOV=(GS.currentFOV||62)+(fovTarget-(GS.currentFOV||62))*Math.min(1,frameDt/120);
 
  var behind=14, height=7, ahead=8;
