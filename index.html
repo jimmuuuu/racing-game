@@ -56,7 +56,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 .rrow.me{background:rgba(0,255,255,.2);border:1px solid #0ff}
 .rrow.first{background:linear-gradient(90deg,rgba(255,215,0,.25),rgba(255,215,0,.08));border:1px solid #ffd700}
 #winhdr{font-family:'Arial Black',sans-serif;font-weight:900;text-align:center;margin-bottom:6px;font-size:clamp(22px,4.5vw,44px);color:#ffd700;text-shadow:0 0 20px #ff0,0 0 40px #f80,3px 3px 0 #000,-2px -2px 0 #000,2px 2px 0 #000}
-#bestlap{font-size:clamp(11px,2vw,15px);color:#0ff;text-align:center;margin:4px 0}
+#bestlap{width:min(92vw,620px);display:flex;flex-direction:column;align-items:center;gap:8px;margin:8px 0 14px;color:#e8edf4;text-align:center}
+.lap-summary{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;width:100%}
+.lap-stat{min-width:150px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(47,224,201,.28);box-shadow:inset 0 0 10px rgba(47,224,201,.07)}
+.lap-stat .lap-label{display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#8a93a6;font-weight:800;margin-bottom:4px}
+.lap-stat .lap-value{display:block;font-family:'Arial Black','Impact',sans-serif;font-size:clamp(18px,4vw,30px);line-height:1.05;color:#2fe0c9;text-shadow:0 0 14px rgba(47,224,201,.28);white-space:nowrap}
+.lap-list{max-width:100%;font-size:clamp(11px,2.4vw,15px);line-height:1.45;color:#cfd6e2;overflow-wrap:anywhere}
 .hbox.pos.pop{animation:posPop .4s ease-out}
 @keyframes posPop{0%{transform:scale(1.5);color:#0f0}50%{transform:scale(1.2)}100%{transform:scale(1);color:#ff0}}
 .hbox.pos.drop{animation:posDrop .4s ease-out}
@@ -3445,9 +3450,16 @@ function showResults(){
  if(GS.timeTrial){wh.textContent='TIME TRIAL COMPLETE!';}
  else{wh.textContent=playerPlace===1?'YOU WIN!':(playerPlace<=3?'PODIUM! '+ord(playerPlace):'YOU FINISHED '+ord(playerPlace));}
  var blEl=document.getElementById('bestlap');
- if(GS.bestLap<Infinity){blEl.textContent='Best Lap: '+fmtTime(GS.bestLap);
-  if(GS.lapTimes.length>1){blEl.textContent+='  |  Laps: '+GS.lapTimes.map(fmtTime).join(', ');}
- } else blEl.textContent='';
+ if(GS.bestLap<Infinity){
+  var lapTotal=GS.lapTimes.reduce(function(sum,t){return sum+t;},0);
+  var avgLap=GS.lapTimes.length?lapTotal/GS.lapTimes.length:GS.bestLap;
+  var lapList=GS.lapTimes.length?GS.lapTimes.map(function(t,i){return 'Lap '+(i+1)+': '+fmtTime(t);}).join('   '):'';
+  blEl.innerHTML='<div class="lap-summary">'+
+   '<div class="lap-stat"><span class="lap-label">Best Lap</span><span class="lap-value">'+fmtTime(GS.bestLap)+'</span></div>'+
+   '<div class="lap-stat"><span class="lap-label">Avg Lap</span><span class="lap-value">'+fmtTime(avgLap)+'</span></div>'+
+   '</div>'+
+   (lapList?'<div class="lap-list">'+lapList+'</div>':'');
+ } else blEl.innerHTML='';
  beep(playerPlace===1?880:330,0.4);
  if(playerPlace<=2)startConfetti();
  GS.raceCount++;
