@@ -375,7 +375,9 @@ var CHARS=[
 // name tags). Previously this varied with GS.raceCount, so a racer's UI color
 // changed every race even though the 3D kart model never did.
 var getCharColor=function(charIdx){var ch=CHARS[charIdx];return ch.skins[0];};
-var DIFFS={Easy:0.80,Medium:0.92,Hard:1.0};
+// Bot top-speed tuning includes their lane variance in updateBot:
+// Easy is a little slower than the player, Medium is about equal, Hard is faster.
+var DIFFS={Easy:0.98,Medium:1.08,Hard:1.18};
 
 /* Track centerline generators (X,Z in world units; Y elevation). Closed loops.
    Tracks are authored as CLOCKWISE polygons of corner points; polyTrack()
