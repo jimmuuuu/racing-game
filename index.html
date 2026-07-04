@@ -2962,8 +2962,8 @@ function makeRacer(chIdx,isPlayer,startSlot){
  var rx=c.x+c.px*sideOff-c.dx*gridBack;
  var rz=c.z+c.pz*sideOff-c.dz*gridBack;
  var sy=groundYAt(rx,rz,0);
- // Unwrapped distance along the loop; increases forever so lap math never misfires on idx wrap.
- var trackProg=trackLength-gridBack;
+ // Unwrapped distance starts negative before the start line; crossing 0 begins the race lap.
+ var trackProg=-gridBack;
  return {chIdx:chIdx,isPlayer:isPlayer,
   maxSpeedBase:ph.maxSpeed,accelBase:ph.accel,turnBase:ph.turn,driftMul:ph.driftMul,
   x:rx,y:sy,z:rz,heading:Math.atan2(c.dx,c.dz),
@@ -3161,6 +3161,7 @@ function hazPos(h){
  return {x:c.x+c.px*off,y:c.y+h.yoff,z:c.z+c.pz*off};
 }
 function spinoutRacer(r){
+ if(GS.scr==='race'&&!GS.started)return;
  if(r.invTimer>0||r.spinTimer>0)return;
  r.spinTimer=700;r.speed*=0.45; // shorter spin + keep more speed = quick recovery
  if(r.isPlayer)screenFlash('rgba(255,60,50,0.30)');
@@ -3429,8 +3430,8 @@ function startRace(){
  cam.x=p.x-Math.sin(p.heading)*14;cam.z=p.z-Math.cos(p.heading)*14;cam.y=p.y+7;
  cam.tx=cam.x;cam.ty=cam.y;cam.tz=cam.z;
  for(var ri=0;ri<GS.racers.length;ri++){
-  var rr=GS.racers[ri];
-  rr.boostTimer=0;rr.boostPower=0;rr.speed=0;rr.rocketGas=false;rr.rocketEarly=false;rr.stallTimer=0;
+ var rr=GS.racers[ri];
+  rr.boostTimer=0;rr.boostPower=0;rr.speed=0;rr.rocketGas=false;rr.rocketEarly=false;rr.stallTimer=0;rr.spinTimer=0;rr.invTimer=1200;
   saveRacerPrev(GS.racers[ri]);
  }
  GS.prevPositions=null;GS.lastLap=-1;GS.shake={x:0,y:0,decay:0};GS.fov=65;GS.fovTarget=65;GS.fovTimer=0;GS.tauntCooldown=0;GS.lapTimes=[];GS.lapStart=0;GS.bestLap=Infinity;GS.prevHudPos=-1;
@@ -3829,7 +3830,7 @@ function updateBot(b,dt){
 
  // Unwrapped distance rail — never snap idx to the finish line on folded tracks.
  var lane=(b.slot%2===0?-1:1)*2.6;
- if(b.trackProg==null)b.trackProg=trackLength-(b.slot*8+4);
+ if(b.trackProg==null)b.trackProg=-(b.slot*8+4);
  b.trackProg+=b.speed*dtS;
  var distOnLap=((b.trackProg%trackLength)+trackLength)%trackLength;
  var sample=sampleTrackAt(distOnLap,lane);
