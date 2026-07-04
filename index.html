@@ -2687,7 +2687,7 @@ function drawKart(racer){
 var GS={scr:'menu',selChar:0,selTrack:0,diff:'Medium',racers:[],raceTime:0,started:false,finishOrder:[],cdVal:0,cdTimer:0,
  shake:{x:0,y:0,decay:0},fov:65,fovTarget:65,fovTimer:0,
  prevPositions:null,tauntCooldown:0,lastLap:-1,timeTrial:false,lapTimes:[],lapStart:0,bestLap:Infinity,debug:false,
- controlMode:'KEYBOARD',cameraMode:'CHASE',raceCount:0,minimap:true};
+ controlMode:'KEYBOARD',cameraMode:'CHASE',raceCount:0,minimap:true,resultsLive:false,resultsShown:false};
 try{GS.raceCount=parseInt(localStorage.getItem('brr_races')||0)||0;}catch(e){}
 var cam={x:0,y:0,z:0,tx:0,ty:0,tz:0};
 var running=false;
@@ -2835,8 +2835,6 @@ function stopMusic(){if(musicInterval){clearInterval(musicInterval);musicInterva
 
 /* Taunt */
 var TAUNTS=['EZ','skill issue',"you're cooked",'ratio','get good','sit down'];
-var OVERTAKE_TEXTS=['OVERTAKE!','NICE PASS!','POSITION UP!'];
-var PASSED_TEXTS=['PASSED!','POSITION LOST'];
 var CRASH_TEXTS=['CRASH!','SPUN OUT!','OUCH!'];
 function doTaunt(){
  if(GS.tauntCooldown>0||GS.scr!=='race')return;
@@ -3258,9 +3256,9 @@ function show(id){
   document.getElementById(s).classList.toggle('active',s===id);
  });
 }
-function goMenu(){GS.scr='menu';show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();stopConfetti();}
+function goMenu(){GS.scr='menu';GS.resultsLive=false;running=false;show('menu-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopMusic();stopConfetti();}
 function goCharSel(){GS.scr='char';buildCharGrid();show('char-screen');startCharPreviewSpin();stopConfetti();}
-function goTrackSel(){GS.scr='track';buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopConfetti();}
+function goTrackSel(){GS.scr='track';GS.resultsLive=false;running=false;buildTrackGrid();show('track-screen');document.getElementById('hud').style.display='none';document.getElementById('touch-controls').style.display='none';stopConfetti();}
 function goSettings(){GS.scr='settings';updateSettingsDisplay();show('settings-screen');}
 function goTutorial(){GS.scr='tutorial';show('tutorial-screen');}
 function updateSettingsDisplay(){
@@ -3482,7 +3480,7 @@ function startRace(){
  if(!gl){fail('WebGL unavailable.');return;}
  stopConfetti();
  GS.paused=false;var _povl=document.getElementById('pauseovl');if(_povl)_povl.style.display='none';
- GS.scr='race';GS.started=false;GS.raceTime=0;GS.finishOrder=[];
+ GS.scr='race';GS.started=false;GS.raceTime=0;GS.finishOrder=[];GS.resultsLive=false;GS.resultsShown=false;
  // reset transient input + physics timing so a held key or leftover
  // accumulated time can't trigger a phantom rocket-start or physics spike
  clearInput();
@@ -3518,17 +3516,14 @@ function startRace(){
  if(!running){running=true;lastT=performance.now();requestAnimationFrame(loop);}
 }
 
-function showResults(){
- GS.scr='results';
- var hud=document.getElementById('hud');hud.style.display='none';
- document.getElementById('touch-controls').style.display='none';
+function updateResultsTable(){
  var order=GS.finishOrder.slice();
  var rem=GS.racers.filter(function(r){return !r.finished;}).sort(function(a,b){return progressOf(b)-progressOf(a);});
  rem.forEach(function(r){order.push({name:CHARS[r.chIdx].name,isPlayer:r.isPlayer,time:null});});
  var tbl=document.getElementById('rtable');tbl.innerHTML='';
  var place=0,playerPlace=99;
  order.forEach(function(o){place++;if(o.isPlayer)playerPlace=place;
-  var t=o.time!=null?fmtTime(o.time):'DNF';
+  var t=o.time!=null?fmtTime(o.time):(GS.resultsLive?'...':'DNF');
   var d=document.createElement('div');d.className='rrow'+(o.isPlayer?' me':'')+(place===1?' first':'');
   d.innerHTML='<span>'+place+'. '+o.name+'</span><span>'+t+'</span>';
   tbl.appendChild(d);
@@ -3545,15 +3540,25 @@ function showResults(){
    '<div class="lap-stat"><span class="lap-label">Avg Lap</span><span class="lap-value">'+fmtTime(avgLap)+'</span></div>'+
    '</div>';
  } else blEl.innerHTML='';
- beep(playerPlace===1?880:330,0.4);
- if(playerPlace<=2)startConfetti();
- GS.raceCount++;
- try{localStorage.setItem('brr_races',GS.raceCount);}catch(e){}
- if(playerPlace===1&&!GS.timeTrial){
-  var wins=parseInt(localStorage.getItem('brr_wins')||0)+1;
-  localStorage.setItem('brr_wins',wins);
+ return {playerPlace:playerPlace};
+}
+function showResults(){
+ GS.scr='results';GS.resultsLive=true;
+ var hud=document.getElementById('hud');hud.style.display='none';
+ document.getElementById('touch-controls').style.display='none';
+ var info=updateResultsTable();
+ if(!GS.resultsShown){
+  beep(info.playerPlace===1?880:330,0.4);
+  if(info.playerPlace<=2)startConfetti();
+  GS.raceCount++;
+  try{localStorage.setItem('brr_races',GS.raceCount);}catch(e){}
+  if(info.playerPlace===1&&!GS.timeTrial){
+   var wins=parseInt(localStorage.getItem('brr_wins')||0)+1;
+   localStorage.setItem('brr_wins',wins);
+  }
+  saveToLeaderboard();
+  GS.resultsShown=true;
  }
- saveToLeaderboard();
  show('results-screen');
 }
 
@@ -4097,13 +4102,7 @@ function loop(now){
    }
    GS.fov=65;GS.fovTarget=65;
 
-   // Announcer: overtake/passed detection
-   var plNow=GS.racers[0].place||1;
-   if(GS.prevPositions!==null){
-    if(plNow<GS.prevPositions){var ot=OVERTAKE_TEXTS[Math.floor(Math.random()*OVERTAKE_TEXTS.length)];spawnFloatText(ot,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.25:120,'#0f0',42);}
-    else if(plNow>GS.prevPositions){var pt=PASSED_TEXTS[Math.floor(Math.random()*PASSED_TEXTS.length)];spawnFloatText(pt,fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.25:120,'#f55',36);}
-   }
-   GS.prevPositions=plNow;
+   GS.prevPositions=GS.racers[0].place||1;
 
    // Final lap detection
    var pLap=GS.racers[0].lap;
@@ -4112,11 +4111,29 @@ function loop(now){
    }
 
    // end race when player finished
-   if(GS.racers[0].finished){ running=false; screenFlash('rgba(255,215,60,0.35)'); sndFinish(); stopMusic(); showResults(); return; }
+   if(GS.racers[0].finished&&!GS.resultsShown){ screenFlash('rgba(255,215,60,0.35)'); sndFinish(); stopMusic(); showResults(); requestAnimationFrame(loop); return; }
   }
   computePositions();
   render();
   updateHUD();
+ }
+ else if(GS.scr==='results'&&GS.resultsLive){
+  physicsAccumulator+=dt;
+  GS.raceTime+=dt;
+  while(physicsAccumulator>=FIXED_TIMESTEP){
+   for(var rb=1;rb<GS.racers.length;rb++)if(!GS.racers[rb].finished)updateBot(GS.racers[rb],FIXED_TIMESTEP);
+   physicsAccumulator-=FIXED_TIMESTEP;
+  }
+  computePositions();
+  updateResultsTable();
+  if(GS.racers.every(function(r){return r.finished;})){
+   GS.resultsLive=false;
+   updateResultsTable();
+   running=false;
+   return;
+  }
+  requestAnimationFrame(loop);
+  return;
  }
  requestAnimationFrame(loop);
 }
