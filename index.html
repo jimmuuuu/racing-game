@@ -61,7 +61,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 .lap-stat{min-width:150px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(47,224,201,.28);box-shadow:inset 0 0 10px rgba(47,224,201,.07)}
 .lap-stat .lap-label{display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#8a93a6;font-weight:800;margin-bottom:4px}
 .lap-stat .lap-value{display:block;font-family:'Arial Black','Impact',sans-serif;font-size:clamp(18px,4vw,30px);line-height:1.05;color:#2fe0c9;text-shadow:0 0 14px rgba(47,224,201,.28);white-space:nowrap}
-.lap-list{max-width:100%;font-size:clamp(11px,2.4vw,15px);line-height:1.45;color:#cfd6e2;overflow-wrap:anywhere}
 .hbox.pos.pop{animation:posPop .4s ease-out}
 @keyframes posPop{0%{transform:scale(1.5);color:#0f0}50%{transform:scale(1.2)}100%{transform:scale(1);color:#ff0}}
 .hbox.pos.drop{animation:posDrop .4s ease-out}
@@ -3453,12 +3452,10 @@ function showResults(){
  if(GS.bestLap<Infinity){
   var lapTotal=GS.lapTimes.reduce(function(sum,t){return sum+t;},0);
   var avgLap=GS.lapTimes.length?lapTotal/GS.lapTimes.length:GS.bestLap;
-  var lapList=GS.lapTimes.length?GS.lapTimes.map(function(t,i){return 'Lap '+(i+1)+': '+fmtTime(t);}).join('   '):'';
   blEl.innerHTML='<div class="lap-summary">'+
    '<div class="lap-stat"><span class="lap-label">Best Lap</span><span class="lap-value">'+fmtTime(GS.bestLap)+'</span></div>'+
    '<div class="lap-stat"><span class="lap-label">Avg Lap</span><span class="lap-value">'+fmtTime(avgLap)+'</span></div>'+
-   '</div>'+
-   (lapList?'<div class="lap-list">'+lapList+'</div>':'');
+   '</div>';
  } else blEl.innerHTML='';
  beep(playerPlace===1?880:330,0.4);
  if(playerPlace<=2)startConfetti();
@@ -3899,7 +3896,14 @@ function advanceProgress(r,ni){
  var n=CL.length;
  // Player laps use centerline index wrap; bots use trackProg in updateBot.
  if(r.isPlayer && r.prevIdx>n*0.7 && ni<n*0.3){
+  if(!r.lapTimingStarted){
+   r.lapTimingStarted=true;
+   GS.lapStart=GS.raceTime;
+   r.idx=ni;r.prevIdx=ni;
+   return;
+  }
   var lt=GS.raceTime-GS.lapStart;
+  if(lt<=5000){r.idx=ni;r.prevIdx=ni;return;}
   GS.lapTimes.push(lt);
   if(lt<GS.bestLap)GS.bestLap=lt;
   GS.lapStart=GS.raceTime;
