@@ -2966,6 +2966,8 @@ function makeRacer(chIdx,isPlayer,startSlot){
  var trackProg=-gridBack;
  return {chIdx:chIdx,isPlayer:isPlayer,
   maxSpeedBase:ph.maxSpeed,accelBase:ph.accel,turnBase:ph.turn,driftMul:ph.driftMul,
+  speedStat:ph.speedStat,accelStat:ph.accelStat,handlingStat:ph.handlingStat,driftStat:ph.driftStat,
+  gripMul:ph.gripMul,steerRateMul:ph.steerRateMul,driftChargeMul:ph.driftChargeMul,driftSlideMul:ph.driftSlideMul,
   x:rx,y:sy,z:rz,heading:Math.atan2(c.dx,c.dz),
   speed:0,idx:0,trackProg:trackProg,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
@@ -3212,7 +3214,7 @@ function toggleCameraMode(){GS.cameraMode=GS.cameraMode==='CHASE'?'ORBIT':'CHASE
 /* ---- Preview helpers ---- */
 function _rgb(a){return 'rgb('+Math.round(a[0]*255)+','+Math.round(a[1]*255)+','+Math.round(a[2]*255)+')';}
 function _shade(a,f){return 'rgb('+Math.round(Math.max(0,Math.min(1,a[0]+f))*255)+','+Math.round(Math.max(0,Math.min(1,a[1]+f))*255)+','+Math.round(Math.max(0,Math.min(1,a[2]+f))*255)+')';}
-/* Per-character flavor + display stats (cosmetic preview only) */
+/* Per-character flavor + display stats used by the real driving physics */
 var CHAR_INFO=[
  {flavor:'Heavy hitter — a top-speed monster that bulldozes the straights.',stats:[92,54,52,64]},
  {flavor:'Slippery and precise — best handling on the grid, loves tight lines.',stats:[68,78,93,72]},
@@ -3223,7 +3225,17 @@ var CHAR_INFO=[
 /* Map display stats -> real driving physics so each racer truly differs */
 function charPhysics(i){
  var st=(CHAR_INFO[i]||{stats:[74,74,74,74]}).stats;
- return {maxSpeed:27+st[0]*0.07, accel:20+st[1]*0.09, turn:2.35+st[2]*0.006, driftMul:0.9+st[3]*0.004};
+ return {
+  speedStat:st[0],accelStat:st[1],handlingStat:st[2],driftStat:st[3],
+  maxSpeed:25.5+st[0]*0.12,
+  accel:13.0+st[1]*0.22,
+  turn:2.05+st[2]*0.012,
+  driftMul:0.72+st[3]*0.008,
+  gripMul:0.82+st[2]*0.005,
+  steerRateMul:0.78+st[2]*0.004,
+  driftChargeMul:0.82+st[3]*0.005,
+  driftSlideMul:0.88+st[3]*0.004
+ };
 }
 /* Render the real in-game 3D kart model into an offscreen canvas via the main GL context */
 function ensureKartMeshes(){ if(gl&&!kartBody){ try{buildRaceMeshes();}catch(e){} } }
@@ -3634,7 +3646,7 @@ function updatePlayer(p,dt){
  var steerRaw=(lft?1:0)+(rgt?-1:0);
  if(lft&&rgt)steerRaw=0;
  if(p.steerSmooth===undefined)p.steerSmooth=0;
- var steerRate=steerRaw===0?9.5:(p.driftActive?12.0:7.5);
+ var steerRate=(steerRaw===0?9.5:(p.driftActive?12.0:7.5))*(p.steerRateMul||1);
  p.steerSmooth+=(steerRaw-p.steerSmooth)*Math.min(1,dtS*steerRate);
  var speed01=maxSpeed>0?Math.min(1,p.speed/maxSpeed):0;
  var steerAmt=MAXTURN*(1.25-0.48*speed01);
@@ -3645,7 +3657,7 @@ function updatePlayer(p,dt){
  if(driftKey&&p.speed>3&&(lft||rgt||p.driftActive)){
   if(!p.driftActive){p.driftActive=true;p.driftDir=lft?1:(rgt?-1:0);p.driftCharge=0;}
   if(p.driftDir===0)p.driftDir=lft?1:(rgt?-1:0);
-  p.driftCharge+=dt;
+  p.driftCharge+=dt*(p.driftChargeMul||1);
   var driftSteer=MAXTURN*(1.38-0.18*speed01);
   p.heading+=p.driftDir*driftSteer*0.58*dtS;   // steady powerslide bias without the snap-turn feeling
   p.heading+=p.steerSmooth*driftSteer*dtS;
@@ -3696,13 +3708,13 @@ function updatePlayer(p,dt){
  var vr=p.vx*_rx+p.vz*_rz;                               // lateral slide speed
  vf+=(p.speed-vf)*Math.min(1,dtS*18);                    // throttle stays snappy
  if(p.driftActive){
-  var driftKick=p.driftDir*Math.min(12,Math.abs(vf)*0.62);
+  var driftKick=p.driftDir*Math.min(12,Math.abs(vf)*0.62)*(p.driftSlideMul||1);
   vr+=(driftKick-vr)*Math.min(1,dtS*4.2);                // push the rear outward, but keep the slide readable
  }
- var grip=p.driftActive?1.25:11.0;                       // lower drift grip => slide, high normal grip => stable carving
+ var grip=p.driftActive?1.25:11.0*(p.gripMul||1);        // lower drift grip => slide, high normal grip => stable carving
  vr*=Math.exp(-grip*dtS);
  // clamp slip to a moderate angle: bigger while drifting (power-slide), tighter normally
- var _maxSlip=Math.abs(vf)*(p.driftActive?0.88:0.22); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
+ var _maxSlip=Math.abs(vf)*(p.driftActive?0.88*(p.driftSlideMul||1):0.22/(p.gripMul||1)); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
  p.vx=_fx*vf+_rx*vr; p.vz=_fz*vf+_rz*vr;
  p.x+=p.vx*dtS; p.z+=p.vz*dtS;
  p.speed=vf;                                             // forward speed drives HUD/audio/logic
