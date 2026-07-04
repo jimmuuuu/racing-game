@@ -2971,7 +2971,7 @@ function makeRacer(chIdx,isPlayer,startSlot){
   x:rx,y:sy,z:rz,heading:Math.atan2(c.dx,c.dz),
   speed:0,idx:0,trackProg:trackProg,lap:0,prevIdx:0,finished:false,finishTime:0,slot:startSlot,wob:Math.random()*6,
   driftActive:false,driftDir:0,driftCharge:0,boostTimer:0,boostPower:0,
-  stallTimer:0,slipTimer:0,spinTimer:0,invTimer:0,coinCount:0,item:null,
+  stallTimer:0,slipTimer:0,spinTimer:0,invTimer:0,phaseTimer:0,coinCount:0,item:null,
   prevY:0,prevPrevY:0,rocketGas:false,rocketEarly:false,spinAngle:0,
   driftCombo:0,driftComboTimer:0};
 }
@@ -3071,9 +3071,73 @@ function renderParticles(proj,view){
 }
 
 /* ===================== ITEM BOXES, COINS, HAZARDS, PROJECTILES ===================== */
-var ITEMS=['Skibidi Boost','Banana Splat','Sahur Smack','Zoomium Shield','Reverse Rocket','Slick Slime','Speed Star','Chaos Bomb'];
+var ITEM_DEFS=[
+ {name:'Banana Splat',rarity:'Common',weight:24,comeback:0},
+ {name:'Skibidi Boost',rarity:'Common',weight:22,comeback:1},
+ {name:'Sahur Smack',rarity:'Common',weight:18,comeback:1},
+ {name:'Slick Slime',rarity:'Common',weight:16,comeback:0},
+ {name:'Zoomium Shield',rarity:'Uncommon',weight:11,comeback:2},
+ {name:'Reverse Rocket',rarity:'Uncommon',weight:9,comeback:2},
+ {name:'Fanum Tax',rarity:'Uncommon',weight:9,comeback:2},
+ {name:'Speed Star',rarity:'Rare',weight:6,comeback:4},
+ {name:'Rizzler Drain',rarity:'Rare',weight:5,comeback:4},
+ {name:'Sigma Phase',rarity:'Rare',weight:5,comeback:3},
+ {name:'Ohio Blink',rarity:'Legendary',weight:3,comeback:4},
+ {name:'Chaos Bomb',rarity:'Legendary',weight:2,comeback:5}
+];
+var ITEMS=ITEM_DEFS.map(function(i){return i.name;});
 var itemBoxes=[],coins=[],hazards=[],projectiles=[],boostPads=[];
 var coinMesh=null,hazardMesh=null,projectileMesh=null,itemBoxMesh=null,itemQMesh=null,boostPadMesh=null;
+function pickItemForRacer(r){
+ var place=(r&&r.place)||1,total=0,bag=[];
+ for(var i=0;i<ITEM_DEFS.length;i++){
+  var def=ITEM_DEFS[i],w=def.weight+Math.max(0,place-1)*(def.comeback||0);
+  if(place<=1&&def.rarity==='Legendary')w*=0.25;
+  if(place<=1&&(def.comeback||0)>0)w*=0.55;
+  if(place>=4&&(def.rarity==='Rare'||def.rarity==='Legendary'))w*=1.25;
+  total+=w;bag.push({name:def.name,w:w,total:total});
+ }
+ var roll=Math.random()*total;
+ for(var b=0;b<bag.length;b++)if(roll<=bag[b].total)return bag[b].name;
+ return ITEMS[0];
+}
+function itemBurst(r,cr,cg,cb,count){
+ count=count||10;
+ for(var i=0;i<count;i++)spawnP(r.x+(Math.random()-0.5)*3,r.y+0.4+Math.random()*0.8,r.z+(Math.random()-0.5)*3,(Math.random()-0.5)*7,Math.random()*7,(Math.random()-0.5)*7,cr,cg,cb,650);
+}
+function fanumTax(r){
+ var stolen=0;
+ for(var i=0;i<GS.racers.length;i++){var o=GS.racers[i];if(o===r)continue;
+  var dx=o.x-r.x,dz=o.z-r.z;if(dx*dx+dz*dz<42*42){var take=Math.min(3,o.coinCount||0);o.coinCount=(o.coinCount||0)-take;stolen+=take;o.speed*=0.88;}
+ }
+ r.coinCount=Math.min(10,(r.coinCount||0)+Math.max(1,stolen));
+ r.boostTimer=Math.max(r.boostTimer||0,stolen?900:550);r.boostPower=Math.max(r.boostPower||0,7);
+ itemBurst(r,1,0.85,0.1,12);
+ if(r.isPlayer){sndPickup();spawnFloatText('FANUM TAX!',fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#ffd700',38);}
+}
+function rizzlerDrain(r){
+ var hit=0;
+ for(var i=0;i<GS.racers.length;i++){var o=GS.racers[i];if(o===r)continue;
+  var dx=o.x-r.x,dz=o.z-r.z;if(dx*dx+dz*dz<48*48){hit++;o.speed*=0.64;if(o.vx!==undefined){o.vx*=0.64;o.vz*=0.64;}}
+ }
+ r.boostTimer=Math.max(r.boostTimer||0,hit?1200:650);r.boostPower=Math.max(r.boostPower||0,hit?10:6);
+ itemBurst(r,1,0.25,0.9,14);
+ if(r.isPlayer){sndBoost();screenFlash('rgba(255,60,220,0.22)');spawnFloatText('RIZZ DRAIN!',fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#ff40df',38);}
+}
+function sigmaPhase(r){
+ r.phaseTimer=Math.max(r.phaseTimer||0,2200);r.invTimer=Math.max(r.invTimer||0,2200);
+ itemBurst(r,0.55,0.9,1,14);
+ if(r.isPlayer){sndBoost();screenFlash('rgba(120,220,255,0.22)');spawnFloatText('SIGMA PHASE!',fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#8be8ff',38);}
+}
+function ohioBlink(r){
+ var jump=18;
+ r.x+=Math.sin(r.heading)*jump;r.z+=Math.cos(r.heading)*jump;
+ var ni=nearestIndex(r.x,r.z,r.idx);r.idx=ni;r.y=groundYAt(r.x,r.z,ni);
+ r.speed+=8;r.invTimer=Math.max(r.invTimer||0,900);
+ if(r.vx!==undefined){r.vx+=Math.sin(r.heading)*8;r.vz+=Math.cos(r.heading)*8;}
+ itemBurst(r,0.8,0.35,1,18);
+ if(r.isPlayer){sndBoost();screenFlash('rgba(180,80,255,0.24)');spawnFloatText('OHIO BLINK!',fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#bd64ff',38);}
+}
 /* touching a glowing pad = instant burst of speed (works for player and bots) */
 function padBoost(r){
  if(r._padCd&&r._padCd>0)return;
@@ -3443,7 +3507,7 @@ function startRace(){
  cam.tx=cam.x;cam.ty=cam.y;cam.tz=cam.z;
  for(var ri=0;ri<GS.racers.length;ri++){
  var rr=GS.racers[ri];
-  rr.boostTimer=0;rr.boostPower=0;rr.speed=0;rr.rocketGas=false;rr.rocketEarly=false;rr.stallTimer=0;rr.spinTimer=0;rr.invTimer=1200;
+  rr.boostTimer=0;rr.boostPower=0;rr.speed=0;rr.rocketGas=false;rr.rocketEarly=false;rr.stallTimer=0;rr.spinTimer=0;rr.invTimer=1200;rr.phaseTimer=0;
   saveRacerPrev(GS.racers[ri]);
  }
  GS.prevPositions=null;GS.lastLap=-1;GS.shake={x:0,y:0,decay:0};GS.fov=65;GS.fovTarget=65;GS.fovTimer=0;GS.tauntCooldown=0;GS.lapTimes=[];GS.lapStart=0;GS.bestLap=Infinity;GS.prevHudPos=-1;
@@ -3588,6 +3652,7 @@ function updatePlayer(p,dt){
   if(p.spinTimer<=0){p.spinTimer=0;p.invTimer=2000;p.spinAngle=0;}
   var ni2=nearestIndex(p.x,p.z,p.idx);p.y=groundYAt(p.x,p.z,ni2);advanceProgress(p,ni2);return;}
  if(p.invTimer>0)p.invTimer-=dt;
+ if(p.phaseTimer>0)p.phaseTimer-=dt;
  if(p.driftComboTimer>0){p.driftComboTimer-=dt;if(p.driftComboTimer<=0)p.driftCombo=0;}
 
  // stall from bad rocket start
@@ -3735,7 +3800,7 @@ function updatePlayer(p,dt){
  p.y=groundYAt(p.x,p.z,pni);
  p.wheelRoll=(p.wheelRoll||0)+p.speed*dtS/WHEEL_R; // spin wheels by distance travelled
 
- // item use (8 unique items)
+ // item use
  if(itemKey&&p.item){
   var it=p.item;p.item=null;
   if(it==='Skibidi Boost'){p.boostTimer=1500;p.boostPower=9;sndBoost();
@@ -3748,6 +3813,10 @@ function updatePlayer(p,dt){
   else if(it==='Reverse Rocket'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:-Math.sin(p.heading)*46,dz:-Math.cos(p.heading)*46,life:2500,owner:0,ownerRacer:p});sndBoost();}
   else if(it==='Slick Slime'){for(var sl=0;sl<3;sl++){hazards.push({x:p.x+Math.cos(Math.PI*2*sl/3)*2,y:p.y+0.1,z:p.z+Math.sin(Math.PI*2*sl/3)*2,type:'slime',active:true});}sndCrash();}
   else if(it==='Speed Star'){p.boostTimer=800;p.boostPower=12;sndBoost();for(var ss=0;ss<15;ss++)spawnP(p.x+(Math.random()-0.5)*3,p.y+Math.random()*0.5,p.z+(Math.random()-0.5)*3,(Math.random()-0.5)*6,Math.random()*8,(Math.random()-0.5)*6,1,0.9,0.2,500);}
+  else if(it==='Fanum Tax'){fanumTax(p);}
+  else if(it==='Rizzler Drain'){rizzlerDrain(p);}
+  else if(it==='Sigma Phase'){sigmaPhase(p);}
+  else if(it==='Ohio Blink'){ohioBlink(p);}
   else if(it==='Chaos Bomb'){for(var cb=0;cb<GS.racers.length;cb++){if(cb===0)continue;var r=GS.racers[cb];var cbx=r.x-p.x,cbz=r.z-p.z,cbd=Math.sqrt(cbx*cbx+cbz*cbz);if(cbd<40){spinoutRacer(r);}}}
  }
 
@@ -3768,16 +3837,10 @@ function updatePlayer(p,dt){
 
  // item box collision (better item selection like Mario Kart)
  for(var bi=0;bi<itemBoxes.length;bi++){
-  var box=itemBoxes[bi];if(!box.active)continue;
-  var bdx=box.x-p.x,bdz=box.z-p.z;
-  if(bdx*bdx+bdz*bdz<5&&!p.item){box.active=false;box.timer=5000;
-   var pos=p.place||1;
-   var itemIdx=0;
-   if(pos===4)itemIdx=Math.floor(Math.random()*4)+4;
-   else if(pos===3)itemIdx=Math.floor(Math.random()*3)+2;
-   else if(pos===2)itemIdx=Math.floor(Math.random()*2)+1;
-   else itemIdx=Math.floor(Math.random()*2);
-   p.item=ITEMS[Math.min(itemIdx,ITEMS.length-1)];
+ var box=itemBoxes[bi];if(!box.active)continue;
+ var bdx=box.x-p.x,bdz=box.z-p.z;
+ if(bdx*bdx+bdz*bdz<5&&!p.item){box.active=false;box.timer=5000;
+   p.item=pickItemForRacer(p);
    sndPickup();
    for(var ibp=0;ibp<5;ibp++)spawnP(box.x+(Math.random()-0.5),box.y,box.z+(Math.random()-0.5),(Math.random()-0.5)*3,3+Math.random()*3,(Math.random()-0.5)*3,0.5,1,1,500);
    GS.shake.x=(Math.random()-0.5)*0.3;GS.shake.y=(Math.random()-0.5)*0.2;GS.shake.decay=150;
@@ -3786,8 +3849,8 @@ function updatePlayer(p,dt){
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
-  var hdx=hazards[hi].x-p.x,hdz=hazards[hi].z-p.z;
-  if(hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(p);GS.shake.x=(Math.random()-0.5)*0.8;GS.shake.y=(Math.random()-0.5)*0.6;GS.shake.decay=350;}
+ var hdx=hazards[hi].x-p.x,hdz=hazards[hi].z-p.z;
+  if((p.phaseTimer||0)<=0&&hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(p);GS.shake.x=(Math.random()-0.5)*0.8;GS.shake.y=(Math.random()-0.5)*0.6;GS.shake.decay=350;}
  }
  // destructible scenery collision (cones, tyres)
  for(var sci=0;sci<scenery.length;sci++){
@@ -3795,7 +3858,7 @@ function updatePlayer(p,dt){
   if(!sceneItem||sceneItem._destroyed||(sceneItem.atm!=='cone'&&sceneItem.atm!=='tyre'))continue;
   var scdx=sceneItem.x-p.x,scdz=sceneItem.z-p.z;
   var scDist=scdx*scdx+scdz*scdz;
-  if(scDist<6.5){
+  if((p.phaseTimer||0)<=0&&scDist<6.5){
    sceneItem._destroyed=true;
    spawnPropBurst(sceneItem.x,sceneItem.y,sceneItem.z,sceneItem.atm);
    p.speed*=0.88; // forgiving: clip a prop, lose only a little pace
@@ -3821,6 +3884,7 @@ function updateBot(b,dt){
   var ni2=nearestIndex(b.x,b.z,b.idx);b.idx=ni2;
   b.y=groundYAt(b.x,b.z,ni2);advanceProgress(b,ni2);return;}
  if(b.invTimer>0)b.invTimer-=dt;
+ if(b.phaseTimer>0)b.phaseTimer-=dt;
  var n=CL.length;if(!n)return;
  var speedMul=DIFFS[GS.diff];
  var maxSpeed=b.maxSpeedBase*speedMul*(0.93+(b.slot%3)*0.02);
@@ -3865,15 +3929,15 @@ function updateBot(b,dt){
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
   if(!hazards[hi].active)continue;
-  var hdx=hazards[hi].x-b.x,hdz=hazards[hi].z-b.z;
-  if(hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(b);}
+ var hdx=hazards[hi].x-b.x,hdz=hazards[hi].z-b.z;
+  if((b.phaseTimer||0)<=0&&hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(b);}
  }
  // destructible scenery collision for bots
  for(var sci2=0;sci2<scenery.length;sci2++){
   var sceneItem2=scenery[sci2];
   if(!sceneItem2||sceneItem2._destroyed||(sceneItem2.atm!=='cone'&&sceneItem2.atm!=='tyre'))continue;
   var scdx2=sceneItem2.x-b.x,scdz2=sceneItem2.z-b.z;
-  if(scdx2*scdx2+scdz2*scdz2<6.5){
+  if((b.phaseTimer||0)<=0&&scdx2*scdx2+scdz2*scdz2<6.5){
    sceneItem2._destroyed=true;
    spawnPropBurst(sceneItem2.x,sceneItem2.y,sceneItem2.z,sceneItem2.atm);
    b.speed*=0.7;
@@ -3886,10 +3950,10 @@ function updateBot(b,dt){
   if(cdx*cdx+cdz*cdz<4){coins[ci].active=false;if(b.coinCount<10)b.coinCount++;}
  }
  for(var bi2=0;bi2<itemBoxes.length;bi2++){
-  var box2=itemBoxes[bi2];if(!box2.active)continue;
-  var bdx3=box2.x-b.x,bdz3=box2.z-b.z;
-  if(bdx3*bdx3+bdz3*bdz3<5&&!b.item){box2.active=false;box2.timer=5000;
-   b.item=ITEMS[Math.floor(Math.random()*ITEMS.length)];
+ var box2=itemBoxes[bi2];if(!box2.active)continue;
+ var bdx3=box2.x-b.x,bdz3=box2.z-b.z;
+ if(bdx3*bdx3+bdz3*bdz3<5&&!b.item){box2.active=false;box2.timer=5000;
+   b.item=pickItemForRacer(b);
   }
  }
  // Bot item usage (smarter AI)
@@ -3914,6 +3978,10 @@ function updateBot(b,dt){
    }
   }
   else if(b.item==='Zoomium Shield'){b.invTimer=2500;b.item=null;}
+  else if(b.item==='Fanum Tax'){fanumTax(b);b.item=null;}
+  else if(b.item==='Rizzler Drain'){rizzlerDrain(b);b.item=null;}
+  else if(b.item==='Sigma Phase'){sigmaPhase(b);b.item=null;}
+  else if(b.item==='Ohio Blink'){ohioBlink(b);b.item=null;}
   else if(b.item==='Chaos Bomb'){for(var rcb=0;rcb<GS.racers.length;rcb++){if(GS.racers[rcb]===b)continue;var rbx=GS.racers[rcb].x-b.x,rbz=GS.racers[rcb].z-b.z,rbd=Math.sqrt(rbx*rbx+rbz*rbz);if(rbd<40){spinoutRacer(GS.racers[rcb]);}}b.item=null;}
  }
 }
