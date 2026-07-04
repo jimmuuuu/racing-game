@@ -41,6 +41,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Se
 .hud-row{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:4px}
 .hbox{background:linear-gradient(180deg,rgba(20,20,40,.9),rgba(0,0,10,.8));color:#fff;padding:8px 16px;border-radius:12px;border:2px solid rgba(100,200,255,.3);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(12px,1.9vw,16px);font-weight:900;letter-spacing:.5px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;box-shadow:0 0 20px rgba(100,200,255,.2),inset 0 0 10px rgba(100,200,255,.1)}
 .hbox.pos{font-size:clamp(24px,4.5vw,42px);color:#ff0;text-shadow:2px 2px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 15px rgba(255,255,0,.5)}
+#hmenu{pointer-events:auto;cursor:pointer;min-width:74px;padding:8px 12px;color:#2fe0c9;border-color:rgba(47,224,201,.45);background:linear-gradient(180deg,rgba(20,40,46,.92),rgba(0,12,14,.82))}
+#hmenu:hover{border-color:#2fe0c9;box-shadow:0 0 22px rgba(47,224,201,.35),inset 0 0 10px rgba(47,224,201,.12)}
 #countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Arial Black','Impact',sans-serif;font-size:clamp(60px,14vw,120px);font-weight:900;color:#fff;text-shadow:0 0 30px #f0f,0 0 60px #0ff,4px 4px 0 #000,-3px -3px 0 #000,3px -3px 0 #000,-3px 3px 0 #000,3px 3px 0 #000;display:none;pointer-events:none;z-index:15}
 #touch-controls{position:fixed;bottom:0;left:0;width:100%;height:46%;pointer-events:none;display:none;z-index:11}
 .tbtn{position:absolute;pointer-events:auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Arial Black',sans-serif;font-size:28px;font-weight:900;color:rgba(255,255,255,.85);opacity:.45;-webkit-tap-highlight-color:transparent;text-shadow:1px 1px 0 #000}
@@ -293,6 +295,7 @@ html,body{background:#070910}
   <div id="hitem"></div>
   <div id="hcoins">&#9733;0</div>
   <div id="hspeed">0 km/h</div>
+  <button class="hbox" id="hmenu" onclick="openRaceMenu()">MENU</button>
   <div id="hcombo" style="display:none;background:linear-gradient(180deg,rgba(40,0,60,.9),rgba(20,0,30,.8));color:#f0f;padding:6px 14px;border-radius:10px;border:2px solid rgba(255,0,255,.5);font-family:'Arial Black',sans-serif;font-size:clamp(14px,2.2vw,20px);font-weight:900;text-shadow:0 0 10px #f0f,2px 2px 0 #000;margin-left:6px"></div>
  </div>
  <div id="hboost"><div id="hboostfill"></div></div>
@@ -2846,6 +2849,7 @@ function togglePause(){
  document.getElementById('pauseovl').style.display=GS.paused?'flex':'none';
  if(!GS.paused)lastT=performance.now(); // no dt spike on resume
 }
+function openRaceMenu(){if(GS.scr!=='race')return;if(!GS.paused)togglePause();}
 function pauseRestart(){GS.paused=false;document.getElementById('pauseovl').style.display='none';startRace();}
 function pauseMenu(){GS.paused=false;document.getElementById('pauseovl').style.display='none';goMenu();}
 /* quick full-screen flash for big moments (boost teal, hits red, finish gold) */
