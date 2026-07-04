@@ -3603,8 +3603,14 @@ function updatePlayer(p,dt){
  // boost speed off smoothly so the player eases back to the normal top speed.
  if(p.speed>maxSpeed)p.speed=Math.max(maxSpeed,p.speed-OVERSPEED_DECAY*dtS);
 
- // Near-instant steering: strong response even at low speed, full grip reached quickly.
- var steerAmt=MAXTURN*1.45*(0.90+0.30*Math.min(1,p.speed/11));
+ // Smooth arcade steering: quick at low speed, calmer at high speed, never twitchy.
+ var steerRaw=(lft?1:0)+(rgt?-1:0);
+ if(lft&&rgt)steerRaw=0;
+ if(p.steerSmooth===undefined)p.steerSmooth=0;
+ var steerRate=steerRaw===0?9.5:(p.driftActive?12.0:7.5);
+ p.steerSmooth+=(steerRaw-p.steerSmooth)*Math.min(1,dtS*steerRate);
+ var speed01=maxSpeed>0?Math.min(1,p.speed/maxSpeed):0;
+ var steerAmt=MAXTURN*(1.25-0.48*speed01);
  // === DRIFT: the core mechanic ===
  // The kart keeps travelling along its heading (the front grips toward the racing
  // line) while you steer a touch faster; momentum is preserved (no speed loss), and a
@@ -3613,10 +3619,9 @@ function updatePlayer(p,dt){
   if(!p.driftActive){p.driftActive=true;p.driftDir=lft?1:(rgt?-1:0);p.driftCharge=0;}
   if(p.driftDir===0)p.driftDir=lft?1:(rgt?-1:0);
   p.driftCharge+=dt;
-  var driftSteer=steerAmt*1.75;
-  p.heading+=p.driftDir*driftSteer*0.85*dtS;   // strong constant bias into the turn for a cartoon powerslide arc
-  if(lft)p.heading+=driftSteer*dtS;
-  if(rgt)p.heading-=driftSteer*dtS;
+  var driftSteer=MAXTURN*(1.38-0.18*speed01);
+  p.heading+=p.driftDir*driftSteer*0.58*dtS;   // steady powerslide bias without the snap-turn feeling
+  p.heading+=p.steerSmooth*driftSteer*dtS;
   // (visual drift yaw is derived from the real slip angle in the movement step below)
   // drift sparks build through the charge stages
   var stage=p.driftCharge<260?0:(p.driftCharge<760?1:2);
@@ -3650,8 +3655,7 @@ function updatePlayer(p,dt){
    }
    p.driftCharge=0;p.driftDir=0;
   }
-  if(lft)p.heading+=steerAmt*dtS;
-  if(rgt)p.heading-=steerAmt*dtS;
+  p.heading+=p.steerSmooth*steerAmt*dtS;
  }
  // === Velocity-based movement with lateral slip (the arcade drift feel) ===
  // The kart carries real momentum: when the heading rotates, the existing velocity
@@ -3665,19 +3669,19 @@ function updatePlayer(p,dt){
  var vr=p.vx*_rx+p.vz*_rz;                               // lateral slide speed
  vf+=(p.speed-vf)*Math.min(1,dtS*18);                    // throttle stays snappy
  if(p.driftActive){
-  var driftKick=p.driftDir*Math.min(18,Math.abs(vf)*0.95);
-  vr+=(driftKick-vr)*Math.min(1,dtS*5.5);                // shove the rear outward so drifts read immediately
+  var driftKick=p.driftDir*Math.min(12,Math.abs(vf)*0.62);
+  vr+=(driftKick-vr)*Math.min(1,dtS*4.2);                // push the rear outward, but keep the slide readable
  }
- var grip=p.driftActive?0.85:10.0;                       // lower drift grip => big slide, high normal grip => quick arcade response
+ var grip=p.driftActive?1.25:11.0;                       // lower drift grip => slide, high normal grip => stable carving
  vr*=Math.exp(-grip*dtS);
  // clamp slip to a moderate angle: bigger while drifting (power-slide), tighter normally
- var _maxSlip=Math.abs(vf)*(p.driftActive?1.25:0.28); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
+ var _maxSlip=Math.abs(vf)*(p.driftActive?0.88:0.22); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
  p.vx=_fx*vf+_rx*vr; p.vz=_fz*vf+_rz*vr;
  p.x+=p.vx*dtS; p.z+=p.vz*dtS;
  p.speed=vf;                                             // forward speed drives HUD/audio/logic
  // visual body yaw follows the REAL slip, gently exaggerated so the rear reads as kicking out
  var _slip=Math.atan2(vr,Math.max(5,vf));
- p.driftYaw=Math.max(-0.95,Math.min(0.95,-_slip*1.8));
+ p.driftYaw=Math.max(-0.72,Math.min(0.72,-_slip*1.45));
  // Soft, generous off-track limit. Uses the player's own progress point (c) so it
  // never snaps across a parallel switchback leg the way the old hard wall did
  // (that snap is what flung the kart and felt like it was steering itself). It only
