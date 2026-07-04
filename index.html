@@ -2912,8 +2912,19 @@ function groundYAt(x,z,hint){
  return bestY;
 }
 function progressOf(r){
- if(r.trackProg!=null)return r.lap*trackLength+(r.trackProg%trackLength+trackLength)%trackLength;
+ if(r.trackProg!=null)return r.trackProg;
  return r.lap*trackLength+(CL[r.idx]?CL[r.idx].dist:0);
+}
+
+function syncPlayerTrackProgress(r,ni){
+ if(!CL.length||!trackLength||!CL[ni])return;
+ var dist=CL[ni].dist;
+ if(r.trackProg==null){r.trackProg=dist;return;}
+ var prevDist=((r.trackProg%trackLength)+trackLength)%trackLength;
+ var base=r.trackProg-prevDist;
+ if(prevDist>trackLength*0.72&&dist<trackLength*0.28)base+=trackLength;
+ else if(prevDist<trackLength*0.28&&dist>trackLength*0.72)base-=trackLength;
+ r.trackProg=base+dist;
 }
 
 // Place a kart at distance `dist` along the loop (metres), with optional lane offset.
@@ -3786,6 +3797,7 @@ function updatePlayer(p,dt){
  if(!touch.taunt)_tauntTouchCheck=false;
  if(GS.tauntCooldown>0)GS.tauntCooldown-=dt;
 
+ syncPlayerTrackProgress(p,pni);
  advanceProgress(p,pni);
 }
 function updateBot(b,dt){
