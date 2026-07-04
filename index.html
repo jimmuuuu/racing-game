@@ -3086,6 +3086,13 @@ var ITEM_DEFS=[
 var ITEMS=ITEM_DEFS.map(function(i){return i.name;});
 var itemBoxes=[],coins=[],hazards=[],projectiles=[],boostPads=[];
 var coinMesh=null,hazardMesh=null,projectileMesh=null,itemBoxMesh=null,itemQMesh=null,boostPadMesh=null;
+function dropHazard(x,y,z,type,owner,ownerSafeMs){
+ hazards.push({x:x,y:y,z:z,type:type,active:true,ownerRacer:owner||null,ownerSafeUntil:GS.raceTime+(ownerSafeMs||1200)});
+}
+function canTriggerHazard(h,r){
+ if(!h||!h.active)return false;
+ return !(h.ownerRacer===r&&GS.raceTime<(h.ownerSafeUntil||0));
+}
 function pickItemForRacer(r){
  var place=(r&&r.place)||1,total=0,bag=[];
  for(var i=0;i<ITEM_DEFS.length;i++){
@@ -3811,12 +3818,12 @@ function updatePlayer(p,dt){
   if(it==='Skibidi Boost'){p.boostTimer=1500;p.boostPower=9;sndBoost();
    for(var ib=0;ib<10;ib++)spawnP(p.x+(Math.random()-0.5)*2,p.y+0.5+Math.random(),p.z+(Math.random()-0.5)*2,
     (Math.random()-0.5)*5,Math.random()*6-1,(Math.random()-0.5)*5,0.2,0.8+Math.random()*0.2,1,700);}
-  else if(it==='Banana Splat'){hazards.push({x:p.x-Math.sin(p.heading)*3,y:p.y+0.15,z:p.z-Math.cos(p.heading)*3,type:'banana',active:true});sndCrash();}
+  else if(it==='Banana Splat'){dropHazard(p.x-Math.sin(p.heading)*3,p.y+0.15,p.z-Math.cos(p.heading)*3,'banana',p,900);sndCrash();}
   else if(it==='Sahur Smack'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:Math.sin(p.heading)*42,dz:Math.cos(p.heading)*42,life:3000,owner:0,ownerRacer:p});sndBoost();}
   else if(it==='Zoomium Shield'){p.invTimer=3000;spawnFloatText('SHIELD!',fxCanvas?fxCanvas.width/2:400,fxCanvas?fxCanvas.height*0.3:150,'#0f0',40);
    for(var sh=0;sh<12;sh++)spawnP(p.x+Math.cos(sh/12*Math.PI*2)*2,p.y+0.5,p.z+Math.sin(sh/12*Math.PI*2)*2,(Math.cos(sh/12*Math.PI*2))*4,Math.random()*2,(Math.sin(sh/12*Math.PI*2))*4,0,1,0.5,800);}
   else if(it==='Reverse Rocket'){projectiles.push({x:p.x,y:p.y+0.6,z:p.z,dx:-Math.sin(p.heading)*46,dz:-Math.cos(p.heading)*46,life:2500,owner:0,ownerRacer:p});sndBoost();}
-  else if(it==='Slick Slime'){for(var sl=0;sl<3;sl++){hazards.push({x:p.x+Math.cos(Math.PI*2*sl/3)*2,y:p.y+0.1,z:p.z+Math.sin(Math.PI*2*sl/3)*2,type:'slime',active:true});}sndCrash();}
+  else if(it==='Slick Slime'){for(var sl=0;sl<3;sl++){var side=(sl-1)*1.8;dropHazard(p.x-Math.sin(p.heading)*3+Math.cos(p.heading)*side,p.y+0.1,p.z-Math.cos(p.heading)*3-Math.sin(p.heading)*side,'slime',p,1600);}sndCrash();}
   else if(it==='Speed Star'){p.boostTimer=800;p.boostPower=12;sndBoost();for(var ss=0;ss<15;ss++)spawnP(p.x+(Math.random()-0.5)*3,p.y+Math.random()*0.5,p.z+(Math.random()-0.5)*3,(Math.random()-0.5)*6,Math.random()*8,(Math.random()-0.5)*6,1,0.9,0.2,500);}
   else if(it==='Fanum Tax'){fanumTax(p);}
   else if(it==='Rizzler Drain'){rizzlerDrain(p);}
@@ -3853,7 +3860,7 @@ function updatePlayer(p,dt){
  }
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
-  if(!hazards[hi].active)continue;
+  if(!canTriggerHazard(hazards[hi],p))continue;
  var hdx=hazards[hi].x-p.x,hdz=hazards[hi].z-p.z;
   if((p.phaseTimer||0)<=0&&hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(p);GS.shake.x=(Math.random()-0.5)*0.8;GS.shake.y=(Math.random()-0.5)*0.6;GS.shake.decay=350;}
  }
@@ -3933,7 +3940,7 @@ function updateBot(b,dt){
  }
  // hazard collision
  for(var hi=hazards.length-1;hi>=0;hi--){
-  if(!hazards[hi].active)continue;
+  if(!canTriggerHazard(hazards[hi],b))continue;
  var hdx=hazards[hi].x-b.x,hdz=hazards[hi].z-b.z;
   if((b.phaseTimer||0)<=0&&hdx*hdx+hdz*hdz<4){hazards[hi].active=false;spinoutRacer(b);}
  }
@@ -3967,8 +3974,8 @@ function updateBot(b,dt){
    for(var bbp=0;bbp<4;bbp++)spawnP(b.x,b.y+0.5,b.z,(Math.random()-0.5)*3,Math.random()*4,(Math.random()-0.5)*3,0,1,1,400);}
   else if(b.item==='Banana Splat'||b.item==='Slick Slime'){
    if(Math.random()<(b.place<=2?0.3:0.05)){
-    if(b.item==='Banana Splat'){hazards.push({x:b.x-Math.sin(b.heading)*3,y:b.y+0.15,z:b.z-Math.cos(b.heading)*3,type:'banana',active:true});}
-    else{for(var sl2=0;sl2<3;sl2++){hazards.push({x:b.x+Math.cos(Math.PI*2*sl2/3)*2,y:b.y+0.1,z:b.z+Math.sin(Math.PI*2*sl2/3)*2,type:'slime',active:true});}}
+    if(b.item==='Banana Splat'){dropHazard(b.x-Math.sin(b.heading)*3,b.y+0.15,b.z-Math.cos(b.heading)*3,'banana',b,900);}
+    else{for(var sl2=0;sl2<3;sl2++){var bside=(sl2-1)*1.8;dropHazard(b.x-Math.sin(b.heading)*3+Math.cos(b.heading)*bside,b.y+0.1,b.z-Math.cos(b.heading)*3-Math.sin(b.heading)*bside,'slime',b,1600);}}
     b.item=null;
    }}
   else if(b.item==='Sahur Smack'||b.item==='Reverse Rocket'){
