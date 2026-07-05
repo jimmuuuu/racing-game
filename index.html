@@ -3727,18 +3727,34 @@ function updatePlayer(p,dt){
  p.steerSmooth+=(steerRaw-p.steerSmooth)*Math.min(1,dtS*steerRate);
  var speed01=maxSpeed>0?Math.min(1,p.speed/maxSpeed):0;
  var steerAmt=MAXTURN*(1.25-0.48*speed01);
- // === DRIFT: the core mechanic ===
- // The kart keeps travelling along its heading (the front grips toward the racing
- // line) while you steer a touch faster; momentum is preserved (no speed loss), and a
- // clean drift pays out a mini-turbo on release. Drifting beats braking everywhere.
+ var turnAhead=0;
+ if(CL.length&&CL[ni]){
+  var look=CL[(ni+10)%CL.length];
+  if(look){
+   var aheadDelta=Math.atan2(look.dx,look.dz)-Math.atan2(CL[ni].dx,CL[ni].dz);
+   while(aheadDelta>Math.PI)aheadDelta-=Math.PI*2;
+   while(aheadDelta<-Math.PI)aheadDelta+=Math.PI*2;
+   turnAhead=Math.abs(aheadDelta);
+  }
+ }
+ var driftCorner=Math.max(0,Math.min(1,(turnAhead-0.14)/0.38));
+ // === DRIFT: corner tool, not a straight-line boost button ===
+ // Drifting still helps the kart rotate, but mini-turbo charge only really builds
+ // when the track ahead is bending and the player is actually steering.
  if(driftKey&&p.speed>3&&(lft||rgt||p.driftActive)){
   if(!p.driftActive){p.driftActive=true;p.driftDir=lft?1:(rgt?-1:0);p.driftCharge=0;}
   if(p.driftDir===0)p.driftDir=lft?1:(rgt?-1:0);
-  p.driftCharge+=dt*(p.driftChargeMul||1);
+  var driftInput=Math.max(0,Math.min(1,(Math.abs(p.steerSmooth)-0.18)/0.55));
+  var driftQuality=driftCorner*driftInput;
+  p.driftQuality=driftQuality;
+  if(driftQuality>0.08)p.driftCharge+=dt*(p.driftChargeMul||1)*(0.35+driftQuality*0.9);
+  else p.driftCharge=Math.max(0,p.driftCharge-dt*0.8);
+  if(driftQuality<0.12)p.speed=Math.max(0,p.speed-(1.8+speed01*1.2)*dtS);
   var driftPersonality=0.94+(p.driftStat||74)*0.0014;
   var driftSteer=MAXTURN*(1.08-0.14*speed01)*driftPersonality;
-  p.heading+=p.driftDir*driftSteer*0.24*dtS;
-  p.heading+=p.steerSmooth*driftSteer*0.78*dtS;
+  var driftUse=0.45+driftCorner*0.55;
+  p.heading+=p.driftDir*driftSteer*(0.12+driftCorner*0.14)*dtS;
+  p.heading+=p.steerSmooth*driftSteer*(0.52+driftUse*0.26)*dtS;
   // (visual drift yaw is derived from the real slip angle in the movement step below)
   // drift sparks build through the charge stages
   var stage=p.driftCharge<260?0:(p.driftCharge<760?1:2);
@@ -3758,7 +3774,7 @@ function updatePlayer(p,dt){
    }
   }
   p._driftSpawn=(p._driftSpawn||0)+dt;
-  if(stage>0&&p._driftSpawn>55){p._driftSpawn=0;
+  if(stage>0&&p.driftQuality>0.18&&p._driftSpawn>55){p._driftSpawn=0;
    var sideOff=(Math.random()-0.5)*0.8;
    spawnP(p.x+p.driftDir*sideOff,p.y+0.2,p.z+sideOff*0.8,
     (Math.random()-0.5)*6-p.driftDir*2,Math.random()*5,(Math.random()-0.5)*4,
@@ -3784,7 +3800,7 @@ function updatePlayer(p,dt){
    } else {
     p.driftCombo=0;
    }
-   p.driftCharge=0;p.driftDir=0;p._driftSmoke=0;
+   p.driftCharge=0;p.driftDir=0;p._driftSmoke=0;p.driftQuality=0;
   }
   p.heading+=p.steerSmooth*steerAmt*dtS;
  }
@@ -3801,13 +3817,14 @@ function updatePlayer(p,dt){
  vf+=(p.speed-vf)*Math.min(1,dtS*18);                    // throttle stays snappy
  if(p.driftActive){
   var driftSlide=p.driftSlideMul||1;
-  var driftKick=p.driftDir*Math.min(7.5,Math.abs(vf)*0.34)*driftSlide;
+  var driftHelp=0.32+(p.driftQuality||0)*0.68;
+  var driftKick=p.driftDir*Math.min(7.5,Math.abs(vf)*0.34)*driftSlide*driftHelp;
   vr+=(driftKick-vr)*Math.min(1,dtS*3.1);                // push the rear outward, but keep the slide readable
  }
- var grip=p.driftActive?2.45:11.0*(p.gripMul||1);        // lower drift grip => slide, high normal grip => stable carving
+ var grip=p.driftActive?(3.15-(p.driftQuality||0)*0.7):11.0*(p.gripMul||1);        // lower drift grip => slide, high normal grip => stable carving
  vr*=Math.exp(-grip*dtS);
  // clamp slip to a moderate angle: bigger while drifting (power-slide), tighter normally
- var _maxSlip=Math.abs(vf)*(p.driftActive?0.46*(p.driftSlideMul||1):0.22/(p.gripMul||1)); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
+ var _maxSlip=Math.abs(vf)*(p.driftActive?(0.28+(p.driftQuality||0)*0.18)*(p.driftSlideMul||1):0.22/(p.gripMul||1)); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
  p.vx=_fx*vf+_rx*vr; p.vz=_fz*vf+_rz*vr;
  p.x+=p.vx*dtS; p.z+=p.vz*dtS;
  p.speed=vf;                                             // forward speed drives HUD/audio/logic
@@ -4222,9 +4239,9 @@ function updateHUD(){
  var meterEl=document.getElementById('hboost'),fillEl=document.getElementById('hboostfill');
  if(p.driftActive){
   meterEl.style.display='block';
-  var chg=Math.min(1,p.driftCharge/1300);
+  var chg=Math.min(1,p.driftCharge/760);
   fillEl.style.width=(chg*100)+'%';
-  fillEl.style.background=p.driftCharge<500?'#ffb020':(p.driftCharge<1300?'#20d0ff':'#ff40d0');
+  fillEl.style.background=p.driftCharge<260?'#ffb020':(p.driftCharge<760?'#20d0ff':'#ff40d0');
  }else if(p.boostTimer>0){
   meterEl.style.display='block';
   fillEl.style.width=Math.min(100,p.boostTimer/1300*100)+'%';
