@@ -3532,9 +3532,12 @@ function startRace(){
   for(var j=0;j<CHARS.length;j++)if(j!==GS.selChar)botIndices.push(j);
   for(var i=0;i<3;i++)GS.racers.push(makeRacer(botIndices[i],false,i+1));
  }
- // camera init behind player
+ // camera init behind player: close and low so the kart anchors the screen.
  var p=GS.racers[0];
- cam.x=p.x-Math.sin(p.heading)*14;cam.z=p.z-Math.cos(p.heading)*14;cam.y=p.y+7;
+ var initBehind=7.2;
+ cam.heading=p.heading;cam.bank=0;
+ cam.x=p.x-Math.sin(p.heading)*initBehind;cam.z=p.z-Math.cos(p.heading)*initBehind;
+ cam.y=Math.max(p.y+2.6,groundYAt(cam.x,cam.z,p.idx)+1.35);
  cam.tx=cam.x;cam.ty=cam.y;cam.tz=cam.z;
  for(var ri=0;ri<GS.racers.length;ri++){
  var rr=GS.racers[ri];
@@ -4324,11 +4327,11 @@ function render(){
  var isBoosting=p.boostTimer>0;
  // Dynamic FOV: widens subtly with speed and pops open on boost for a rush of speed,
  // then eases back smoothly. (Previously the projection was hard-coded to 65.)
- var fovTarget=60+speedRatio*12+(isBoosting?16:0);
- GS.currentFOV=(GS.currentFOV||62)+(fovTarget-(GS.currentFOV||62))*Math.min(1,frameDt/120);
+ var fovTarget=57+speedRatio*8+(isBoosting?10:0);
+ GS.currentFOV=(GS.currentFOV||58)+(fovTarget-(GS.currentFOV||58))*Math.min(1,frameDt/130);
 
- var behind=14, height=7, ahead=8;
- if(isBoosting){behind=11;height=5.5;}
+ var behind=7.2, height=2.65, ahead=18;
+ if(isBoosting){behind=8.4;height=2.9;ahead=22;}
  // Rotational lag: the camera heading trails the kart's heading, so swinging through
  // a corner makes the view lean into it instead of snapping rigidly behind.
  if(cam.heading==null)cam.heading=p.heading;
@@ -4338,6 +4341,8 @@ function render(){
  var tx=p.x-Math.sin(camH)*behind;
  var tz=p.z-Math.cos(camH)*behind;
  var ty=p.y+height;
+ var camGround=groundYAt(tx,tz,p.idx);
+ if(ty<camGround+1.35)ty=camGround+1.35;
  // ORBIT camera: slowly circle the kart instead of trailing directly behind it
  if(GS.cameraMode==='ORBIT'){
   var orbitA=p.heading+GS.raceTime*0.0005;
@@ -4351,8 +4356,14 @@ function render(){
  var camBlend=1-Math.exp(-8*frameDt/1000);
  cam.x+=(tx-cam.x)*camBlend;cam.y+=(ty-cam.y)*camBlend;cam.z+=(tz-cam.z)*camBlend;
  var lookX=p.x+Math.sin(p.heading)*ahead;
- var lookY=p.y+1.5;
+ var lookY=p.y+1.15;
  var lookZ=p.z+Math.cos(p.heading)*ahead;
+ if(GS.cameraMode!=='ORBIT'&&CL.length){
+  var lookSample=sampleTrackAt((p.trackProg||0)+ahead,0);
+  lookX=lookSample.x;
+  lookY=Math.max(p.y+0.9,lookSample.y+1.1);
+  lookZ=lookSample.z;
+ }
  // Gentle banking: roll the camera into the turn based on how hard we're cornering.
  if(cam.bank==null)cam.bank=0;
  var bankTarget=Math.max(-0.12,Math.min(0.12,dh*1.4));
