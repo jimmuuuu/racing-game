@@ -522,7 +522,7 @@ function fail(msg){
 try{ gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:false})||canvas.getContext('experimental-webgl',{alpha:true,premultipliedAlpha:false}); }catch(e){ gl=null; }
 if(!gl){ fail('Could not create a WebGL context.'); }
 
-var DPR=Math.min(window.devicePixelRatio||1,1.5);
+var DPR=Math.min(window.devicePixelRatio||1,1.15);
 var projMat=null;
 function resize(){
  var w=window.innerWidth||800,h=window.innerHeight||600;
@@ -4103,7 +4103,8 @@ function restoreRacerPose(r,ox,oy,oz,oh){
 var lastT=0,fpsAccum=0,fpsCount=0,frameDt=16;
 var physicsAccumulator=0;
 var FIXED_TIMESTEP=1000/60;
-var MAX_FRAME_DELTA=250;
+var MAX_FRAME_DELTA=100;
+var MAX_PHYSICS_STEPS=4;
 function loop(now){
  if(!running)return;
  var dt=now-lastT;lastT=now;
@@ -4136,7 +4137,9 @@ function loop(now){
   } else {
    physicsAccumulator+=dt;
    GS.raceTime+=dt;
-   while(physicsAccumulator>=FIXED_TIMESTEP){
+   var physicsSteps=0;
+   while(physicsAccumulator>=FIXED_TIMESTEP&&physicsSteps<MAX_PHYSICS_STEPS){
+    physicsSteps++;
     saveRacerPrev(GS.racers[0]);
     for(var i=1;i<GS.racers.length;i++)saveRacerPrev(GS.racers[i]);
     updatePlayer(GS.racers[0],FIXED_TIMESTEP);
@@ -4161,6 +4164,7 @@ function loop(now){
     if(GS.fovTimer>0){GS.fovTimer-=FIXED_TIMESTEP;if(GS.fovTimer<=0)GS.fovTarget=65;}
     physicsAccumulator-=FIXED_TIMESTEP;
    }
+   if(physicsSteps>=MAX_PHYSICS_STEPS)physicsAccumulator=0;
    GS.fov=65;GS.fovTarget=65;
 
    GS.prevPositions=GS.racers[0].place||1;
@@ -4181,10 +4185,13 @@ function loop(now){
  else if(GS.scr==='results'&&GS.resultsLive){
   physicsAccumulator+=dt;
   GS.raceTime+=dt;
-  while(physicsAccumulator>=FIXED_TIMESTEP){
+  var resultSteps=0;
+  while(physicsAccumulator>=FIXED_TIMESTEP&&resultSteps<MAX_PHYSICS_STEPS){
+   resultSteps++;
    for(var rb=1;rb<GS.racers.length;rb++)if(!GS.racers[rb].finished)updateBot(GS.racers[rb],FIXED_TIMESTEP);
    physicsAccumulator-=FIXED_TIMESTEP;
   }
+  if(resultSteps>=MAX_PHYSICS_STEPS)physicsAccumulator=0;
   computePositions();
   updateResultsTable();
   if(GS.racers.every(function(r){return r.finished;})){
@@ -4233,6 +4240,9 @@ function drawMinimap(){
 
 function updateHUD(){
  var p=GS.racers[0];
+ var hudBucket=Math.floor(GS.raceTime/90);
+ var hudFull=GS._hudBucket!==hudBucket;
+ if(hudFull)GS._hudBucket=hudBucket;
  var curPos=p.place||1;
  var posEl=document.getElementById('hpos');
  if(GS.prevHudPos!==curPos){
@@ -4247,7 +4257,7 @@ function updateHUD(){
  var lapEl=document.getElementById('hlap');
  var lapTxt='Lap '+Math.min(3,p.lap+1)+'/3';
  if(lapEl.textContent!==lapTxt){lapEl.textContent=lapTxt;lapEl.classList.remove('lap-flash');void lapEl.offsetWidth;lapEl.classList.add('lap-flash');}
- document.getElementById('htime').textContent=fmtTime(GS.raceTime);
+ if(hudFull)document.getElementById('htime').textContent=fmtTime(GS.raceTime);
  var itemEl=document.getElementById('hitem');
  var itemTxt=p.item?p.item.split(' ')[0]:'';
  if(itemEl.textContent!==itemTxt){
@@ -4259,7 +4269,7 @@ function updateHUD(){
  // stage), shows remaining boost while boosting, hides otherwise
  var meterEl=document.getElementById('hboost'),fillEl=document.getElementById('hboostfill');
  if(p.driftActive){
- meterEl.style.display='block';
+  meterEl.style.display='block';
   var chg=Math.min(1,p.driftCharge/DRIFT_STAGE_PURPLE);
   fillEl.style.width=(chg*100)+'%';
   fillEl.style.background=p.driftCharge<DRIFT_STAGE_BLUE?'#9aa4b5':(p.driftCharge<DRIFT_STAGE_ORANGE?'#20d0ff':(p.driftCharge<DRIFT_STAGE_PURPLE?'#ffb020':'#ff40d0'));
@@ -4270,14 +4280,17 @@ function updateHUD(){
  }else meterEl.style.display='none';
  var kmh=Math.round(p.speed*3.6);
  var spdEl=document.getElementById('hspeed');
- spdEl.textContent=kmh+' km/h';
- if(p.boostTimer>0)spdEl.style.color='#0ff';
- else if(kmh>140)spdEl.style.color='#f44';
- else spdEl.style.color='#fff';
+ if(hudFull||GS._hudKmh!==kmh){
+  spdEl.textContent=kmh+' km/h';
+  GS._hudKmh=kmh;
+  if(p.boostTimer>0)spdEl.style.color='#0ff';
+  else if(kmh>140)spdEl.style.color='#f44';
+  else spdEl.style.color='#fff';
+ }
  var comboEl=document.getElementById('hcombo');
  if(p.driftCombo>0){comboEl.style.display='inline-block';comboEl.textContent='COMBO x'+p.driftCombo;}
  else{comboEl.style.display='none';}
- drawMinimap();
+ if(hudFull)drawMinimap();
 }
 
 function render(){
@@ -4715,40 +4728,28 @@ function render(){
   var fw=fxCanvas.width,fh=fxCanvas.height;
   fxCtx.clearRect(0,0,fw,fh);
 
-  if(speedRatio>0.6||p.boostTimer>0||p.driftActive){
-   var blurIntensity=speedRatio+(p.boostTimer>0?0.3:0)+(p.driftActive?0.2:0);
-   blurIntensity=Math.min(1.2,blurIntensity);
-   var lineCount=14+Math.floor(blurIntensity*12);
-   var baseAlpha=0.08+blurIntensity*0.2;
+  if(speedRatio>0.82||p.boostTimer>0){
+   var blurIntensity=speedRatio+(p.boostTimer>0?0.34:0);
+   blurIntensity=Math.min(1.05,blurIntensity);
+   var lineCount=6+Math.floor(blurIntensity*7);
+   var baseAlpha=0.05+blurIntensity*0.12;
    fxCtx.strokeStyle='rgba(255,255,255,'+baseAlpha+')';
-   fxCtx.lineWidth=1.2+blurIntensity*2;
+   fxCtx.lineWidth=1+blurIntensity*1.4;
    for(var sl=0;sl<lineCount;sl++){
-    var ang2=sl/lineCount*Math.PI*2+GS.raceTime*0.0004;
+    var ang2=sl/lineCount*Math.PI*2+GS.raceTime*0.00028;
     var edge=Math.max(fw,fh)*0.7;
     var sx=fw/2+Math.cos(ang2)*edge,sy=fh/2+Math.sin(ang2)*edge;
-    var tailLen=50+Math.random()*100*blurIntensity;
+    var tailLen=45+((sl*37)%80)*blurIntensity;
     var ex=fw/2+Math.cos(ang2)*(edge-tailLen);
     var ey=fh/2+Math.sin(ang2)*(edge-tailLen);
     fxCtx.beginPath();fxCtx.moveTo(sx,sy);fxCtx.lineTo(ex,ey);fxCtx.stroke();
    }
-   if(p.boostTimer>0||p.driftCharge>800){
-    var radialGrad=fxCtx.createRadialGradient(fw/2,fh/2,fw*0.1,fw/2,fh/2,Math.max(fw,fh)*0.7);
-    radialGrad.addColorStop(0,'rgba(255,255,150,'+(blurIntensity*0.12)+')');
-    radialGrad.addColorStop(0.5,'rgba(100,200,255,'+(blurIntensity*0.06)+')');
-    radialGrad.addColorStop(1,'rgba(255,100,200,0)');
-    fxCtx.fillStyle=radialGrad;
-    fxCtx.fillRect(0,0,fw,fh);
-   }
+   if(p.boostTimer>0){fxCtx.fillStyle='rgba(100,200,255,'+(blurIntensity*0.035)+')';fxCtx.fillRect(0,0,fw,fh);}
   }
   // boost flash (enhanced)
   if(p.boostTimer>0){
-   var boostIntense=Math.min(0.25,GS.fovTimer/500*0.3);
+   var boostIntense=Math.min(0.16,GS.fovTimer/500*0.2);
    fxCtx.fillStyle='rgba(255,200,100,'+boostIntense+')';fxCtx.fillRect(0,0,fw,fh);
-   // boost glow at edges
-   var grd=fxCtx.createRadialGradient(fw/2,fh/2,0,fw/2,fh/2,Math.max(fw,fh)*0.7);
-   grd.addColorStop(0,'rgba(255,255,255,0)');
-   grd.addColorStop(1,'rgba(100,200,255,'+(boostIntense*0.5)+')');
-   fxCtx.fillStyle=grd;fxCtx.fillRect(0,0,fw,fh);
   }
 
   // Floating text with scale animation
