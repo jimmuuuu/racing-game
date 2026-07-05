@@ -3019,7 +3019,7 @@ function readGamepad(){
 function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(sfxGain);o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d);}catch(e){} }
 
 /* ===================== PARTICLES ===================== */
-var MAXPART=200,particles=[];
+var MAXPART=260,particles=[];
 var destructibleProps=[];
 function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
  for(var i=0;i<particles.length;i++){if(particles[i].life<=0){var p=particles[i];p.x=x;p.y=y;p.z=z;p.vx=vx;p.vy=vy;p.vz=vz;p.r=r;p.g=g;p.b=b;p.a=1;p.life=life;p.maxLife=life;return;}}
@@ -3303,7 +3303,7 @@ function charPhysics(i){
   gripMul:0.82+st[2]*0.005,
   steerRateMul:0.78+st[2]*0.004,
   driftChargeMul:0.82+st[3]*0.005,
-  driftSlideMul:0.88+st[3]*0.004
+  driftSlideMul:0.78+st[3]*0.0025
  };
 }
 /* Render the real in-game 3D kart model into an offscreen canvas via the main GL context */
@@ -3735,13 +3735,28 @@ function updatePlayer(p,dt){
   if(!p.driftActive){p.driftActive=true;p.driftDir=lft?1:(rgt?-1:0);p.driftCharge=0;}
   if(p.driftDir===0)p.driftDir=lft?1:(rgt?-1:0);
   p.driftCharge+=dt*(p.driftChargeMul||1);
-  var driftSteer=MAXTURN*(1.38-0.18*speed01);
-  p.heading+=p.driftDir*driftSteer*0.58*dtS;   // steady powerslide bias without the snap-turn feeling
-  p.heading+=p.steerSmooth*driftSteer*dtS;
+  var driftPersonality=0.94+(p.driftStat||74)*0.0014;
+  var driftSteer=MAXTURN*(1.08-0.14*speed01)*driftPersonality;
+  p.heading+=p.driftDir*driftSteer*0.24*dtS;
+  p.heading+=p.steerSmooth*driftSteer*0.78*dtS;
   // (visual drift yaw is derived from the real slip angle in the movement step below)
   // drift sparks build through the charge stages
   var stage=p.driftCharge<260?0:(p.driftCharge<760?1:2);
   var cols=[[1,0.5,0],[0,0.8,1],[1,0.3,0.8]];
+  p._driftSmoke=(p._driftSmoke||0)+dt;
+  if(p.speed>6&&p._driftSmoke>38){p._driftSmoke=0;
+   var driftSmokeSlide=p.driftSlideMul||1;
+   var tires=[KART_SOCKETS.dustL,KART_SOCKETS.dustR];
+   for(var ts=0;ts<tires.length;ts++){
+    var tw=kartSocket(p,tires[ts]);
+    var side=ts===0?-1:1;
+    spawnP(tw[0],tw[1]+0.05,tw[2],
+     -Math.sin(p.heading)*(2.4+Math.random()*1.6)+Math.cos(p.heading)*side*0.8*p.driftDir*driftSmokeSlide,
+     0.8+Math.random()*1.4,
+     -Math.cos(p.heading)*(2.4+Math.random()*1.6)-Math.sin(p.heading)*side*0.8*p.driftDir*driftSmokeSlide,
+     0.48+Math.random()*0.14,0.50+Math.random()*0.14,0.52+Math.random()*0.14,620+Math.random()*180);
+   }
+  }
   p._driftSpawn=(p._driftSpawn||0)+dt;
   if(stage>0&&p._driftSpawn>55){p._driftSpawn=0;
    var sideOff=(Math.random()-0.5)*0.8;
@@ -3769,7 +3784,7 @@ function updatePlayer(p,dt){
    } else {
     p.driftCombo=0;
    }
-   p.driftCharge=0;p.driftDir=0;
+   p.driftCharge=0;p.driftDir=0;p._driftSmoke=0;
   }
   p.heading+=p.steerSmooth*steerAmt*dtS;
  }
@@ -3785,19 +3800,20 @@ function updatePlayer(p,dt){
  var vr=p.vx*_rx+p.vz*_rz;                               // lateral slide speed
  vf+=(p.speed-vf)*Math.min(1,dtS*18);                    // throttle stays snappy
  if(p.driftActive){
-  var driftKick=p.driftDir*Math.min(12,Math.abs(vf)*0.62)*(p.driftSlideMul||1);
-  vr+=(driftKick-vr)*Math.min(1,dtS*4.2);                // push the rear outward, but keep the slide readable
+  var driftSlide=p.driftSlideMul||1;
+  var driftKick=p.driftDir*Math.min(7.5,Math.abs(vf)*0.34)*driftSlide;
+  vr+=(driftKick-vr)*Math.min(1,dtS*3.1);                // push the rear outward, but keep the slide readable
  }
- var grip=p.driftActive?1.25:11.0*(p.gripMul||1);        // lower drift grip => slide, high normal grip => stable carving
+ var grip=p.driftActive?2.45:11.0*(p.gripMul||1);        // lower drift grip => slide, high normal grip => stable carving
  vr*=Math.exp(-grip*dtS);
  // clamp slip to a moderate angle: bigger while drifting (power-slide), tighter normally
- var _maxSlip=Math.abs(vf)*(p.driftActive?0.88*(p.driftSlideMul||1):0.22/(p.gripMul||1)); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
+ var _maxSlip=Math.abs(vf)*(p.driftActive?0.46*(p.driftSlideMul||1):0.22/(p.gripMul||1)); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
  p.vx=_fx*vf+_rx*vr; p.vz=_fz*vf+_rz*vr;
  p.x+=p.vx*dtS; p.z+=p.vz*dtS;
  p.speed=vf;                                             // forward speed drives HUD/audio/logic
  // visual body yaw follows the REAL slip, gently exaggerated so the rear reads as kicking out
  var _slip=Math.atan2(vr,Math.max(5,vf));
- p.driftYaw=Math.max(-0.72,Math.min(0.72,-_slip*1.45));
+ p.driftYaw=Math.max(-0.48,Math.min(0.48,-_slip*1.18));
  // Soft, generous off-track limit. Uses the player's own progress point (c) so it
  // never snaps across a parallel switchback leg the way the old hard wall did
  // (that snap is what flung the kart and felt like it was steering itself). It only
