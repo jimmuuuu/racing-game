@@ -518,7 +518,7 @@ try{ gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias
 if(!gl){ fail('Could not create a WebGL context.'); }
 
 var PERF_MODE=true;
-var DPR=PERF_MODE?0.85:Math.min(window.devicePixelRatio||1,1.15);
+var DPR=PERF_MODE?0.7:Math.min(window.devicePixelRatio||1,1.15);
 var projMat=null;
 function resize(){
  var w=window.innerWidth||800,h=window.innerHeight||600;
@@ -2544,6 +2544,16 @@ function drawWheels(base,wp,rimCol,roll){
  }
 }
 
+function drawFastWheels(base,wp,roll){
+ var wheelMesh=kartWheel||goatWheel;
+ if(!wheelMesh)return;
+ var spinM=M.rotX(roll||0);
+ for(var i=0;i<wp.length;i++){
+  var wm=M.mul(M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2])),spinM);
+  drawMesh(wheelMesh,wm,[0.07,0.07,0.08],0.34,6);
+ }
+}
+
 function drawGoatKart(racer){
  var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
@@ -2664,12 +2674,14 @@ function drawPatapimKart(racer){
 }
 
 function drawKart(racer){
- if(PERF_MODE&&!racer.isPlayer&&kartBody){
-  var botSkin=getCharColor(racer.chIdx);
-  var botBase=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
+ if(PERF_MODE&&kartBody){
+  var perfSkin=getCharColor(racer.chIdx);
+  var perfBase=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
   gl.disable(gl.CULL_FACE);
-  drawMesh(kartBody,botBase,botSkin.col,0.5,16);
-  drawWheels(botBase,[[-0.68,0,0.66],[0.68,0,0.66],[-0.68,0,-0.66],[0.68,0,-0.66]],null,racer.wheelRoll);
+  if(kartLower)drawMesh(kartLower,perfBase,perfSkin.dark,0.42,14);
+  drawMesh(kartBody,perfBase,perfSkin.col,0.5,16);
+  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(kartBody,perfBase,[Math.min(1,perfSkin.col[0]*1.35),Math.min(1,perfSkin.col[1]*1.35),Math.min(1,perfSkin.col[2]*1.35)],0.25,12);
+  drawFastWheels(perfBase,[[-0.68,0,0.66],[0.68,0,0.66],[-0.68,0,-0.66],[0.68,0,-0.66]],racer.wheelRoll);
   gl.enable(gl.CULL_FACE);
   return;
  }
@@ -3033,7 +3045,7 @@ function readGamepad(){
 function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(sfxGain);o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d);}catch(e){} }
 
 /* ===================== PARTICLES ===================== */
-var MAXPART=120,particles=[];
+var MAXPART=PERF_MODE?40:120,particles=[];
 var destructibleProps=[];
 function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
  for(var i=0;i<particles.length;i++){if(particles[i].life<=0){var p=particles[i];p.x=x;p.y=y;p.z=z;p.vx=vx;p.vy=vy;p.vz=vz;p.r=r;p.g=g;p.b=b;p.a=1;p.life=life;p.maxLife=life;return;}}
