@@ -496,6 +496,7 @@ var PLAYER_BASE_MAX_SPEED_SCALE=1.03; // fast, toy-like arcade top speed
 var PLAYER_BASE_ACCEL_SCALE=1.55; // punchy acceleration so the kart leaps back into pace
 var DRIFT_STAGE_BLUE=700,DRIFT_STAGE_ORANGE=1450,DRIFT_STAGE_PURPLE=2400;
 var DRIFT_HOP_MS=180;
+var DRIFT_MIN_SPEED=7.0;
 function driftStage(ch){return ch<DRIFT_STAGE_BLUE?0:(ch<DRIFT_STAGE_ORANGE?1:(ch<DRIFT_STAGE_PURPLE?2:3));}
 // Off-road surface types: each progressively bleeds speed differently, but ALL stay
 // drivable so calculated shortcuts remain possible (floor = min fraction of top speed).
@@ -3027,7 +3028,7 @@ function readGamepad(){
 function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(sfxGain);o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d);}catch(e){} }
 
 /* ===================== PARTICLES ===================== */
-var MAXPART=260,particles=[];
+var MAXPART=220,particles=[];
 var destructibleProps=[];
 function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
  for(var i=0;i<particles.length;i++){if(particles[i].life<=0){var p=particles[i];p.x=x;p.y=y;p.z=z;p.vx=vx;p.vy=vy;p.vz=vz;p.r=r;p.g=g;p.b=b;p.a=1;p.life=life;p.maxLife=life;return;}}
@@ -3307,11 +3308,11 @@ function charPhysics(i){
   maxSpeed:25.5+st[0]*0.12,
   accel:13.0+st[1]*0.22,
   turn:2.05+st[2]*0.012,
-  driftMul:0.72+st[3]*0.008,
+  driftMul:0.95+st[3]*0.0022,
   gripMul:0.82+st[2]*0.005,
   steerRateMul:0.78+st[2]*0.004,
-  driftChargeMul:0.82+st[3]*0.005,
-  driftSlideMul:0.78+st[3]*0.0025
+  driftChargeMul:0.96+st[3]*0.0018,
+  driftSlideMul:0.97+st[3]*0.0009
  };
 }
 /* Render the real in-game 3D kart model into an offscreen canvas via the main GL context */
@@ -3751,36 +3752,35 @@ function updatePlayer(p,dt){
  var driftCornerStart=driftTrack.driftCourse?0.035:0.055;
  var driftCornerRange=driftTrack.driftCourse?0.24:0.30;
  var driftCorner=Math.max(0,Math.min(1,(turnAhead-driftCornerStart)/driftCornerRange));
- // === DRIFT: committed slide, not guided cornering ===
- // A drift locks left/right on entry, keeps the rear loose, and only charges hard
- // when the track is bending. The light assist below keeps it readable, not railed.
- if(driftKey&&p.speed>3&&(lft||rgt||p.driftActive)){
+ // === DRIFT: stable committed slide ===
+ // The slide itself is consistent across cars; stats only add small flavor. Charge
+ // builds fastest in corners, but the kart no longer depends on track assist to feel usable.
+ if(driftKey&&p.speed>DRIFT_MIN_SPEED&&(lft||rgt||p.driftActive)){
   if(!p.driftActive){p.driftActive=true;p.driftDir=lft?1:(rgt?-1:0);p.driftCharge=0;p.driftHopTimer=DRIFT_HOP_MS;}
   if(p.driftDir===0)p.driftDir=lft?1:(rgt?-1:0);
   var driftInput=Math.max(0,Math.min(1,(Math.abs(p.steerSmooth)-0.08)/0.42));
-  var driftQuality=driftCorner*driftInput;
+  var driftQuality=driftInput*(0.28+driftCorner*0.72);
   p.driftQuality=driftQuality;
-  if(driftQuality>0.05)p.driftCharge+=dt*(p.driftChargeMul||1)*(0.48+driftQuality*0.95);
-  else p.driftCharge=Math.max(0,p.driftCharge-dt*0.75);
-  if(driftQuality<0.08)p.speed=Math.max(0,p.speed-(1.0+speed01*0.8)*dtS);
-  var driftPersonality=0.94+(p.driftStat||74)*0.0014;
-  var driftSteer=MAXTURN*(1.16-0.12*speed01)*driftPersonality;
-  var driftUse=0.45+driftCorner*0.55;
-  p.heading+=p.driftDir*driftSteer*(0.18+driftCorner*0.19)*dtS;
-  p.heading+=p.steerSmooth*driftSteer*(0.48+driftUse*0.24)*dtS;
-  if(driftQuality>0.18&&CL[ni]){
+  if(driftQuality>0.12)p.driftCharge+=dt*(p.driftChargeMul||1)*(0.28+driftQuality*0.72);
+  else p.driftCharge=Math.max(0,p.driftCharge-dt*0.55);
+  if(driftQuality<0.12)p.speed=Math.max(0,p.speed-(0.7+speed01*0.45)*dtS);
+  var driftHandling=0.98+((p.handlingStat||74)-74)*0.0015;
+  var driftSteer=2.82*(1.08-0.10*speed01)*driftHandling;
+  p.heading+=p.driftDir*driftSteer*(0.24+driftQuality*0.12)*dtS;
+  p.heading+=p.steerSmooth*driftSteer*(0.44+driftQuality*0.18)*dtS;
+  if(driftQuality>0.35&&CL[ni]){
    var targetHeading=Math.atan2(CL[ni].dx,CL[ni].dz)-Math.max(-0.14,Math.min(0.14,lateral*0.008));
    var headErr=targetHeading-p.heading;
    while(headErr>Math.PI)headErr-=Math.PI*2;
    while(headErr<-Math.PI)headErr+=Math.PI*2;
-   p.heading+=headErr*(0.10+driftQuality*0.18)*dtS;
+   p.heading+=headErr*(0.06+driftQuality*0.08)*dtS;
   }
   // (visual drift yaw is derived from the real slip angle in the movement step below)
   // drift sparks build through the charge stages
   var stage=driftStage(p.driftCharge);
   var cols=[[0,0.8,1],[0,0.8,1],[1,0.55,0.05],[1,0.3,0.8]];
   p._driftSmoke=(p._driftSmoke||0)+dt;
-  if(p.speed>6&&p._driftSmoke>38){p._driftSmoke=0;
+  if(p.speed>6&&p._driftSmoke>48){p._driftSmoke=0;
    var driftSmokeSlide=p.driftSlideMul||1;
    var tires=[KART_SOCKETS.dustL,KART_SOCKETS.dustR];
    for(var ts=0;ts<tires.length;ts++){
@@ -3790,7 +3790,7 @@ function updatePlayer(p,dt){
      -Math.sin(p.heading)*(2.4+Math.random()*1.6)+Math.cos(p.heading)*side*0.8*p.driftDir*driftSmokeSlide,
      0.8+Math.random()*1.4,
      -Math.cos(p.heading)*(2.4+Math.random()*1.6)-Math.sin(p.heading)*side*0.8*p.driftDir*driftSmokeSlide,
-     0.48+Math.random()*0.14,0.50+Math.random()*0.14,0.52+Math.random()*0.14,620+Math.random()*180);
+     0.48+Math.random()*0.14,0.50+Math.random()*0.14,0.52+Math.random()*0.14,520+Math.random()*140);
    }
   }
   p._driftSpawn=(p._driftSpawn||0)+dt;
@@ -3807,7 +3807,7 @@ function updatePlayer(p,dt){
    if(stage2>=1){
     p.driftCombo++;
     p.driftComboTimer=2000;
-    var comboMult=1+p.driftCombo*0.20;
+    var comboMult=1+Math.min(Math.max(0,p.driftCombo-1),3)*0.08;
     var basePower=(stage2===1?9:(stage2===2?15:22))*p.driftMul;
     p.boostTimer=stage2===1?650:(stage2===2?950:1350);
     p.boostPower=basePower*comboMult;
@@ -3837,21 +3837,21 @@ function updatePlayer(p,dt){
  vf+=(p.speed-vf)*Math.min(1,dtS*18);                    // throttle stays snappy
  if(p.driftActive){
   var driftSlide=p.driftSlideMul||1;
-  var driftHelp=0.56+(p.driftQuality||0)*0.54;
-  var driftKick=p.driftDir*Math.min(11.5,Math.abs(vf)*0.50)*driftSlide*driftHelp;
-  vr+=(driftKick-vr)*Math.min(1,dtS*2.55);               // push the rear outward and let it stay loose
+  var driftHelp=0.58+(p.driftQuality||0)*0.32;
+  var driftKick=p.driftDir*Math.min(8.8,Math.abs(vf)*0.40)*driftSlide*driftHelp;
+  vr+=(driftKick-vr)*Math.min(1,dtS*2.65);               // push the rear outward and let it stay loose
  }
- var grip=p.driftActive?(1.65-(p.driftQuality||0)*0.30):11.0*(p.gripMul||1);        // lower drift grip => slide, high normal grip => stable carving
+ var grip=p.driftActive?(2.05-(p.driftQuality||0)*0.38):11.0*(p.gripMul||1);        // lower drift grip => slide, high normal grip => stable carving
  vr*=Math.exp(-grip*dtS);
  // clamp slip to a moderate angle: bigger while drifting (power-slide), tighter normally
- var _maxSlip=Math.abs(vf)*(p.driftActive?(0.50+(p.driftQuality||0)*0.24)*(p.driftSlideMul||1):0.22/(p.gripMul||1)); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
+ var _maxSlip=Math.abs(vf)*(p.driftActive?(0.42+(p.driftQuality||0)*0.16)*(p.driftSlideMul||1):0.22/(p.gripMul||1)); if(vr>_maxSlip)vr=_maxSlip; else if(vr<-_maxSlip)vr=-_maxSlip;
  p.vx=_fx*vf+_rx*vr; p.vz=_fz*vf+_rz*vr;
  p.x+=p.vx*dtS; p.z+=p.vz*dtS;
  p.speed=vf;                                             // forward speed drives HUD/audio/logic
  // visual body yaw follows the REAL slip, gently exaggerated so the rear reads as kicking out
  var _slip=Math.atan2(vr,Math.max(5,vf));
- var _bodyKick=p.driftActive?(-p.driftDir*(0.10+(p.driftQuality||0)*0.10)):0;
- p.driftYaw=Math.max(-0.78,Math.min(0.78,-_slip*1.55+_bodyKick));
+ var _bodyKick=p.driftActive?(-p.driftDir*(0.08+(p.driftQuality||0)*0.07)):0;
+ p.driftYaw=Math.max(-0.66,Math.min(0.66,-_slip*1.38+_bodyKick));
  // Soft, generous off-track limit. Uses the player's own progress point (c) so it
  // never snaps across a parallel switchback leg the way the old hard wall did
  // (that snap is what flung the kart and felt like it was steering itself). It only
