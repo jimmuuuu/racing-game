@@ -460,11 +460,6 @@ var TRACKS=[
   sky:[0.18,0.58,0.96],skyBot:[0.68,0.88,1.0],grass:[0.20,0.62,0.24],road:[0.46,0.46,0.48],roadDark:[0.34,0.34,0.36],rumble:[0.95,0.12,0.10],tree:[0.18,0.58,0.22],fog:[0.56,0.76,0.92],
   lakeDefs:[{f:0.12,side:1,off:96,r:18},{f:0.55,side:-1,off:96,r:22}],
   pts:figureEightTrack(260,230,360,250,44)},
- {name:'Sigma Drift Stadium',desc:'A drift-first arena with linked sweepers, big hairpins and forgiving runoff for learning mini-turbos',
-  theme:'city',driftCourse:true,
-  sky:[0.08,0.12,0.26],skyBot:[0.42,0.62,0.84],grass:[0.18,0.52,0.36],road:[0.28,0.29,0.34],roadDark:[0.18,0.19,0.24],rumble:[1.0,0.22,0.72],tree:[0.18,0.64,0.44],fog:[0.28,0.40,0.56],
-  lakeDefs:[{f:0.18,side:1,off:105,r:20},{f:0.66,side:-1,off:112,r:24}],
-  pts:polyTrack([[420,-80],[390,150],[250,300],[20,340],[-165,240],[-295,300],[-450,170],[-430,-80],[-280,-245],[-70,-190],[80,-330],[300,-285],[430,-160]],56,8,32,function(f){return 2.5*Math.sin(f*Math.PI*2+0.5)+1.2*Math.sin(f*Math.PI*6);})},
  {name:'Rizz Beach Boardwalk',desc:'Ocean-side beach sprint past waves, pier houses and a sunny seaside village',surface:'sand',
   theme:'beach',
   sky:[0.30,0.74,1.0],skyBot:[0.86,0.96,1.0],grass:[0.88,0.78,0.50],road:[0.48,0.46,0.43],roadDark:[0.35,0.33,0.31],rumble:[1.0,0.58,0.16],tree:[0.14,0.60,0.34],fog:[0.72,0.90,0.98],
@@ -3460,7 +3455,6 @@ function renderTrackPreview(i){
  var bright=t.sky[0]+t.sky[1]+t.sky[2];
  tags.push(bright<0.6?'Night':'Daytime');
  if(t.grass[0]>0.7&&t.grass[1]>0.6)tags.push('Coastal');
- if(t.driftCourse)tags.push('Drift');
  document.getElementById('tpvName').textContent=t.name;
  document.getElementById('tpvDesc').textContent=t.desc;
  var th='';for(var x=0;x<tags.length;x++)th+='<span class="pv-tag">'+tags[x]+'</span>';
@@ -3748,9 +3742,8 @@ function updatePlayer(p,dt){
    turnAhead=Math.abs(aheadDelta);
   }
  }
- var driftTrack=TRACKS[GS.selTrack]||{};
- var driftCornerStart=driftTrack.driftCourse?0.035:0.055;
- var driftCornerRange=driftTrack.driftCourse?0.24:0.30;
+ var driftCornerStart=0.055;
+ var driftCornerRange=0.30;
  var driftCorner=Math.max(0,Math.min(1,(turnAhead-driftCornerStart)/driftCornerRange));
  // === DRIFT: stable committed slide ===
  // The slide itself is consistent across cars; stats only add small flavor. Charge
