@@ -514,11 +514,10 @@ function fail(msg){
  document.getElementById('fbreason').textContent=msg||'';
  document.getElementById('fallback').style.display='flex';
 }
-try{ gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:false,powerPreference:'high-performance'})||canvas.getContext('experimental-webgl',{alpha:true,premultipliedAlpha:false,antialias:false}); }catch(e){ gl=null; }
+try{ gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:false})||canvas.getContext('experimental-webgl',{alpha:true,premultipliedAlpha:false}); }catch(e){ gl=null; }
 if(!gl){ fail('Could not create a WebGL context.'); }
 
-var PERF_MODE=true;
-var DPR=PERF_MODE?0.7:Math.min(window.devicePixelRatio||1,1.15);
+var DPR=Math.min(window.devicePixelRatio||1,1.15);
 var projMat=null;
 function resize(){
  var w=window.innerWidth||800,h=window.innerHeight||600;
@@ -1136,7 +1135,7 @@ function buildRaceMeshes(){
  // grid cells per axis (finer = smoother hills, less poke-through). Scale the
  // count with track extent so cell size stays ~7 units regardless of how big
  // the circuit is — keeps the flush road corridor crisp on large tracks.
- var GN=PERF_MODE?Math.max(64,Math.min(96,Math.ceil(Math.max(maxX-minX,maxZ-minZ)/12))):Math.max(110,Math.min(190,Math.ceil(Math.max(maxX-minX,maxZ-minZ)/7)));
+ var GN=Math.max(110,Math.min(190,Math.ceil(Math.max(maxX-minX,maxZ-minZ)/7)));
  var gwx=(maxX-minX)/GN, gwz=(maxZ-minZ)/GN;
  var Hgt=new Float32Array((GN+1)*(GN+1));
  // lake basins: carve smooth depressions into the terrain away from the road,
@@ -2544,16 +2543,6 @@ function drawWheels(base,wp,rimCol,roll){
  }
 }
 
-function drawFastWheels(base,wp,roll){
- var wheelMesh=kartWheel||goatWheel;
- if(!wheelMesh)return;
- var spinM=M.rotX(roll||0);
- for(var i=0;i<wp.length;i++){
-  var wm=M.mul(M.mul(base,M.translate(wp[i][0],wp[i][1],wp[i][2])),spinM);
-  drawMesh(wheelMesh,wm,[0.07,0.07,0.08],0.34,6);
- }
-}
-
 function drawGoatKart(racer){
  var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
@@ -2668,17 +2657,6 @@ function drawPatapimKart(racer){
 }
 
 function drawKart(racer){
- if(PERF_MODE&&kartBody){
-  var perfSkin=getCharColor(racer.chIdx);
-  var perfBase=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
-  gl.disable(gl.CULL_FACE);
-  if(kartLower)drawMesh(kartLower,perfBase,perfSkin.dark,0.42,14);
-  drawMesh(kartBody,perfBase,perfSkin.col,0.5,16);
-  if(racer.isPlayer&&racer.boostTimer>0)drawMesh(kartBody,perfBase,[Math.min(1,perfSkin.col[0]*1.35),Math.min(1,perfSkin.col[1]*1.35),Math.min(1,perfSkin.col[2]*1.35)],0.25,12);
-  drawFastWheels(perfBase,[[-0.68,0,0.66],[0.68,0,0.66],[-0.68,0,-0.66],[0.68,0,-0.66]],racer.wheelRoll);
-  gl.enable(gl.CULL_FACE);
-  return;
- }
  // each character gets a themed kart matching their brainrot identity
  if(racer.chIdx===0 && goatHead){return drawGoatKart(racer);}
  if(racer.chIdx===1 && sharkBody){return drawSharkKart(racer);}
@@ -3039,7 +3017,7 @@ function readGamepad(){
 function beep(f,d){ try{ initAudio();if(!audioCtx)return;var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=f;g.gain.value=0.08;o.connect(g);g.connect(sfxGain);o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d);}catch(e){} }
 
 /* ===================== PARTICLES ===================== */
-var MAXPART=PERF_MODE?40:120,particles=[];
+var MAXPART=220,particles=[];
 var destructibleProps=[];
 function spawnP(x,y,z,vx,vy,vz,r,g,b,life){
  for(var i=0;i<particles.length;i++){if(particles[i].life<=0){var p=particles[i];p.x=x;p.y=y;p.z=z;p.vx=vx;p.vy=vy;p.vz=vz;p.r=r;p.g=g;p.b=b;p.a=1;p.life=life;p.maxLife=life;return;}}
@@ -4114,9 +4092,9 @@ function restoreRacerPose(r,ox,oy,oz,oh){
 /* ===================== MAIN LOOP ===================== */
 var lastT=0,fpsAccum=0,fpsCount=0,frameDt=16;
 var physicsAccumulator=0;
-var FIXED_TIMESTEP=1000/50;
+var FIXED_TIMESTEP=1000/60;
 var MAX_FRAME_DELTA=100;
-var MAX_PHYSICS_STEPS=3;
+var MAX_PHYSICS_STEPS=4;
 function loop(now){
  if(!running)return;
  var dt=now-lastT;lastT=now;
@@ -4221,7 +4199,6 @@ function loop(now){
 function drawMinimap(){
  var mc=document.getElementById('mmcanvas');
  var mm=document.getElementById('hminimap');
- if(PERF_MODE){if(mm)mm.style.display='none';return;}
  if(!mc||!CL.length)return;
  mm.style.display='block';
  var ctx=mc.getContext('2d');
@@ -4388,7 +4365,7 @@ function render(){
  var I=M.ident();
  // distant background mountain ring — centered on player, drawn with soft
  // atmospheric fade so it reads as a far backdrop, not a near object
- if(!PERF_MODE&&bgMountains){
+ if(bgMountains){
   gl.depthMask(false);
   gl.uniform1f(L.uFogNear,520.0);gl.uniform1f(L.uFogFar,1500.0);
   var mtnM=M.translate(p.x,(track.baseGroundY||0)-2,p.z);
@@ -4412,12 +4389,12 @@ function render(){
  // ground color-variation patches (dirt paths, grass tones) hug the terrain
  gl.enable(gl.POLYGON_OFFSET_FILL);
  gl.polygonOffset(-1,-1);
- if(!PERF_MODE)for(var pq=0;pq<scenery.length;pq++){var po=scenery[pq];if(po.type!=='patch')continue;
+ for(var pq=0;pq<scenery.length;pq++){var po=scenery[pq];if(po.type!=='patch')continue;
   var pdx=po.x-p.x,pdz=po.z-p.z;if(pdx*pdx+pdz*pdz>170*170)continue;
   drawMesh(patchMesh,M.mul(M.translate(po.x,po.y+0.02,po.z),M.rotY(po.rot),M.scale(po.sc,1,po.sc)),po.col,0.7,4);}
  gl.disable(gl.POLYGON_OFFSET_FILL);
  // stylized lake water
- if(!PERF_MODE&&waterMesh){var wTime=GS.raceTime*0.0006;
+ if(waterMesh){var wTime=GS.raceTime*0.0006;
   for(var wl=0;wl<lakes.length;wl++){var lb=lakes[wl];
    var wdx=lb.x-p.x,wdz=lb.z-p.z;if(wdx*wdx+wdz*wdz>260*260)continue;
    var shimmer=0.82+Math.sin(wTime*3+wl)*0.06;
@@ -4433,17 +4410,17 @@ function render(){
  if(rumbleMesh2) drawMesh(rumbleMesh2,I,[1,1,1],0.7);
  if(shoulderMesh) drawMesh(shoulderMesh,I,track.roadDark||[0.3,0.3,0.3],0.35);
  drawMesh(trackMesh,I,track.road,0.5);
- if(!PERF_MODE&&roadCenterMesh) drawMesh(roadCenterMesh,I,[track.road[0]*1.12,track.road[1]*1.12,track.road[2]*1.12],0.55);
+ if(roadCenterMesh) drawMesh(roadCenterMesh,I,[track.road[0]*1.12,track.road[1]*1.12,track.road[2]*1.12],0.55);
  // raised red/white racing kerbs (cull off — double-sided lip)
- if(!PERF_MODE&&curbMeshA){gl.disable(gl.CULL_FACE);drawMesh(curbMeshA,I,[0.85,0.18,0.18],0.5,18);drawMesh(curbMeshB,I,[0.95,0.95,0.97],0.6,18);gl.enable(gl.CULL_FACE);}
- if(!PERF_MODE&&edgeLineMesh) drawMesh(edgeLineMesh,I,[0.95,0.95,1.0],0.85,12);
- if(!PERF_MODE&&roadStripeMesh) drawMesh(roadStripeMesh,I,[0.95,0.95,1.0],0.8);
+ if(curbMeshA){gl.disable(gl.CULL_FACE);drawMesh(curbMeshA,I,[0.85,0.18,0.18],0.5,18);drawMesh(curbMeshB,I,[0.95,0.95,0.97],0.6,18);gl.enable(gl.CULL_FACE);}
+ if(edgeLineMesh) drawMesh(edgeLineMesh,I,[0.95,0.95,1.0],0.85,12);
+ if(roadStripeMesh) drawMesh(roadStripeMesh,I,[0.95,0.95,1.0],0.8);
  if(startLineMesh){
   drawMesh(startLineMesh,I,[1,1,1],0.9);
   if(startLineMesh2) drawMesh(startLineMesh2,I,[0.08,0.08,0.1],0.85);
   if(gridBoxMesh) drawMesh(gridBoxMesh,I,[1,1,1],0.85);
  }
- if(!PERF_MODE&&gridBoardMesh){
+ if(gridBoardMesh){
   var sl0=CL[0];
   var gbAng=Math.atan2(sl0.px,sl0.pz);
   for(var gbi=0;gbi<4;gbi++){
@@ -4458,7 +4435,7 @@ function render(){
  }
  gl.disable(gl.POLYGON_OFFSET_FILL);
  // ground props (bushes, rocks, flowers, logs, fences, grass) — cull by distance
- if(!PERF_MODE)for(var sc=0;sc<scenery.length;sc++){
+ for(var sc=0;sc<scenery.length;sc++){
   var o=scenery[sc];
   if(o._destroyed)continue; // skip destroyed props
   if(o.type==='patch')continue; // drawn earlier on the ground
@@ -4479,7 +4456,7 @@ function render(){
    drawMesh(campfireFlame,M.mul(M.translate(o.x,o.y+0.1,o.z),M.scale(ff*0.7,ff*0.9,ff*0.7)),[1.0,0.85,0.3],0.98,30);}
  }
  // trees (cull by distance for perf) — trunk + tinted canopy, with lean + rotation
- if(!PERF_MODE)for(var t=0;t<trees.length;t++){
+ for(var t=0;t<trees.length;t++){
   var tr=trees[t];
   var ddx=tr.x-p.x,ddz=tr.z-p.z;
   if(ddx*ddx+ddz*ddz>220*220)continue;
@@ -4489,7 +4466,7 @@ function render(){
  }
  // ===== large landmarks =====
  var lmTime=GS.raceTime*0.001;
- if(!PERF_MODE)for(var L9=0;L9<landmarks.length;L9++){
+ for(var L9=0;L9<landmarks.length;L9++){
   var lo=landmarks[L9];
   var lddx=lo.x-p.x,lddz=lo.z-p.z;
   if(lddx*lddx+lddz*lddz>420*420)continue;
@@ -4529,8 +4506,8 @@ function render(){
   }
  }
  // ===== village / market cluster =====
- if(!PERF_MODE)gl.disable(gl.CULL_FACE);
- if(!PERF_MODE)for(var vg=0;vg<villages.length;vg++){
+ gl.disable(gl.CULL_FACE);
+ for(var vg=0;vg<villages.length;vg++){
   var vo=villages[vg];
   var vdx=vo.x-p.x,vdz=vo.z-p.z;if(vdx*vdx+vdz*vdz>360*360)continue;
   var vm=M.mul(M.translate(vo.x,vo.y,vo.z),M.rotY(vo.rot));
@@ -4546,7 +4523,7 @@ function render(){
   }
  }
  // ===== grandstands + cheering crowd =====
- if(!PERF_MODE)for(var gd=0;gd<stands.length;gd++){
+ for(var gd=0;gd<stands.length;gd++){
   var st=stands[gd];
   var stdx=st.x-p.x,stdz=st.z-p.z;if(stdx*stdx+stdz*stdz>300*300)continue;
   var stm=M.mul(M.translate(st.x,st.y,st.z),M.rotY(st.rot));
@@ -4555,7 +4532,7 @@ function render(){
  }
  // cheering fans bob up and down (the wave!)
  var fanT=GS.raceTime*0.006;
- if(!PERF_MODE)for(var fn=0;fn<crowdFans.length;fn++){
+ for(var fn=0;fn<crowdFans.length;fn++){
   var fan=crowdFans[fn];
   var fdx=fan.x-p.x,fdz=fan.z-p.z;if(fdx*fdx+fdz*fdz>200*200)continue;
   var bob=Math.abs(Math.sin(fanT+fan.phase))*0.22;
@@ -4563,9 +4540,9 @@ function render(){
   drawMesh(fanBody,fm,fan.col,0.55,8);
   drawMesh(fanHead,fm,[0.95,0.8,0.65],0.6,12);
  }
- if(!PERF_MODE)gl.enable(gl.CULL_FACE);
+ gl.enable(gl.CULL_FACE);
  // ===== figure-8 bridge deck underside + pillars =====
- if(!PERF_MODE&&fig8Bridge){
+ if(fig8Bridge){
   gl.disable(gl.CULL_FACE);
   drawMesh(fig8Bridge,I,[0.50,0.50,0.54],0.5,10);
   gl.enable(gl.CULL_FACE);
@@ -4632,7 +4609,7 @@ function render(){
  }
  // ===== trackside atmosphere (cones, tyres, balloons, flags) =====
  var atmTime=GS.raceTime*0.002;
- if(!PERF_MODE)for(var sc2=0;sc2<scenery.length;sc2++){
+ for(var sc2=0;sc2<scenery.length;sc2++){
   var ao=scenery[sc2];if(!ao.atm||ao._destroyed)continue;
   var adx2=ao.x-p.x,adz2=ao.z-p.z;if(adx2*adx2+adz2*adz2>140*140)continue;
   var am2=M.mul(M.translate(ao.x,ao.y,ao.z),M.rotY(ao.rot),M.scale(ao.sc,ao.sc,ao.sc));
@@ -4749,7 +4726,7 @@ function render(){
   var fw=fxCanvas.width,fh=fxCanvas.height;
   fxCtx.clearRect(0,0,fw,fh);
 
-  if(!PERF_MODE&&(speedRatio>0.82||p.boostTimer>0)){
+  if(speedRatio>0.82||p.boostTimer>0){
    var blurIntensity=speedRatio+(p.boostTimer>0?0.34:0);
    blurIntensity=Math.min(1.05,blurIntensity);
    var lineCount=6+Math.floor(blurIntensity*7);
@@ -4768,7 +4745,7 @@ function render(){
    if(p.boostTimer>0){fxCtx.fillStyle='rgba(100,200,255,'+(blurIntensity*0.035)+')';fxCtx.fillRect(0,0,fw,fh);}
   }
   // boost flash (enhanced)
-  if(!PERF_MODE&&p.boostTimer>0){
+  if(p.boostTimer>0){
    var boostIntense=Math.min(0.16,GS.fovTimer/500*0.2);
    fxCtx.fillStyle='rgba(255,200,100,'+boostIntense+')';fxCtx.fillRect(0,0,fw,fh);
   }
@@ -4789,7 +4766,7 @@ function render(){
 
   // Name tags above bots (project 3D->2D)
   var pvMat=M.mul(proj,view);
-  if(!PERF_MODE)for(var nti=1;nti<GS.racers.length;nti++){
+  for(var nti=1;nti<GS.racers.length;nti++){
    var rr2=GS.racers[nti];
    var ddx3=rr2.x-p.x,ddz3=rr2.z-p.z;
    if(ddx3*ddx3+ddz3*ddz3>100*100)continue;
