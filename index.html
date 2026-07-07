@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>BRAINROT RACING 3D v89</title>
+<title>BRAINROT RACING 3D v90</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -325,7 +325,7 @@ html,body{background:#070910}
 </div>
 <canvas id="fxcanvas" style="position:absolute;top:0;left:0;pointer-events:none;z-index:5"></canvas>
 <button id="muteBtn" style="position:fixed;top:8px;right:8px;z-index:13;background:rgba(0,0,0,.6);color:#fff;border:1px solid #555;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:sans-serif">🔊</button>
-<div id="buildver">3D v89</div>
+<div id="buildver">3D v90</div>
 <script>
 "use strict";
 /* ===================== MATRIX / VECTOR MATH (column-major mat4) ===================== */
@@ -2557,13 +2557,7 @@ function drawFastWheels(base,wp,roll){
 function drawGoatKart(racer){
  var base=M.mul(M.translate(racer.x,racer.y+WHEEL_R,racer.z),M.rotY(racer.heading));
  gl.disable(gl.CULL_FACE);
- // goat head — cream/white fur
- drawMesh(goatHead,base,[0.92,0.88,0.78],0.5,10);  // fur: matte
- drawMesh(goatEyeWhite,base,[1,1,0.95],0.7,48);    // eye: glossy
- drawMesh(goatEyePupil,base,[0.12,0.1,0.05],0.3,80);
- drawMesh(goatHorns,base,[0.55,0.38,0.2],0.5,20);  // horn: semi-gloss
- drawMesh(goatEars,base,[0.85,0.7,0.65],0.45,8);
- drawMesh(goatBody,base,[0.95,0.92,0.85],0.5,6);   // fur: very matte
+ // (old goat-creature mascot removed — the carved-wood Tung Tung Sahur IS the driver)
  drawMesh(goatFrame,base,[0.62,0.42,0.2],0.42,16);  // oak: warm matte wood
  drawMesh(goatGrain,base,[0.5,0.32,0.14],0.4,10);   // carved grain ridges
  drawMesh(goatFrameBolts,base,[0.78,0.58,0.25],0.6,80); // brass bolts
@@ -2590,7 +2584,7 @@ function drawGoatKart(racer){
  drawWheels(base,[[-0.62,0.0,0.5],[0.62,0.0,0.5],[-0.62,0.0,-0.55],[0.62,0.0,-0.55]],[0.45,0.3,0.16],racer.wheelRoll);
  // boost glow
  if(racer.isPlayer&&racer.boostTimer>0){
-  drawMesh(goatBody,base,[1,0.95,0.7],0.2);
+  drawMesh(ttBody,base,[1,0.95,0.7],0.2);
   drawMesh(goatExhaust,base,[1,0.6,0.2],0.2);       // exhaust heat glow
  }
  gl.enable(gl.CULL_FACE);
